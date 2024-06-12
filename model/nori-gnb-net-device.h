@@ -30,6 +30,20 @@ typedef std::pair<uint64_t, uint16_t> ImsiCellIdPair_t;
 class NrGnbNetDevice;
 class NoriE2Report;
 
+/**
+ * \ingroup nori
+ *
+ * \brief The NoriGnbNetDevice class represents a network device for a Nori GNB (gNodeB).
+ *
+ * This class is derived from the NrGnbNetDevice class and provides additional functionality specific to the Nori model.
+ * It implements methods for initializing the device, setting E2 termination, building and sending report messages,
+ * handling subscription callbacks, receiving control messages, and updating configuration.
+ *
+ * The NoriGnbNetDevice class also contains private helper methods for building indication headers and messages,
+ * retrieving IMSI strings, and getting RLC buffer occupancy.
+ *
+ * \see NrGnbNetDevice
+ */
 class NoriGnbNetDevice : public NrGnbNetDevice
 {
   public:

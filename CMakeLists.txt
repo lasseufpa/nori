@@ -1,6 +1,9 @@
 set(source_files
     model/nori-gnb-net-device.cc
     model/nori-E2-report.cc
+    model/nori-lte-rlc.cc
+    model/nori-lte-rlc-um.cc
+    helper/nori-helper.cc
     )
 
 set(E2SIM_LIBRARIES "/usr/local/lib/libe2sim.a")
@@ -8,6 +11,9 @@ set(E2SIM_LIBRARIES "/usr/local/lib/libe2sim.a")
 set(header_files
     model/nori-gnb-net-device.h
     model/nori-E2-report.h
+    model/nori-lte-rlc.h
+    model/nori-lte-rlc-um.h
+    helper/nori-helper.h
     )
     build_lib(
         LIBNAME nori

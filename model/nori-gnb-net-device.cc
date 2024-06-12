@@ -5,6 +5,8 @@
 
 #include "encode_e2apv1.hpp"
 #include "nori-E2-report.h"
+#include "nori-lte-rlc.h"
+#include "nori-lte-rlc-um.h"
 
 #include <ns3/core-module.h>
 #include <ns3/lte-radio-bearer-info.h>
@@ -15,6 +17,7 @@
 #include <ns3/nr-gnb-net-device.h>
 #include <ns3/nr-phy.h>
 #include <ns3/oran-interface-module.h>
+#include <ns3/radio-bearer-stats-calculator.h>
 
 NS_LOG_COMPONENT_DEFINE("NoriGnbNetDevice");
 
@@ -32,6 +35,14 @@ NoriGnbNetDevice::~NoriGnbNetDevice()
     NS_LOG_FUNCTION(this);
 }
 
+/**
+ * \brief Get the TypeId of the NoriGnbNetDevice class.
+ *
+ * This function returns the TypeId of the NoriGnbNetDevice class, which is used for object
+ * identification and dynamic casting in the ns-3 simulation environment.
+ *
+ * \return The TypeId of the NoriGnbNetDevice class.
+ */
 TypeId
 NoriGnbNetDevice::GetTypeId()
 {
@@ -103,6 +114,13 @@ NoriGnbNetDevice::GetTypeId()
     return tid;
 }
 
+/**
+ * \brief Initializes the NoriGnbNetDevice.
+ *
+ * This function is responsible for initializing the NoriGnbNetDevice. It connects
+ * the NotifyMmWaveSinr callback to the LteEnbRrc module if m_sendCuCp is true.
+ * The NotifyMmWaveSinr callback is used to register a new SINR reading.
+ */
 void
 NoriGnbNetDevice::DoInialize()
 {
@@ -114,6 +132,14 @@ NoriGnbNetDevice::DoInialize()
     }
 }
 
+/**
+ * @brief Callback function for handling RIC subscription requests.
+ *
+ * This function is called when a RIC subscription request is received.
+ * It processes the request and performs the necessary actions based on the request parameters.
+ *
+ * @param sub_req_pdu Pointer to the E2AP_PDU_t structure containing the subscription request PDU.
+ */
 void
 NoriGnbNetDevice::KpmSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
 {
@@ -131,6 +157,18 @@ NoriGnbNetDevice::KpmSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
     }
 }
 
+/**
+ * \brief Registers a new SINR reading callback for the NoriGnbNetDevice.
+ *
+ * This function registers a new SINR reading callback for the NoriGnbNetDevice.
+ * The callback is triggered whenever a new SINR reading is available for a specific IMSI and cell ID.
+ *
+ * \param netDev   A pointer to the NrGnbNetDevice object.
+ * \param context  The context of the SINR reading.
+ * \param imsi     The IMSI (International Mobile Subscriber Identity) of the device.
+ * \param cellId   The ID of the cell.
+ * \param sinr     The SINR (Signal-to-Interference-plus-Noise Ratio) value.
+ */
 void
 NoriGnbNetDevice::RegisterNewSinrReadingCallback(Ptr<NrGnbNetDevice> netDev,
                                                  std::string context,
@@ -141,6 +179,16 @@ NoriGnbNetDevice::RegisterNewSinrReadingCallback(Ptr<NrGnbNetDevice> netDev,
     // netDev->RegisterNewSinrReading(imsi, cellId, sinr);
 }
 
+/**
+ * @brief Updates the configuration of the NoriGnbNetDevice.
+ *
+ * This function is responsible for updating the configuration of the NoriGnbNetDevice.
+ * It checks if the E2Termination object is not null and then performs the necessary
+ * configuration updates. If the forceE2FileLogging flag is not set, it schedules the
+ * Start function of the E2Termination object. Otherwise, it creates and writes data to
+ * CSV files for logging purposes and schedules the BuildAndSendReportMessage function
+ * to send a report message.
+ */
 void
 NoriGnbNetDevice::UpdateConfig()
 {
@@ -226,12 +274,28 @@ NoriGnbNetDevice::UpdateConfig()
     }
 }
 
+/**
+ * \brief Get the E2 termination associated with this NoriGnbNetDevice.
+ *
+ * This function returns a pointer to the E2Termination object associated with this NoriGnbNetDevice.
+ * The E2Termination object represents the E2 interface termination point of the gNB (gNodeB).
+ *
+ * \return A pointer to the E2Termination object.
+ */
 Ptr<E2Termination>
 NoriGnbNetDevice::GetE2Termination() const
 {
     return m_e2term;
 }
 
+/**
+ * \brief Sets the E2 termination for the NoriGnbNetDevice.
+ *
+ * This method sets the E2 termination for the NoriGnbNetDevice. The E2 termination is responsible for handling E2 service
+ * requests and providing E2 service responses.
+ *
+ * \param e2term A pointer to the E2Termination object.
+ */
 void
 NoriGnbNetDevice::SetE2Termination(Ptr<E2Termination> e2term)
 {
@@ -249,6 +313,15 @@ NoriGnbNetDevice::SetE2Termination(Ptr<E2Termination> e2term)
     }
 }
 
+/**
+ * @brief Converts a given IMSI (International Mobile Subscriber Identity) to a string representation.
+ *
+ * This function takes a 64-bit IMSI value and converts it to a string representation.
+ * The resulting string is padded with leading zeros to ensure a consistent length.
+ *
+ * @param imsi The IMSI value to convert.
+ * @return The string representation of the IMSI.
+ */
 std::string
 NoriGnbNetDevice::GetImsiString(uint64_t imsi)
 {
@@ -269,6 +342,20 @@ NoriGnbNetDevice::GetImsiString(uint64_t imsi)
     return ueImsiComplete;
 }
 
+/**
+ * \brief Builds the RIC (RAN Intelligent Controller) indication header.
+ *
+ * This function constructs and returns a pointer to a KpmIndicationHeader object
+ * that represents the RIC indication header. The header contains information such
+ * as the PLM ID, gNB ID, NR cell ID, and timestamp.
+ *
+ * \param plmId The PLM (Private Label Manufacturer) ID.
+ * \param gnbId The gNB (gNodeB) ID.
+ * \param nrCellId The NR (New Radio) cell ID.
+ *
+ * \returns A pointer to the constructed KpmIndicationHeader object if file logging is not forced,
+ *          otherwise returns nullptr.
+ */
 Ptr<KpmIndicationHeader>
 NoriGnbNetDevice::BuildRicIndicationHeader(std::string plmId,
                                            std::string gnbId,
@@ -297,6 +384,15 @@ NoriGnbNetDevice::BuildRicIndicationHeader(std::string plmId,
     }
 }
 
+/**
+ * \brief Builds and returns a RIC (RAN Intelligent Controller) indication message for the CU-UP (Centralized Unit - User Plane) interface.
+ *
+ * This function constructs a RIC indication message for the CU-UP interface based on the current state of the gNB (base station) and the connected UEs (User Equipments).
+ * The indication message contains various performance metrics and statistics related to the gNB and the UEs, such as PDCP (Packet Data Convergence Protocol) volume, latency, throughput, etc.
+ *
+ * \param plmId The PLM (Private Land Mobile) ID associated with the indication message.
+ * \return A pointer to the constructed RIC indication message.
+ */
 Ptr<KpmIndicationMessage>
 NoriGnbNetDevice::BuildRicIndicationMessageCuUp(std::string plmId)
 {
@@ -326,31 +422,39 @@ NoriGnbNetDevice::BuildRicIndicationMessageCuUp(std::string plmId)
         uint64_t imsi = DynamicCast<UeManager>(ue->second)->GetImsi();
         std::string ueImsiComplete = GetImsiString(imsi);
 
-        long txDlPackets =
-            m_e2PdcpStatsCalculator->GetDlTxPackets(imsi, 3); // LCID 3 is used for data
-        double txBytes =
-            m_e2PdcpStatsCalculator->GetDlTxData(imsi, 3) * 8 / 1e3; // in kbit, not byte
-        double rxBytes =
-            m_e2PdcpStatsCalculator->GetDlRxData(imsi, 3) * 8 / 1e3; // in kbit, not byte
+        long txDlPackets = m_e2PdcpStatsCalculator->GetDlTxPackets(imsi, 3); // LCID 3 is used for data
+        double txBytes = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 3) * 8 / 1e3; // in kbit, not byte
+        double rxBytes = m_e2PdcpStatsCalculator->GetDlRxData(imsi, 3) * 8 / 1e3; // in kbit, not byte
         cellDlTxVolume += txBytes;
         cellDlRxVolume += rxBytes;
 
         long txPdcpPduNrRlc = 0;
         double txPdcpPduBytesNrRlc = 0;
-
         ObjectMapValue drbMap;
         DynamicCast<UeManager>(ue->second)->GetAttribute("DrbMap", drbMap);
 
         for (auto drb = drbMap.Begin(); drb != drbMap.End(); ++drb)
         {
-            /**
-             * \todo GetTx...() is defined in mmwave. How can we implement this?
-             */
-            txPdcpPduNrRlc += DynamicCast<LteDataRadioBearerInfo>(drb->second)
-                                  ->m_rlc->GetTxPacketsInReportingPeriod();
-            txPdcpPduBytesNrRlc += DynamicCast<LteDataRadioBearerInfo>(drb->second)
-                                       ->m_rlc->GetTxBytesInReportingPeriod();
-            DynamicCast<LteDataRadioBearerInfo>(drb->second)->m_rlc->ResetRlcCounters();
+            ///**
+            // * \todo GetTx...() is defined in mmwave. How can we implement this?
+            // */
+            //txPdcpPduNrRlc += DynamicCast<LteDataRadioBearerInfo>(drb->second)->m_rlc->GetTxPacketsInReportingPeriod();
+            //txPdcpPduBytesNrRlc += DynamicCast<LteDataRadioBearerInfo>(drb->second)->m_rlc->GetTxBytesInReportingPeriod();
+            //DynamicCast<LteDataRadioBearerInfo>(drb->second)->m_rlc->ResetRlcCounters();
+
+            ns3::Ptr<ns3::LteRlc> baseRlcPtr = DynamicCast<ns3::LteDataRadioBearerInfo>(drb->second)->m_rlc;
+
+            // Convertendo `baseRlcPtr` para o tipo personalizado `NoriLteRlc`
+            ns3::Ptr<NoriLteRlc> customRlcPtr = DynamicCast<NoriLteRlc>(baseRlcPtr);
+
+            if (customRlcPtr != nullptr) {
+                txPdcpPduNrRlc += customRlcPtr->GetTxPacketsInReportingPeriod();
+                txPdcpPduBytesNrRlc += customRlcPtr->GetTxBytesInReportingPeriod();
+                customRlcPtr->ResetRlcCounters();
+            } else {
+                NS_LOG_ERROR("Falha ao converter m_rlc para NoriLteRlc");
+            }
+
         }
 
         /**
@@ -476,6 +580,15 @@ flip_map(const std::map<A, B>& src)
     return dst;
 }
 
+/**
+ * @brief Builds the RIC (RAN Intelligent Controller) indication message for the CU-CP (Centralized Unit - Control Plane) type.
+ *
+ * This function constructs the RIC indication message for the CU-CP type, which is used to provide information about the network device to the RAN Intelligent Controller.
+ * The indication message includes various measurements and parameters related to the UE (User Equipment) and its serving and neighboring cells.
+ *
+ * @param plmId The PLM (Private Land Mobile) ID associated with the indication message.
+ * @return A pointer to the built RIC indication message, or nullptr if file logging is enabled.
+ */
 Ptr<KpmIndicationMessage>
 NoriGnbNetDevice::BuildRicIndicationMessageCuCp(std::string plmId)
 {
@@ -682,6 +795,21 @@ NoriGnbNetDevice::GetRlcBufferOccupancy(Ptr<LteRlc> rlc) const
 
 /**
  * \todo fix this function and the others below
+ */
+/**
+ * \brief Builds and returns a RIC (Radio Intelligent Controller) indication message for the DU (Distributed Unit).
+ *
+ * This function constructs a RIC indication message for the DU based on various metrics and parameters
+ * related to the connected UEs (User Equipments). The metrics include MAC PDU (Protocol Data Unit),
+ * MAC volume, MAC QPSK (Quadrature Phase Shift Keying), MAC 16QAM (16 Quadrature Amplitude Modulation),
+ * MAC 64QAM (64 Quadrature Amplitude Modulation), MAC retransmission, MAC PRB (Physical Resource Block),
+ * MAC MCS (Modulation and Coding Scheme), MAC SINR (Signal-to-Interference plus Noise Ratio), and RLC
+ * (Radio Link Control) buffer occupancy.
+ *
+ * \param plmId The PLM (Private Land Mobile) ID associated with the DU.
+ * \param nrCellId The NR (New Radio) cell ID associated with the DU.
+ *
+ * \return A pointer to the constructed RIC indication message.
  */
 Ptr<KpmIndicationMessage>
 NoriGnbNetDevice::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
@@ -1190,6 +1318,14 @@ NoriGnbNetDevice::BuildAndSendReportMessage(E2Termination::RicSubscriptionReques
     }
 }
 
+/**
+ * \brief Sets the start time for the NoriGnbNetDevice.
+ *
+ * This function sets the start time for the NoriGnbNetDevice. The start time
+ * is used for internal calculations and synchronization purposes.
+ *
+ * \param st The start time to be set, specified as a uint64_t value.
+ */
 void
 NoriGnbNetDevice::SetStartTime(uint64_t st)
 {
