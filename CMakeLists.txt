@@ -3,6 +3,7 @@ set(source_files
     model/nori-E2-report.cc
     model/nori-lte-rlc.cc
     model/nori-lte-rlc-um.cc
+    model/nori-lte-rlc-am.cc
     helper/nori-helper.cc
     )
 
@@ -13,6 +14,7 @@ set(header_files
     model/nori-E2-report.h
     model/nori-lte-rlc.h
     model/nori-lte-rlc-um.h
+    model/nori-lte-rlc-am.h
     helper/nori-helper.h
     )
     build_lib(
