@@ -61,6 +61,11 @@ class NoriLteRlcUm : public NoriLteRlc
     void DoNotifyHarqDeliveryFailure() override;
     void DoReceivePdu(LteMacSapUser::ReceivePduParameters rxPduParams) override;
 
+    uint32_t GetTxBufferSize() const
+    {
+        return m_txBufferSize;
+    }
+
   private:
     /// Expire reordering timer
     void ExpireReorderingTimer();
@@ -95,10 +100,6 @@ class NoriLteRlcUm : public NoriLteRlc
     /// Report buffer status
     void DoReportBufferStatus();
     
-    uint32_t GetTxBufferSize() const
-    {
-        return m_txBufferSize;
-    }
 
   private:
     uint32_t m_maxTxBufferSize; ///< maximum transmit buffer status
