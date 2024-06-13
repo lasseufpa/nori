@@ -11,8 +11,8 @@
 #include <ns3/core-module.h>
 #include <ns3/lte-radio-bearer-info.h>
 #include <ns3/lte-rlc-am.h>
-#include <ns3/lte-rlc-um.h>
-#include <ns3/lte-rlc.h>
+//#include <ns3/lte-rlc-um.h>
+//#include <ns3/lte-rlc.h>
 #include <ns3/nr-bearer-stats-calculator.h>
 #include <ns3/nr-gnb-net-device.h>
 #include <ns3/nr-phy.h>
@@ -771,12 +771,12 @@ NoriGnbNetDevice::GetRlcBufferOccupancy(Ptr<LteRlc> rlc) const
          */
         return DynamicCast<LteRlcAm>(rlc)->GetTxBufferSize();
     }
-    else if (DynamicCast<LteRlcUm>(rlc) != nullptr)
+    else if (DynamicCast<NoriLteRlcUm>(rlc) != nullptr)
     {
         /**
          * \todo Create GetTxBufferSize method in LteRlcUm class
          */
-        return DynamicCast<LteRlcUm>(rlc)->GetTxBufferSize();
+        return DynamicCast<NoriLteRlcUm>(rlc)->GetTxBufferSize();
     }
     /**
      * \note Disabled because the class LteRlcUmLowLat is not available in the current version of
