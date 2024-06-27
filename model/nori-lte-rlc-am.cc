@@ -34,6 +34,23 @@ NS_LOG_COMPONENT_DEFINE("NoriLteRlcAm");
 
 NS_OBJECT_ENSURE_REGISTERED(NoriLteRlcAm);
 
+/**
+ * \brief Default constructor for the NoriLteRlcAm class.
+ *
+ * This constructor initializes the various member variables of the NoriLteRlcAm class.
+ * It sets the initial values for buffers, state variables, counters, configurable parameters,
+ * and the SDU reassembling process.
+ *
+ * Member Variables:
+ * - Buffers: m_txonBufferSize, m_retxBuffer, m_retxBufferSize, m_txedBuffer, m_txedBufferSize,
+ *   m_statusPduRequested, m_statusPduBufferSize
+ * - State variables (transmitting side): m_windowSize, m_vtA, m_vtMs, m_vtS, m_pollSn
+ * - State variables (receiving side): m_vrR, m_vrMr, m_vrX, m_vrMs, m_vrH
+ * - Counters: m_pduWithoutPoll, m_byteWithoutPoll
+ * - Configurable parameters: m_maxRetxThreshold, m_pollPdu, m_pollByte
+ * - SDU reassembling process: m_reassemblingState, m_expectedSeqNumber
+ * - Timer: m_pollRetransmitTimerJustExpired
+ */
 NoriLteRlcAm::NoriLteRlcAm()
 {
     NS_LOG_FUNCTION(this);

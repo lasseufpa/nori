@@ -8,6 +8,8 @@
 #include "nori-lte-rlc.h"
 #include "nori-lte-rlc-um.h"
 #include "nori-lte-rlc-am.h"
+#include "nori-lte-enb-rrc.h"
+
 
 #include <ns3/core-module.h>
 #include <ns3/lte-radio-bearer-info.h>
@@ -442,7 +444,9 @@ NoriGnbNetDevice::BuildRicIndicationMessageCuUp(std::string plmId)
             //txPdcpPduNrRlc += DynamicCast<LteDataRadioBearerInfo>(drb->second)->m_rlc->GetTxPacketsInReportingPeriod();
             //txPdcpPduBytesNrRlc += DynamicCast<LteDataRadioBearerInfo>(drb->second)->m_rlc->GetTxBytesInReportingPeriod();
             //DynamicCast<LteDataRadioBearerInfo>(drb->second)->m_rlc->ResetRlcCounters();
-
+            /**
+            * \todo check if this works as it should, line 446 to 459
+            */
             ns3::Ptr<ns3::LteRlc> baseRlcPtr = DynamicCast<ns3::LteDataRadioBearerInfo>(drb->second)->m_rlc;
 
             // Convertendo `baseRlcPtr` para o tipo personalizado `NoriLteRlc`
@@ -461,7 +465,7 @@ NoriGnbNetDevice::BuildRicIndicationMessageCuUp(std::string plmId)
         /**
          * \todo RLC map is defined in mmwave. How can we implement this?
          */
-        auto rlcMap = DynamicCast<UeManager>(ue->second)->GetRlcMap(); // secondary-connected RLCs
+        auto rlcMap = DynamicCast<NoriUeManager>(ue->second)->GetRlcMap(); // secondary-connected RLCs
         for (auto drb : rlcMap)
         {
             txPdcpPduNrRlc += drb.second->m_rlc->GetTxPacketsInReportingPeriod();
@@ -961,7 +965,7 @@ NoriGnbNetDevice::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCell
         /**
          * \todo RLC map is defined in mmwave. How can we implement this?
         */
-        auto rlcMap = DynamicCast<UeManager>(ue->second)->GetRlcMap(); // secondary-connected RLCs
+        auto rlcMap = DynamicCast<NoriUeManager>(ue->second)->GetRlcMap(); // secondary-connected RLCs
         for (auto drb : rlcMap)
         {
             auto rlc = drb.second->m_rlc;

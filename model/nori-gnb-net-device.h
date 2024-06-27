@@ -3,11 +3,12 @@
 #define NORI_NR_GNB_NET_DEVICE_H_
 
 #include "nori-E2-report.h"
+#include "nori-lte-rlc.h"
 
 #include <ns3/bandwidth-part-gnb.h>
 #include <ns3/event-id.h>
 #include <ns3/lte-enb-rrc.h>
-#include <ns3/lte-rlc.h>
+//#include <ns3/lte-rlc.h>
 #include <ns3/nr-bearer-stats-calculator.h>
 #include <ns3/nr-gnb-mac.h>
 #include <ns3/nr-gnb-net-device.h>

@@ -4,6 +4,8 @@ set(source_files
     model/nori-lte-rlc.cc
     model/nori-lte-rlc-um.cc
     model/nori-lte-rlc-am.cc
+    model/nori-rlc-bearer-info.cc
+    model/nori-lte-enb-rrc.cc
     helper/nori-helper.cc
     )
 
@@ -15,6 +17,8 @@ set(header_files
     model/nori-lte-rlc.h
     model/nori-lte-rlc-um.h
     model/nori-lte-rlc-am.h
+    model/nori-rlc-bearer-info.h
+    model/nori-lte-enb-rrc.h
     helper/nori-helper.h
     )
     build_lib(

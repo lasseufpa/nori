@@ -1,0 +1,25 @@
+digraph "Graphical Class Hierarchy"
+{
+ // INTERACTIVE_SVG=YES
+ // LATEX_PDF_SIZE
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=record];
+  rankdir="LR";
+  Node5 [label="Object",height=0.2,width=0.4,color="grey75", fillcolor="white", style="filled",tooltip=" "];
+  Node5 -> Node0 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node0 [label="ns3::LteEnbRrc",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1LteEnbRrc.html",tooltip=" "];
+  Node5 -> Node7 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node7 [label="ns3::NoriE2Report",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1NoriE2Report.html",tooltip=" "];
+  Node5 -> Node8 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node8 [label="ns3::NoriLteRlc",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1NoriLteRlc.html",tooltip=" "];
+  Node8 -> Node9 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node9 [label="ns3::NoriLteRlcAm",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1NoriLteRlcAm.html",tooltip=" "];
+  Node8 -> Node10 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node10 [label="ns3::NoriLteRlcSm",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1NoriLteRlcSm.html",tooltip=" "];
+  Node8 -> Node11 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node11 [label="ns3::NoriLteRlcUm",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1NoriLteRlcUm.html",tooltip=" "];
+  Node5 -> Node12 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node12 [label="ns3::UeManager",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1UeManager.html",tooltip=" "];
+  Node5 -> Node13 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node13 [label="ns3::mmwave::MmWaveHelper",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1mmwave_1_1MmWaveHelper.html",tooltip=" "];
+}
