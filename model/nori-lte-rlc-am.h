@@ -34,6 +34,12 @@ namespace ns3
 /**
  * LTE RLC Acknowledged Mode (AM), see 3GPP TS 36.322
  */
+/**
+ * \brief NoriLteRlcAm class is a subclass of NoriLteRlc that implements the
+ *        specific functionalities of the AM (Acknowledged Mode) RLC protocol.
+ *        It provides methods for transmitting and receiving PDUs, handling
+ *        timers, managing buffers, and reassembling SDUs.
+ */
 class NoriLteRlcAm : public NoriLteRlc
 {
   public:
