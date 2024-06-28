@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['attach_5frequest_575',['ATTACH_REQUEST',['../classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808ad848e095e4aa07348b50f2b554ce8718',1,'ns3::UeManager']]]
+  ['attach_5frequest_629',['ATTACH_REQUEST',['../classns3_1_1NoriUeManager.html#afc74758209aa53c05d5f3f2646509c05a789afb6b5eb5cfa5ab6bbd426367b8ec',1,'ns3::NoriUeManager']]]
 ];

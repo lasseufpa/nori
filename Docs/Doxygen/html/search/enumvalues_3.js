@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['initial_5frandom_5faccess_585',['INITIAL_RANDOM_ACCESS',['../classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808a6e92e7eaed87665e012ff9c3a4a9e4d3',1,'ns3::UeManager']]]
+  ['initial_5frandom_5faccess_639',['INITIAL_RANDOM_ACCESS',['../classns3_1_1NoriUeManager.html#afc74758209aa53c05d5f3f2646509c05a34ac930d63993f7abc01b062a119fefe',1,'ns3::NoriUeManager']]]
 ];

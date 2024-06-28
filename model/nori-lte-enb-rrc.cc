@@ -31,10 +31,11 @@
 #include "ns3/eps-bearer-tag.h"
 #include "ns3/lte-pdcp.h"
 #include "ns3/lte-radio-bearer-info.h"
-#include "nori-lte-rlc-am.h"
 #include "ns3/lte-rlc-tm.h"
 #include "nori-lte-rlc-um.h"
 #include "nori-lte-rlc.h"
+#include "nori-lte-rlc-am.h"
+#include "nori-lte-enb-rrc.h"
 
 #include <ns3/abort.h>
 #include <ns3/fatal-error.h>
@@ -226,7 +227,7 @@ NoriUeManager::DoInitialize()
     {
         uint8_t lcid = 1;
 
-        Ptr<LteRlc> rlc = CreateObject<LteRlcAm>()->GetObject<LteRlc>();
+        Ptr<LteRlc> rlc = CreateObject<NoriLteRlcAm>()->GetObject<LteRlc>();
         rlc->SetLteMacSapProvider(m_rrc->m_macSapProvider);
         rlc->SetRnti(m_rnti);
         rlc->SetLcId(lcid);
@@ -313,7 +314,7 @@ NoriUeManager::DoInitialize()
     m_caSupportConfigured = false;
 }
 
-NoriUeManager::~UeManager()
+NoriUeManager::~NoriUeManager()
 {
 }
 
@@ -493,7 +494,7 @@ NoriUeManager::SetupDataRadioBearer(EpsBearer bearer,
         m_rrc->m_ccmRrcSapProvider->AddLc(lcinfo, msu);
     }
 
-    if (rlcTypeId == LteRlcAm::GetTypeId())
+    if (rlcTypeId == NoriLteRlcAm::GetTypeId())
     {
         drbInfo->m_rlcConfig.choice = LteRrcSap::RlcConfig::AM;
     }
@@ -596,7 +597,7 @@ LteEnbRrc::DoSendReleaseDataRadioBearer(uint64_t imsi, uint16_t rnti, uint8_t be
     // check if the RNTI to be removed is not stale
     if (HasUeManager(rnti))
     {
-        Ptr<UeManager> ueManager = GetUeManager(rnti);
+        Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
         // Bearer de-activation towards UE
         ueManager->ReleaseDataRadioBearer(bearerId);
         // Bearer de-activation indication towards epc-enb application
@@ -685,7 +686,7 @@ NoriUeManager::PrepareHandover(uint16_t cellId)
                 return;
             }
 
-            Ptr<UeManager> ueManager = m_rrc->GetUeManager(rnti);
+            Ptr<NoriUeManager> ueManager = m_rrc->GetUeManager(rnti);
             ueManager->SetSource(sourceComponentCarrier->GetCellId(), m_rnti);
             ueManager->SetImsi(m_imsi);
 
@@ -854,7 +855,7 @@ NoriUeManager::RecvHandoverRequestAck(EpcX2SapUser::HandoverRequestAckParams par
     for (auto drbIt = m_drbMap.begin(); drbIt != m_drbMap.end(); ++drbIt)
     {
         // SN status transfer is only for AM RLC
-        if (drbIt->second->m_rlc->GetObject<LteRlcAm>())
+        if (drbIt->second->m_rlc->GetObject<NoriLteRlcAm>())
         {
             LtePdcp::Status status = drbIt->second->m_pdcp->GetStatus();
             EpcX2Sap::ErabsSubjectToStatusTransferItem i;

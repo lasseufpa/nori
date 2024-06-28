@@ -7,10 +7,10 @@
 #include "ns3/lte-rlc.h"
 
 namespace ns3 {
-    class RlcBearerInfo : public Object{
+    class NoriRlcBearerInfo : public Object{
         public:
-          RlcBearerInfo (void);
-          virtual ~RlcBearerInfo (void);
+          NoriRlcBearerInfo (void);
+          virtual ~NoriRlcBearerInfo (void);
           static TypeId GetTypeId (void);
         
             uint16_t    sourceCellId;
@@ -23,6 +23,6 @@ namespace ns3 {
             LteRrcSap::RlcConfig rlcConfig;
             LteRrcSap::LogicalChannelConfig logicalChannelConfig;
             LteEnbCmacSapProvider::LcInfo lcinfo;
-            Ptr<LteRlc> m_rlc;
+            Ptr<NoriLteRlc> m_rlc;
         };
 }

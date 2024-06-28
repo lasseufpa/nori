@@ -250,8 +250,8 @@ Static Public Member Functions</h2></td></tr>
 <div class="line"><a name="l02693"></a><span class="lineno"> 2693</span>&#160;      Ptr&lt;LteEnbRrc&gt; enbRrc = enbLteDevice-&gt;GetObject&lt;MmWaveEnbNetDevice&gt; ()-&gt;GetRrc ();</div>
 <div class="line"><a name="l02694"></a><span class="lineno"> 2694</span>&#160;      NS_ASSERT (ueRrc-&gt;GetCellId () == enbLteDevice-&gt;GetCellId ());</div>
 <div class="line"><a name="l02695"></a><span class="lineno"> 2695</span>&#160;      Ptr&lt;UeManager&gt; ueManager = enbRrc-&gt;GetUeManager (rnti);</div>
-<div class="line"><a name="l02696"></a><span class="lineno"> 2696</span>&#160;      NS_ASSERT (ueManager-&gt;GetState () == <a class="code" href="classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808a2a1020dce30f19aa9354ba34b2e7c5e0">UeManager::CONNECTED_NORMALLY</a></div>
-<div class="line"><a name="l02697"></a><span class="lineno"> 2697</span>&#160;                 || ueManager-&gt;GetState () == <a class="code" href="classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808abd13cee86acc2cb3c04241dec919c73f">UeManager::CONNECTION_RECONFIGURATION</a>);</div>
+<div class="line"><a name="l02696"></a><span class="lineno"> 2696</span>&#160;      NS_ASSERT (ueManager-&gt;GetState () == UeManager::CONNECTED_NORMALLY</div>
+<div class="line"><a name="l02697"></a><span class="lineno"> 2697</span>&#160;                 || ueManager-&gt;GetState () == UeManager::CONNECTION_RECONFIGURATION);</div>
 <div class="line"><a name="l02698"></a><span class="lineno"> 2698</span>&#160;      EpcEnbS1SapUser::DataRadioBearerSetupRequestParameters params;</div>
 <div class="line"><a name="l02699"></a><span class="lineno"> 2699</span>&#160;      params.rnti = rnti;</div>
 <div class="line"><a name="l02700"></a><span class="lineno"> 2700</span>&#160;      params.bearer = m_bearer;</div>
@@ -261,8 +261,6 @@ Static Public Member Functions</h2></td></tr>
 <div class="line"><a name="l02704"></a><span class="lineno"> 2704</span>&#160;      m_active = <span class="keyword">true</span>;</div>
 <div class="line"><a name="l02705"></a><span class="lineno"> 2705</span>&#160;    }</div>
 <div class="line"><a name="l02706"></a><span class="lineno"> 2706</span>&#160;}</div>
-<div class="ttc" id="aclassns3_1_1UeManager_html_a2f4085fdd18d7125c27da44a5b8b6808a2a1020dce30f19aa9354ba34b2e7c5e0"><div class="ttname"><a href="classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808a2a1020dce30f19aa9354ba34b2e7c5e0">ns3::UeManager::CONNECTED_NORMALLY</a></div><div class="ttdeci">@ CONNECTED_NORMALLY</div><div class="ttdef"><b>Definition:</b> <a href="nori-lte-enb-rrc_8h_source.html#l00083">nori-lte-enb-rrc.h:83</a></div></div>
-<div class="ttc" id="aclassns3_1_1UeManager_html_a2f4085fdd18d7125c27da44a5b8b6808abd13cee86acc2cb3c04241dec919c73f"><div class="ttname"><a href="classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808abd13cee86acc2cb3c04241dec919c73f">ns3::UeManager::CONNECTION_RECONFIGURATION</a></div><div class="ttdeci">@ CONNECTION_RECONFIGURATION</div><div class="ttdef"><b>Definition:</b> <a href="nori-lte-enb-rrc_8h_source.html#l00084">nori-lte-enb-rrc.h:84</a></div></div>
 </div><!-- fragment -->
 </div>
 </div>
