@@ -1,29 +1,35 @@
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteRlcSpecificLteMacSapUser__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteRlcSpecificLteMacSapUser__coll__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteEnbRrc__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteEnbRrc__coll__graph.png"'
+/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/model/nori-lte-enb-rrc.cc:316: warning: documented symbol 'ns3::NoriUeManager::~UeManager' was not declared or defined.
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1EnbRrcMemberLteEnbCmacSapUser__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1EnbRrcMemberLteEnbCmacSapUser__coll__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteEnbRrc__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteEnbRrc__inherit__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriE2Report__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriE2Report__coll__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteEnbRrc__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteEnbRrc__coll__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1EnbRrcMemberLteEnbCmacSapUser__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1EnbRrcMemberLteEnbCmacSapUser__inherit__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteRlcSpecificLteMacSapUser__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteRlcSpecificLteMacSapUser__coll__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteRlcSpecificLteMacSapUser__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteRlcSpecificLteMacSapUser__inherit__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriGnbNetDevice__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriGnbNetDevice__coll__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriE2Report__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriE2Report__coll__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriE2Report__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriE2Report__inherit__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriGnbNetDevice__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriGnbNetDevice__coll__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriGnbNetDevice__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriGnbNetDevice__inherit__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcAm__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcAm__inherit__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcAm__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcAm__coll__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcSm__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcSm__coll__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__inherit__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__coll__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1UeManager__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1UeManager__coll__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlc__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlc__coll__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1UeManager__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1UeManager__inherit__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlc__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlc__inherit__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcAm__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcAm__inherit__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcSm__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcSm__inherit__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__coll__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__inherit__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlc__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlc__coll__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlc__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlc__inherit__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriRlcBearerInfo__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriRlcBearerInfo__coll__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriRlcBearerInfo__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriRlcBearerInfo__inherit__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriUeManager__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriUeManager__coll__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriUeManager__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriUeManager__inherit__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveDrbActivator__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveDrbActivator__coll__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveDrbActivator__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveDrbActivator__inherit__graph.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveHelper__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveHelper__inherit__graph.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveHelper__coll__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveHelper__coll__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveHelper__inherit__graph.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveHelper__inherit__graph.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_0.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_0.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/graph_legend.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/graph_legend.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_1.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_1.png"'
-error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_0.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_0.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_2.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_2.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_4.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_4.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_3.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_3.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-E2-report_8cc__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-E2-report_8cc__incl.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-E2-report_8h__dep__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-E2-report_8h__dep__incl.png"'
@@ -33,6 +39,8 @@ error: Problems running dot: exit code=127, command='dot', arguments='"/home/and
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-gnb-net-device_8h__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-gnb-net-device_8h__incl.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-helper_8cc__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-helper_8cc__incl.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-helper_8h__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-helper_8h__incl.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8cc__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8cc__incl.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8h__dep__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8h__dep__incl.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8h__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8h__incl.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc-am_8cc__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc-am_8cc__incl.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc-am_8h__dep__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc-am_8h__dep__incl.png"'
@@ -43,6 +51,15 @@ error: Problems running dot: exit code=127, command='dot', arguments='"/home/and
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc_8cc__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc_8cc__incl.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc_8h__dep__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc_8h__dep__incl.png"'
 error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc_8h__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc_8h__incl.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8cc__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8cc__incl.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8h__dep__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8h__dep__incl.png"'
+error: Problems running dot: exit code=127, command='dot', arguments='"/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8h__incl.dot" -Tpng -o "/home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8h__incl.png"'
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1EnbRrcMemberLteEnbCmacSapUser__inherit__graph.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1EnbRrcMemberLteEnbCmacSapUser__coll__graph.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1LteEnbRrc__inherit__graph.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
@@ -91,10 +108,16 @@ try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriLteRlcUm__coll__graph.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
-error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1UeManager__inherit__graph.map for inclusion in the docs!
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriRlcBearerInfo__inherit__graph.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
-error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1UeManager__coll__graph.map for inclusion in the docs!
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriRlcBearerInfo__coll__graph.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriUeManager__inherit__graph.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1NoriUeManager__coll__graph.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/classns3_1_1mmwave_1_1MmWaveDrbActivator__inherit__graph.map for inclusion in the docs!
@@ -121,6 +144,9 @@ try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_3.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/inherit_graph_4.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-E2-report_8cc__incl.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
@@ -145,7 +171,13 @@ try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-helper_8h__incl.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8cc__incl.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8h__incl.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-enb-rrc_8h__dep__incl.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc-am_8cc__incl.map for inclusion in the docs!
@@ -173,5 +205,14 @@ error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contri
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.
 error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-lte-rlc_8h__dep__incl.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8cc__incl.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8h__incl.map for inclusion in the docs!
+If you installed Graphviz/dot after a previous failing run, 
+try deleting the output directory and rerun doxygen.
+error: problems opening map file /home/andrey/new-oran-interface/ns-3-dev/contrib/nori/Docs/Doxygen/html/nori-rlc-bearer-info_8h__dep__incl.map for inclusion in the docs!
 If you installed Graphviz/dot after a previous failing run, 
 try deleting the output directory and rerun doxygen.

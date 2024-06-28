@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['handover_5fjoining_581',['HANDOVER_JOINING',['../classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808a093669f7255c35aa11645ba004a896ea',1,'ns3::UeManager']]],
-  ['handover_5fleaving_582',['HANDOVER_LEAVING',['../classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808ae67953d7b8e117cbd2cab21a1fcde8ad',1,'ns3::UeManager']]],
-  ['handover_5fpath_5fswitch_583',['HANDOVER_PATH_SWITCH',['../classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808a66ee8994a912a463763b439ac0f158f2',1,'ns3::UeManager']]],
-  ['handover_5fpreparation_584',['HANDOVER_PREPARATION',['../classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808af12d34cff237916f8322a4b1031ceeda',1,'ns3::UeManager']]]
+  ['handover_5fjoining_635',['HANDOVER_JOINING',['../classns3_1_1NoriUeManager.html#afc74758209aa53c05d5f3f2646509c05ab0e5aa4bf8c4f48f7825b54d701499ff',1,'ns3::NoriUeManager']]],
+  ['handover_5fleaving_636',['HANDOVER_LEAVING',['../classns3_1_1NoriUeManager.html#afc74758209aa53c05d5f3f2646509c05ae46e3ebfceef83e1cd0c6c9c9a33d113',1,'ns3::NoriUeManager']]],
+  ['handover_5fpath_5fswitch_637',['HANDOVER_PATH_SWITCH',['../classns3_1_1NoriUeManager.html#afc74758209aa53c05d5f3f2646509c05af6ee0710e9808715fca6a54884597549',1,'ns3::NoriUeManager']]],
+  ['handover_5fpreparation_638',['HANDOVER_PREPARATION',['../classns3_1_1NoriUeManager.html#afc74758209aa53c05d5f3f2646509c05a861d393e41ecf443f8096238296d2925',1,'ns3::NoriUeManager']]]
 ];

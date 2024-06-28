@@ -447,7 +447,7 @@ NoriGnbNetDevice::BuildRicIndicationMessageCuUp(std::string plmId)
             /**
             * \todo check if this works as it should, line 446 to 459
             */
-            ns3::Ptr<ns3::LteRlc> baseRlcPtr = DynamicCast<ns3::LteDataRadioBearerInfo>(drb->second)->m_rlc;
+            ns3::Ptr<ns3::NoriLteRlc> baseRlcPtr = DynamicCast<ns3::LteDataRadioBearerInfo>(drb->second)->m_rlc;
 
             // Convertendo `baseRlcPtr` para o tipo personalizado `NoriLteRlc`
             ns3::Ptr<NoriLteRlc> customRlcPtr = DynamicCast<NoriLteRlc>(baseRlcPtr);

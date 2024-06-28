@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['num_5fstates_586',['NUM_STATES',['../classns3_1_1UeManager.html#a2f4085fdd18d7125c27da44a5b8b6808a55259373fd7fb9170cc87c2170d08146',1,'ns3::UeManager']]]
+  ['num_5fstates_640',['NUM_STATES',['../classns3_1_1NoriUeManager.html#afc74758209aa53c05d5f3f2646509c05ae9e4698c4e154fb6707545f0cb3f00d3',1,'ns3::NoriUeManager']]]
 ];

@@ -25,8 +25,8 @@
  *   Vignesh Babu <ns3-dev@esk.fraunhofer.de> (RLF extensions)
  */
 
-#ifndef LTE_ENB_RRC_H
-#define LTE_ENB_RRC_H
+#ifndef NORI_LTE_ENB_RRC_H
+#define NORI_ENB_RRC_H
 
 #include "ns3/component-carrier.h"
 #include "ns3/epc-enb-s1-sap.h"
@@ -58,7 +58,7 @@ namespace ns3
 class LteRadioBearerInfo;
 class LteSignalingRadioBearerInfo;
 class LteDataRadioBearerInfo;
-class LteEnbRrc;
+class NoriLteEnbRrc;
 class Packet;
 
 /**
@@ -102,7 +102,7 @@ class NoriUeManager : public Object
      * \param s initial state of the UeManager
      * \param componentCarrierId primary component carrier ID
      */
-    NoriUeManager(Ptr<LteEnbRrc> rrc, uint16_t rnti, State s, uint8_t componentCarrierId);
+    NoriUeManager(Ptr<NoriLteEnbRrc> rrc, uint16_t rnti, State s, uint8_t componentCarrierId);
 
     ~NoriUeManager() override;
 
@@ -360,8 +360,8 @@ class NoriUeManager : public Object
      */
     uint16_t GetSrsConfigurationIndex() const;
 
+    // ADD FOR NORI
     /**
-     * IMPORTANT: 
      * Retrieves the Data Radio Bearer (DRB) map.
      *
      * This function returns a map containing the Data Radio Bearer (DRB) information.
@@ -371,7 +371,7 @@ class NoriUeManager : public Object
      * @return A map of DRB IDs and their corresponding LteDataRadioBearerInfo objects.
      */
     std::map <uint8_t, Ptr<LteDataRadioBearerInfo> > GetDrbMap() const;
-    std::map <uint8_t, Ptr<RlcBearerInfo> > GetRlcMap () const;
+    std::map <uint8_t, Ptr<NoriRlcBearerInfo> > GetRlcMap () const;
 
 
     /**
@@ -581,7 +581,7 @@ class NoriUeManager : public Object
 
     LteRrcSap::PhysicalConfigDedicated m_physicalConfigDedicated; ///< physical config dedicated
     /// Pointer to the parent eNodeB RRC.
-    Ptr<LteEnbRrc> m_rrc;
+    Ptr<NoriLteEnbRrc> m_rrc;
     /// The current UeManager state.
     State m_state;
 
@@ -668,38 +668,38 @@ class NoriUeManager : public Object
  *
  * The LTE Radio Resource Control entity at the eNB
  */
-class LteEnbRrc : public Object
+class NoriLteEnbRrc : public Object
 {
     /// allow EnbRrcMemberLteEnbCmacSapUser class friend access
     friend class EnbRrcMemberLteEnbCmacSapUser;
-    /// allow MemberLteHandoverManagementSapUser<LteEnbRrc> class friend access
-    friend class MemberLteHandoverManagementSapUser<LteEnbRrc>;
-    /// allow MemberLteAnrSapUser<LteEnbRrc> class friend access
-    friend class MemberLteAnrSapUser<LteEnbRrc>;
-    /// allow MemberLteFfrRrcSapUser<LteEnbRrc> class friend access
-    friend class MemberLteFfrRrcSapUser<LteEnbRrc>;
-    /// allow MemberLteEnbRrcSapProvider<LteEnbRrc> class friend access
-    friend class MemberLteEnbRrcSapProvider<LteEnbRrc>;
-    /// allow MemberLteEnbRrcSapProvider<LteEnbRrc> class friend access
-    friend class MemberEpcEnbS1SapUser<LteEnbRrc>;
-    /// allow MemberEpcEnbS1SapUser<LteEnbRrc> class friend access
-    friend class EpcX2SpecificEpcX2SapUser<LteEnbRrc>;
+    /// allow MemberLteHandoverManagementSapUser<NoriLteEnbRrc> class friend access
+    friend class MemberLteHandoverManagementSapUser<NoriLteEnbRrc>;
+    /// allow MemberLteAnrSapUser<NoriLteEnbRrc> class friend access
+    friend class MemberLteAnrSapUser<NoriLteEnbRrc>;
+    /// allow MemberLteFfrRrcSapUser<NoriLteEnbRrc> class friend access
+    friend class MemberLteFfrRrcSapUser<NoriLteEnbRrc>;
+    /// allow MemberLteEnbRrcSapProvider<NoriLteEnbRrc> class friend access
+    friend class MemberLteEnbRrcSapProvider<NoriLteEnbRrc>;
+    /// allow MemberLteEnbRrcSapProvider<NoriLteEnbRrc> class friend access
+    friend class MemberEpcEnbS1SapUser<NoriLteEnbRrc>;
+    /// allow MemberEpcEnbS1SapUser<NoriLteEnbRrc> class friend access
+    friend class EpcX2SpecificEpcX2SapUser<NoriLteEnbRrc>;
     /// allow UeManager class friend access
-    friend class UeManager;
-    /// allow  MemberLteCcmRrcSapUser<LteEnbRrc> class friend access
-    friend class MemberLteCcmRrcSapUser<LteEnbRrc>;
+    friend class NoriUeManager;
+    /// allow  MemberLteCcmRrcSapUser<NoriLteEnbRrc> class friend access
+    friend class MemberLteCcmRrcSapUser<NoriLteEnbRrc>;
 
   public:
     /**
      * create an RRC instance for use within an eNB
      *
      */
-    LteEnbRrc();
+    NoriLteEnbRrc();
 
     /**
      * Destructor
      */
-    ~LteEnbRrc() override;
+    ~NoriLteEnbRrc() override;
 
     // inherited from Object
   protected:
@@ -1453,6 +1453,14 @@ class LteEnbRrc : public Object
     bool IsRandomAccessCompleted(uint16_t rnti);
 
   public:
+    
+    //ADD FOR NORI
+    /**
+     * Get the Ue map
+     * \return the Ue map
+     */
+    std::map<uint16_t, Ptr<NoriUeManager> > GetUeMap() const;
+    
     /**
      * Add a neighbour with an X2 interface
      *
@@ -1492,6 +1500,33 @@ class LteEnbRrc : public Object
      * simulation.
      */
     void SetCsgId(uint32_t csgId, bool csgIndication);
+
+    // ADD FOR NORI    
+    /**
+     * Take the HO control for a certain UE
+     * @params imsi UE 
+     */
+    void TakeUeHoControl (uint64_t imsi);
+    
+    /**
+     * Triggers an handover between secondary cells
+     * @params imsi UE 
+     * @params targetCellId target cell
+     */
+    void PerformHandoverToTargetCell (uint64_t imsi, uint16_t targetCellId);
+
+    /**
+     * Set mmWave/NR BS handover status (allowed or not)
+     * @params cellId
+     * @params a boolean that is true if the cell can accept handovers, false otherwise
+     * @returns false if the cell is not in the list of known cells
+     */
+    bool SetSecondaryCellHandoverAllowedStatus (uint16_t cellId, bool hoAllowed);
+
+    /**
+     * Evict users from secondary cells that have deactivated forcing handover to another cell
+     */
+    void EvictUsersFromSecondaryCell ();
 
   private:
     /**
@@ -1801,6 +1836,9 @@ class LteEnbRrc : public Object
 
     std::map<uint8_t, Ptr<ComponentCarrierBaseStation>>
         m_componentCarrierPhyConf; ///< component carrier phy configuration
+    
+    //ADD FOR NORI
+    std::set<uint64_t> m_e2ControlledUes; ///< contains a list of UEs for which HO is controlled externally
 
 }; // end of `class LteEnbRrc`
 

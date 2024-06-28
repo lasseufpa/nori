@@ -8,7 +8,7 @@ digraph "ns3::NoriLteRlc"
   Node2 -> Node1 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
   Node2 [label="Object",height=0.2,width=0.4,color="grey75", fillcolor="white", style="filled",tooltip=" "];
   Node1 -> Node3 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
-  Node3 [label="ns3::NoriLteRlcAm",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1NoriLteRlcAm.html",tooltip=" "];
+  Node3 [label="ns3::NoriLteRlcAm",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1NoriLteRlcAm.html",tooltip="NoriLteRlcAm class is a subclass of NoriLteRlc that implements the specific functionalities of the AM..."];
   Node1 -> Node4 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
   Node4 [label="ns3::NoriLteRlcSm",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classns3_1_1NoriLteRlcSm.html",tooltip=" "];
   Node1 -> Node5 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];

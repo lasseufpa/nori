@@ -17,8 +17,8 @@
  * Author: Nicola Baldo <nbaldo@cttc.es>
  */
 
-#ifndef LTE_RLC_H
-#define LTE_RLC_H
+#ifndef NORI_LTE_RLC_H
+#define NORI_LTE_RLC_H
 
 #include "ns3/lte-mac-sap.h"
 #include "ns3/lte-rlc-sap.h"
@@ -145,6 +145,7 @@ class NoriLteRlc : public Object // SimpleRefCount<LteRlc>
     /// \todo MRE What is the sense to duplicate all the interfaces here???
     // NB to avoid the use of multiple inheritance
 
+    // ADD FOR NORI
     uint32_t GetTxBytesInReportingPeriod() const{
       return m_txBytesInReportingPeriod;
     }
