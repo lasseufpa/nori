@@ -9,7 +9,7 @@
 #include "nori-lte-rlc-um.h"
 #include "nori-lte-rlc-am.h"
 #include "nori-lte-enb-rrc.h"
-
+#include "nori-bearer-stats-calculator.h"
 
 #include <ns3/core-module.h>
 #include <ns3/lte-radio-bearer-info.h>
@@ -767,7 +767,7 @@ NoriGnbNetDevice::BuildRicIndicationMessageCuCp(std::string plmId)
 }
 
 uint32_t
-NoriGnbNetDevice::GetRlcBufferOccupancy(Ptr<LteRlc> rlc) const
+NoriGnbNetDevice::GetRlcBufferOccupancy(Ptr<NoriLteRlc> rlc) const
 {
     if (DynamicCast<NoriLteRlcAm>(rlc) != nullptr)
     {

@@ -7,6 +7,7 @@ set(source_files
     model/nori-rlc-bearer-info.cc
     model/nori-lte-enb-rrc.cc
     helper/nori-helper.cc
+    model/nori-bearer-stats-calculator.h
     )
 
 set(E2SIM_LIBRARIES "/usr/local/lib/libe2sim.a")
@@ -20,6 +21,7 @@ set(header_files
     model/nori-rlc-bearer-info.h
     model/nori-lte-enb-rrc.h
     helper/nori-helper.h
+    model/nori-bearer-stats-calculator.h
     )
     build_lib(
         LIBNAME nori
