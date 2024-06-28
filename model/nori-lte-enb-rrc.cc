@@ -67,7 +67,7 @@ class EnbRrcMemberLteEnbCmacSapUser : public LteEnbCmacSapUser
      * \param rrc ENB RRC
      * \param componentCarrierId
      */
-    EnbRrcMemberLteEnbCmacSapUser(LteEnbRrc* rrc, uint8_t componentCarrierId);
+    EnbRrcMemberLteEnbCmacSapUser(NoriLteEnbRrc* rrc, uint8_t componentCarrierId);
 
     uint16_t AllocateTemporaryCellRnti() override;
     void NotifyLcConfigResult(uint16_t rnti, uint8_t lcid, bool success) override;
@@ -75,11 +75,11 @@ class EnbRrcMemberLteEnbCmacSapUser : public LteEnbCmacSapUser
     bool IsRandomAccessCompleted(uint16_t rnti) override;
 
   private:
-    LteEnbRrc* m_rrc;             ///< the RRC
+    NoriLteEnbRrc* m_rrc;             ///< the RRC
     uint8_t m_componentCarrierId; ///< Component carrier ID
 };
 
-EnbRrcMemberLteEnbCmacSapUser::EnbRrcMemberLteEnbCmacSapUser(LteEnbRrc* rrc,
+EnbRrcMemberLteEnbCmacSapUser::EnbRrcMemberLteEnbCmacSapUser(NoriLteEnbRrc* rrc,
                                                              uint8_t componentCarrierId)
     : m_rrc(rrc),
       m_componentCarrierId{componentCarrierId}
@@ -146,7 +146,7 @@ NoriUeManager::NoriUeManager()
     NS_FATAL_ERROR("this constructor is not expected to be used");
 }
 
-NoriUeManager::NoriUeManager(Ptr<LteEnbRrc> rrc, uint16_t rnti, State s, uint8_t componentCarrierId)
+NoriUeManager::NoriUeManager(Ptr<NoriLteEnbRrc> rrc, uint16_t rnti, State s, uint8_t componentCarrierId)
     : m_lastAllocatedDrbid(0),
       m_rnti(rnti),
       m_imsi(0),
@@ -295,14 +295,14 @@ NoriUeManager::DoInitialize()
     {
     case INITIAL_RANDOM_ACCESS:
         m_connectionRequestTimeout = Simulator::Schedule(m_rrc->m_connectionRequestTimeoutDuration,
-                                                         &LteEnbRrc::ConnectionRequestTimeout,
+                                                         &NoriLteEnbRrc::ConnectionRequestTimeout,
                                                          m_rrc,
                                                          m_rnti);
         break;
 
     case HANDOVER_JOINING:
         m_handoverJoiningTimeout = Simulator::Schedule(m_rrc->m_handoverJoiningTimeoutDuration,
-                                                       &LteEnbRrc::HandoverJoiningTimeout,
+                                                       &NoriLteEnbRrc::HandoverJoiningTimeout,
                                                        m_rrc,
                                                        m_rnti);
         break;
@@ -423,11 +423,11 @@ NoriUeManager::SetupDataRadioBearer(EpsBearer bearer,
     if (m_state == HANDOVER_JOINING)
     {
         // setup TEIDs for receiving data eventually forwarded over X2-U
-        LteEnbRrc::X2uTeidInfo x2uTeidInfo;
+        NoriLteEnbRrc::X2uTeidInfo x2uTeidInfo;
         x2uTeidInfo.rnti = m_rnti;
         x2uTeidInfo.drbid = drbid;
         auto ret = m_rrc->m_x2uTeidInfoMap.insert(
-            std::pair<uint32_t, LteEnbRrc::X2uTeidInfo>(gtpTeid, x2uTeidInfo));
+            std::pair<uint32_t, NoriLteEnbRrc::X2uTeidInfo>(gtpTeid, x2uTeidInfo));
         NS_ASSERT_MSG(ret.second == true, "overwriting a pre-existing entry in m_x2uTeidInfoMap");
     }
 
@@ -590,7 +590,7 @@ NoriUeManager::ReleaseDataRadioBearer(uint8_t drbid)
 }
 
 void
-LteEnbRrc::DoSendReleaseDataRadioBearer(uint64_t imsi, uint16_t rnti, uint8_t bearerId)
+NoriLteEnbRrc::DoSendReleaseDataRadioBearer(uint64_t imsi, uint16_t rnti, uint8_t bearerId)
 {
     NS_LOG_FUNCTION(this << imsi << rnti << (uint16_t)bearerId);
 
@@ -723,7 +723,7 @@ NoriUeManager::PrepareHandover(uint16_t cellId)
             // We skip handover preparation
             SwitchToState(HANDOVER_LEAVING);
             m_handoverLeavingTimeout = Simulator::Schedule(m_rrc->m_handoverLeavingTimeoutDuration,
-                                                           &LteEnbRrc::HandoverLeavingTimeout,
+                                                           &NoriLteEnbRrc::HandoverLeavingTimeout,
                                                            m_rrc,
                                                            m_rnti);
             m_rrc->m_handoverStartTrace(m_imsi,
@@ -834,7 +834,7 @@ NoriUeManager::RecvHandoverRequestAck(EpcX2SapUser::HandoverRequestAckParams par
     m_rrc->m_rrcSapUser->SendRrcConnectionReconfiguration(m_rnti, handoverCommand);
     SwitchToState(HANDOVER_LEAVING);
     m_handoverLeavingTimeout = Simulator::Schedule(m_rrc->m_handoverLeavingTimeoutDuration,
-                                                   &LteEnbRrc::HandoverLeavingTimeout,
+                                                   &NoriLteEnbRrc::HandoverLeavingTimeout,
                                                    m_rrc,
                                                    m_rnti);
     NS_ASSERT(handoverCommand.haveMobilityControlInfo);
@@ -1151,7 +1151,7 @@ NoriUeManager::RecvRrcConnectionRequest(LteRrcSap::RrcConnectionRequest msg)
 
             RecordDataRadioBearersToBeStarted();
             m_connectionSetupTimeout = Simulator::Schedule(m_rrc->m_connectionSetupTimeoutDuration,
-                                                           &LteEnbRrc::ConnectionSetupTimeout,
+                                                           &NoriLteEnbRrc::ConnectionSetupTimeout,
                                                            m_rrc,
                                                            m_rnti);
             SwitchToState(CONNECTION_SETUP);
@@ -1167,7 +1167,7 @@ NoriUeManager::RecvRrcConnectionRequest(LteRrcSap::RrcConnectionRequest msg)
 
             m_connectionRejectedTimeout =
                 Simulator::Schedule(m_rrc->m_connectionRejectedTimeoutDuration,
-                                    &LteEnbRrc::ConnectionRejectedTimeout,
+                                    &NoriLteEnbRrc::ConnectionRejectedTimeout,
                                     m_rrc,
                                     m_rnti);
             SwitchToState(CONNECTION_REJECTED);
@@ -1838,9 +1838,9 @@ NoriUeManager::BuildNonCriticalExtensionConfigurationCa()
 // eNB RRC methods
 ///////////////////////////////////////////
 
-NS_OBJECT_ENSURE_REGISTERED(LteEnbRrc);
+NS_OBJECT_ENSURE_REGISTERED(NoriLteEnbRrc);
 
-LteEnbRrc::LteEnbRrc()
+NoriLteEnbRrc::NoriLteEnbRrc()
     : m_x2SapProvider(nullptr),
       m_cmacSapProvider(0),
       m_handoverManagementSapProvider(nullptr),
@@ -1861,18 +1861,18 @@ LteEnbRrc::LteEnbRrc()
 {
     NS_LOG_FUNCTION(this);
     m_cmacSapUser.push_back(new EnbRrcMemberLteEnbCmacSapUser(this, 0));
-    m_handoverManagementSapUser = new MemberLteHandoverManagementSapUser<LteEnbRrc>(this);
-    m_anrSapUser = new MemberLteAnrSapUser<LteEnbRrc>(this);
-    m_ffrRrcSapUser.push_back(new MemberLteFfrRrcSapUser<LteEnbRrc>(this));
-    m_rrcSapProvider = new MemberLteEnbRrcSapProvider<LteEnbRrc>(this);
-    m_x2SapUser = new EpcX2SpecificEpcX2SapUser<LteEnbRrc>(this);
-    m_s1SapUser = new MemberEpcEnbS1SapUser<LteEnbRrc>(this);
-    m_cphySapUser.push_back(new MemberLteEnbCphySapUser<LteEnbRrc>(this));
-    m_ccmRrcSapUser = new MemberLteCcmRrcSapUser<LteEnbRrc>(this);
+    m_handoverManagementSapUser = new MemberLteHandoverManagementSapUser<NoriLteEnbRrc>(this);
+    m_anrSapUser = new MemberLteAnrSapUser<NoriLteEnbRrc>(this);
+    m_ffrRrcSapUser.push_back(new MemberLteFfrRrcSapUser<NoriLteEnbRrc>(this));
+    m_rrcSapProvider = new MemberLteEnbRrcSapProvider<NoriLteEnbRrc>(this);
+    m_x2SapUser = new EpcX2SpecificEpcX2SapUser<NoriLteEnbRrc>(this);
+    m_s1SapUser = new MemberEpcEnbS1SapUser<NoriLteEnbRrc>(this);
+    m_cphySapUser.push_back(new MemberLteEnbCphySapUser<NoriLteEnbRrc>(this));
+    m_ccmRrcSapUser = new MemberLteCcmRrcSapUser<NoriLteEnbRrc>(this);
 }
 
 void
-LteEnbRrc::ConfigureCarriers(std::map<uint8_t, Ptr<ComponentCarrierBaseStation>> ccPhyConf)
+NoriLteEnbRrc::ConfigureCarriers(std::map<uint8_t, Ptr<ComponentCarrierBaseStation>> ccPhyConf)
 {
     NS_ASSERT_MSG(!m_carriersConfigured, "Secondary carriers can be configured only once.");
     m_componentCarrierPhyConf = ccPhyConf;
@@ -1882,21 +1882,21 @@ LteEnbRrc::ConfigureCarriers(std::map<uint8_t, Ptr<ComponentCarrierBaseStation>>
 
     for (uint16_t i = 1; i < m_numberOfComponentCarriers; i++)
     {
-        m_cphySapUser.push_back(new MemberLteEnbCphySapUser<LteEnbRrc>(this));
+        m_cphySapUser.push_back(new MemberLteEnbCphySapUser<NoriLteEnbRrc>(this));
         m_cmacSapUser.push_back(new EnbRrcMemberLteEnbCmacSapUser(this, i));
-        m_ffrRrcSapUser.push_back(new MemberLteFfrRrcSapUser<LteEnbRrc>(this));
+        m_ffrRrcSapUser.push_back(new MemberLteFfrRrcSapUser<NoriLteEnbRrc>(this));
     }
     m_carriersConfigured = true;
     Object::DoInitialize();
 }
 
-LteEnbRrc::~LteEnbRrc()
+NoriLteEnbRrc::~NoriLteEnbRrc()
 {
     NS_LOG_FUNCTION(this);
 }
 
 void
-LteEnbRrc::DoDispose()
+NoriLteEnbRrc::DoDispose()
 {
     NS_LOG_FUNCTION(this);
     for (uint16_t i = 0; i < m_numberOfComponentCarriers; i++)
@@ -1924,28 +1924,28 @@ LteEnbRrc::DoDispose()
 }
 
 TypeId
-LteEnbRrc::GetTypeId()
+NoriLteEnbRrc::GetTypeId()
 {
     static TypeId tid =
         TypeId("ns3::LteEnbRrc")
             .SetParent<Object>()
             .SetGroupName("Lte")
-            .AddConstructor<LteEnbRrc>()
+            .AddConstructor<NoriLteEnbRrc>()
             .AddAttribute("UeMap",
                           "List of UeManager by C-RNTI.",
                           ObjectMapValue(),
-                          MakeObjectMapAccessor(&LteEnbRrc::m_ueMap),
+                          MakeObjectMapAccessor(&NoriLteEnbRrc::m_ueMap),
                           MakeObjectMapChecker<UeManager>())
             .AddAttribute("DefaultTransmissionMode",
                           "The default UEs' transmission mode (0: SISO)",
                           UintegerValue(0), // default tx-mode
-                          MakeUintegerAccessor(&LteEnbRrc::m_defaultTransmissionMode),
+                          MakeUintegerAccessor(&NoriLteEnbRrc::m_defaultTransmissionMode),
                           MakeUintegerChecker<uint8_t>())
             .AddAttribute(
                 "EpsBearerToRlcMapping",
                 "Specify which type of RLC will be used for each type of EPS bearer.",
                 EnumValue(RLC_SM_ALWAYS),
-                MakeEnumAccessor<LteEpsBearerToRlcMapping_t>(&LteEnbRrc::m_epsBearerToRlcMapping),
+                MakeEnumAccessor<LteEpsBearerToRlcMapping_t>(&NoriLteEnbRrc::m_epsBearerToRlcMapping),
                 MakeEnumChecker(RLC_SM_ALWAYS,
                                 "RlcSmAlways",
                                 RLC_UM_ALWAYS,
@@ -1957,7 +1957,7 @@ LteEnbRrc::GetTypeId()
             .AddAttribute("SystemInformationPeriodicity",
                           "The interval for sending system information (Time value)",
                           TimeValue(MilliSeconds(80)),
-                          MakeTimeAccessor(&LteEnbRrc::m_systemInformationPeriodicity),
+                          MakeTimeAccessor(&NoriLteEnbRrc::m_systemInformationPeriodicity),
                           MakeTimeChecker())
 
             // SRS related attributes
@@ -1965,7 +1965,7 @@ LteEnbRrc::GetTypeId()
                 "SrsPeriodicity",
                 "The SRS periodicity in milliseconds",
                 UintegerValue(40),
-                MakeUintegerAccessor(&LteEnbRrc::SetSrsPeriodicity, &LteEnbRrc::GetSrsPeriodicity),
+                MakeUintegerAccessor(&NoriLteEnbRrc::SetSrsPeriodicity, &NoriLteEnbRrc::GetSrsPeriodicity),
                 MakeUintegerChecker<uint32_t>())
 
             // Timeout related attributes
@@ -1976,7 +1976,7 @@ LteEnbRrc::GetTypeId()
                           "RRC CONNECTION REQUEST over UL GRANT. The value of this"
                           "timer should not be greater than T300 timer at UE RRC",
                           TimeValue(MilliSeconds(15)),
-                          MakeTimeAccessor(&LteEnbRrc::m_connectionRequestTimeoutDuration),
+                          MakeTimeAccessor(&NoriLteEnbRrc::m_connectionRequestTimeoutDuration),
                           MakeTimeChecker(MilliSeconds(1), MilliSeconds(15)))
             .AddAttribute("ConnectionSetupTimeoutDuration",
                           "After accepting connection request, if no RRC CONNECTION "
@@ -1985,13 +1985,13 @@ LteEnbRrc::GetTypeId()
                           "of RRC CONNECTION SETUP and transmission of RRC CONNECTION "
                           "SETUP COMPLETE.",
                           TimeValue(MilliSeconds(150)),
-                          MakeTimeAccessor(&LteEnbRrc::m_connectionSetupTimeoutDuration),
+                          MakeTimeAccessor(&NoriLteEnbRrc::m_connectionSetupTimeoutDuration),
                           MakeTimeChecker())
             .AddAttribute("ConnectionRejectedTimeoutDuration",
                           "Time to wait between sending a RRC CONNECTION REJECT and "
                           "destroying the UE context",
                           TimeValue(MilliSeconds(30)),
-                          MakeTimeAccessor(&LteEnbRrc::m_connectionRejectedTimeoutDuration),
+                          MakeTimeAccessor(&NoriLteEnbRrc::m_connectionRejectedTimeoutDuration),
                           MakeTimeChecker())
             .AddAttribute("HandoverJoiningTimeoutDuration",
                           "After accepting a handover request, if no RRC CONNECTION "
@@ -2001,14 +2001,14 @@ LteEnbRrc::GetTypeId()
                           "Command, non-contention-based random access and reception "
                           "of the RRC CONNECTION RECONFIGURATION COMPLETE message.",
                           TimeValue(MilliSeconds(200)),
-                          MakeTimeAccessor(&LteEnbRrc::m_handoverJoiningTimeoutDuration),
+                          MakeTimeAccessor(&NoriLteEnbRrc::m_handoverJoiningTimeoutDuration),
                           MakeTimeChecker())
             .AddAttribute("HandoverLeavingTimeoutDuration",
                           "After issuing a Handover Command, if neither RRC "
                           "CONNECTION RE-ESTABLISHMENT nor X2 UE Context Release has "
                           "been previously received, the UE context is destroyed.",
                           TimeValue(MilliSeconds(500)),
-                          MakeTimeAccessor(&LteEnbRrc::m_handoverLeavingTimeoutDuration),
+                          MakeTimeAccessor(&NoriLteEnbRrc::m_handoverLeavingTimeoutDuration),
                           MakeTimeChecker())
 
             // Cell selection related attribute
@@ -2022,24 +2022,24 @@ LteEnbRrc::GetTypeId()
                           "initial cell selection and EPC-enabled simulation.",
                           TypeId::ATTR_GET | TypeId::ATTR_CONSTRUCT,
                           IntegerValue(-70),
-                          MakeIntegerAccessor(&LteEnbRrc::m_qRxLevMin),
+                          MakeIntegerAccessor(&NoriLteEnbRrc::m_qRxLevMin),
                           MakeIntegerChecker<int8_t>(-70, -22))
             .AddAttribute("NumberOfComponentCarriers",
                           "Number of Component Carriers",
                           UintegerValue(1),
-                          MakeIntegerAccessor(&LteEnbRrc::m_numberOfComponentCarriers),
+                          MakeIntegerAccessor(&NoriLteEnbRrc::m_numberOfComponentCarriers),
                           MakeIntegerChecker<int16_t>(MIN_NO_CC, MAX_NO_CC))
 
             // Handover related attributes
             .AddAttribute("AdmitHandoverRequest",
                           "Whether to admit an X2 handover request from another eNB",
                           BooleanValue(true),
-                          MakeBooleanAccessor(&LteEnbRrc::m_admitHandoverRequest),
+                          MakeBooleanAccessor(&NoriLteEnbRrc::m_admitHandoverRequest),
                           MakeBooleanChecker())
             .AddAttribute("AdmitRrcConnectionRequest",
                           "Whether to admit a connection request from a UE",
                           BooleanValue(true),
-                          MakeBooleanAccessor(&LteEnbRrc::m_admitRrcConnectionRequest),
+                          MakeBooleanAccessor(&NoriLteEnbRrc::m_admitRrcConnectionRequest),
                           MakeBooleanChecker())
 
             // UE measurements related attributes
@@ -2049,7 +2049,7 @@ LteEnbRrc::GetTypeId()
                           "if set to 0, no layer 3 filtering is applicable",
                           // i.e. the variable k in 3GPP TS 36.331 section 5.5.3.2
                           UintegerValue(4),
-                          MakeUintegerAccessor(&LteEnbRrc::m_rsrpFilterCoefficient),
+                          MakeUintegerAccessor(&NoriLteEnbRrc::m_rsrpFilterCoefficient),
                           MakeUintegerChecker<uint8_t>(0))
             .AddAttribute("RsrqFilterCoefficient",
                           "Determines the strength of smoothing effect induced by "
@@ -2057,89 +2057,89 @@ LteEnbRrc::GetTypeId()
                           "if set to 0, no layer 3 filtering is applicable",
                           // i.e. the variable k in 3GPP TS 36.331 section 5.5.3.2
                           UintegerValue(4),
-                          MakeUintegerAccessor(&LteEnbRrc::m_rsrqFilterCoefficient),
+                          MakeUintegerAccessor(&NoriLteEnbRrc::m_rsrqFilterCoefficient),
                           MakeUintegerChecker<uint8_t>(0))
 
             // Trace sources
             .AddTraceSource("NewUeContext",
                             "Fired upon creation of a new UE context.",
-                            MakeTraceSourceAccessor(&LteEnbRrc::m_newUeContextTrace),
+                            MakeTraceSourceAccessor(&NoriLteEnbRrc::m_newUeContextTrace),
                             "ns3::LteEnbRrc::NewUeContextTracedCallback")
             .AddTraceSource("ConnectionEstablished",
                             "Fired upon successful RRC connection establishment.",
-                            MakeTraceSourceAccessor(&LteEnbRrc::m_connectionEstablishedTrace),
+                            MakeTraceSourceAccessor(&NoriLteEnbRrc::m_connectionEstablishedTrace),
                             "ns3::LteEnbRrc::ConnectionHandoverTracedCallback")
             .AddTraceSource("ConnectionReconfiguration",
                             "trace fired upon RRC connection reconfiguration",
-                            MakeTraceSourceAccessor(&LteEnbRrc::m_connectionReconfigurationTrace),
+                            MakeTraceSourceAccessor(&NoriLteEnbRrc::m_connectionReconfigurationTrace),
                             "ns3::LteEnbRrc::ConnectionHandoverTracedCallback")
             .AddTraceSource("HandoverStart",
                             "trace fired upon start of a handover procedure",
-                            MakeTraceSourceAccessor(&LteEnbRrc::m_handoverStartTrace),
+                            MakeTraceSourceAccessor(&NoriLteEnbRrc::m_handoverStartTrace),
                             "ns3::LteEnbRrc::HandoverStartTracedCallback")
             .AddTraceSource("HandoverEndOk",
                             "trace fired upon successful termination of a handover procedure",
-                            MakeTraceSourceAccessor(&LteEnbRrc::m_handoverEndOkTrace),
+                            MakeTraceSourceAccessor(&NoriLteEnbRrc::m_handoverEndOkTrace),
                             "ns3::LteEnbRrc::ConnectionHandoverTracedCallback")
             .AddTraceSource("RecvMeasurementReport",
                             "trace fired when measurement report is received",
-                            MakeTraceSourceAccessor(&LteEnbRrc::m_recvMeasurementReportTrace),
+                            MakeTraceSourceAccessor(&NoriLteEnbRrc::m_recvMeasurementReportTrace),
                             "ns3::LteEnbRrc::ReceiveReportTracedCallback")
             .AddTraceSource("NotifyConnectionRelease",
                             "trace fired when an UE is released",
-                            MakeTraceSourceAccessor(&LteEnbRrc::m_connectionReleaseTrace),
+                            MakeTraceSourceAccessor(&NoriLteEnbRrc::m_connectionReleaseTrace),
                             "ns3::LteEnbRrc::ConnectionHandoverTracedCallback")
             .AddTraceSource("RrcTimeout",
                             "trace fired when a timer expires",
-                            MakeTraceSourceAccessor(&LteEnbRrc::m_rrcTimeoutTrace),
+                            MakeTraceSourceAccessor(&NoriLteEnbRrc::m_rrcTimeoutTrace),
                             "ns3::LteEnbRrc::TimerExpiryTracedCallback")
             .AddTraceSource(
                 "HandoverFailureNoPreamble",
                 "trace fired upon handover failure due to non-allocation of non-contention based "
                 "preamble at eNB for UE to handover due to max count reached",
-                MakeTraceSourceAccessor(&LteEnbRrc::m_handoverFailureNoPreambleTrace),
+                MakeTraceSourceAccessor(&NoriLteEnbRrc::m_handoverFailureNoPreambleTrace),
                 "ns3::LteEnbRrc::HandoverFailureTracedCallback")
             .AddTraceSource(
                 "HandoverFailureMaxRach",
                 "trace fired upon handover failure due to max RACH attempts from UE to target eNB",
-                MakeTraceSourceAccessor(&LteEnbRrc::m_handoverFailureMaxRachTrace),
+                MakeTraceSourceAccessor(&NoriLteEnbRrc::m_handoverFailureMaxRachTrace),
                 "ns3::LteEnbRrc::HandoverFailureTracedCallback")
             .AddTraceSource(
                 "HandoverFailureLeaving",
                 "trace fired upon handover failure due to handover leaving timeout at source eNB",
-                MakeTraceSourceAccessor(&LteEnbRrc::m_handoverFailureLeavingTrace),
+                MakeTraceSourceAccessor(&NoriLteEnbRrc::m_handoverFailureLeavingTrace),
                 "ns3::LteEnbRrc::HandoverFailureTracedCallback")
             .AddTraceSource(
                 "HandoverFailureJoining",
                 "trace fired upon handover failure due to handover joining timeout at target eNB",
-                MakeTraceSourceAccessor(&LteEnbRrc::m_handoverFailureJoiningTrace),
+                MakeTraceSourceAccessor(&NoriLteEnbRrc::m_handoverFailureJoiningTrace),
                 "ns3::LteEnbRrc::HandoverFailureTracedCallback");
     return tid;
 }
 
 void
-LteEnbRrc::SetEpcX2SapProvider(EpcX2SapProvider* s)
+NoriLteEnbRrc::SetEpcX2SapProvider(EpcX2SapProvider* s)
 {
     NS_LOG_FUNCTION(this << s);
     m_x2SapProvider = s;
 }
 
 EpcX2SapUser*
-LteEnbRrc::GetEpcX2SapUser()
+NoriLteEnbRrc::GetEpcX2SapUser()
 {
     NS_LOG_FUNCTION(this);
     return m_x2SapUser;
 }
 
 void
-LteEnbRrc::SetLteEnbCmacSapProvider(LteEnbCmacSapProvider* s)
+NoriLteEnbRrc::SetLteEnbCmacSapProvider(LteEnbCmacSapProvider* s)
 {
     NS_LOG_FUNCTION(this << s);
     m_cmacSapProvider.at(0) = s;
 }
 
 void
-LteEnbRrc::SetLteEnbCmacSapProvider(LteEnbCmacSapProvider* s, uint8_t pos)
+NoriLteEnbRrc::SetLteEnbCmacSapProvider(LteEnbCmacSapProvider* s, uint8_t pos)
 {
     NS_LOG_FUNCTION(this << s);
     if (m_cmacSapProvider.size() > pos)
@@ -2154,63 +2154,63 @@ LteEnbRrc::SetLteEnbCmacSapProvider(LteEnbCmacSapProvider* s, uint8_t pos)
 }
 
 LteEnbCmacSapUser*
-LteEnbRrc::GetLteEnbCmacSapUser()
+NoriLteEnbRrc::GetLteEnbCmacSapUser()
 {
     NS_LOG_FUNCTION(this);
     return m_cmacSapUser.at(0);
 }
 
 LteEnbCmacSapUser*
-LteEnbRrc::GetLteEnbCmacSapUser(uint8_t pos)
+NoriLteEnbRrc::GetLteEnbCmacSapUser(uint8_t pos)
 {
     NS_LOG_FUNCTION(this);
     return m_cmacSapUser.at(pos);
 }
 
 void
-LteEnbRrc::SetLteHandoverManagementSapProvider(LteHandoverManagementSapProvider* s)
+NoriLteEnbRrc::SetLteHandoverManagementSapProvider(LteHandoverManagementSapProvider* s)
 {
     NS_LOG_FUNCTION(this << s);
     m_handoverManagementSapProvider = s;
 }
 
 LteHandoverManagementSapUser*
-LteEnbRrc::GetLteHandoverManagementSapUser()
+NoriLteEnbRrc::GetLteHandoverManagementSapUser()
 {
     NS_LOG_FUNCTION(this);
     return m_handoverManagementSapUser;
 }
 
 void
-LteEnbRrc::SetLteCcmRrcSapProvider(LteCcmRrcSapProvider* s)
+NoriLteEnbRrc::SetLteCcmRrcSapProvider(LteCcmRrcSapProvider* s)
 {
     NS_LOG_FUNCTION(this << s);
     m_ccmRrcSapProvider = s;
 }
 
 LteCcmRrcSapUser*
-LteEnbRrc::GetLteCcmRrcSapUser()
+NoriLteEnbRrc::GetLteCcmRrcSapUser()
 {
     NS_LOG_FUNCTION(this);
     return m_ccmRrcSapUser;
 }
 
 void
-LteEnbRrc::SetLteAnrSapProvider(LteAnrSapProvider* s)
+NoriLteEnbRrc::SetLteAnrSapProvider(LteAnrSapProvider* s)
 {
     NS_LOG_FUNCTION(this << s);
     m_anrSapProvider = s;
 }
 
 LteAnrSapUser*
-LteEnbRrc::GetLteAnrSapUser()
+NoriLteEnbRrc::GetLteAnrSapUser()
 {
     NS_LOG_FUNCTION(this);
     return m_anrSapUser;
 }
 
 void
-LteEnbRrc::SetLteFfrRrcSapProvider(LteFfrRrcSapProvider* s)
+NoriLteEnbRrc::SetLteFfrRrcSapProvider(LteFfrRrcSapProvider* s)
 {
     NS_LOG_FUNCTION(this << s);
     if (!m_ffrRrcSapProvider.empty())
@@ -2224,7 +2224,7 @@ LteEnbRrc::SetLteFfrRrcSapProvider(LteFfrRrcSapProvider* s)
 }
 
 void
-LteEnbRrc::SetLteFfrRrcSapProvider(LteFfrRrcSapProvider* s, uint8_t index)
+NoriLteEnbRrc::SetLteFfrRrcSapProvider(LteFfrRrcSapProvider* s, uint8_t index)
 {
     NS_LOG_FUNCTION(this << s);
     if (m_ffrRrcSapProvider.size() > index)
@@ -2242,14 +2242,14 @@ LteEnbRrc::SetLteFfrRrcSapProvider(LteFfrRrcSapProvider* s, uint8_t index)
 }
 
 LteFfrRrcSapUser*
-LteEnbRrc::GetLteFfrRrcSapUser()
+NoriLteEnbRrc::GetLteFfrRrcSapUser()
 {
     NS_LOG_FUNCTION(this);
     return m_ffrRrcSapUser.at(0);
 }
 
 LteFfrRrcSapUser*
-LteEnbRrc::GetLteFfrRrcSapUser(uint8_t index)
+NoriLteEnbRrc::GetLteFfrRrcSapUser(uint8_t index)
 {
     NS_LOG_FUNCTION(this);
     NS_ASSERT_MSG(index < m_numberOfComponentCarriers,
@@ -2259,40 +2259,40 @@ LteEnbRrc::GetLteFfrRrcSapUser(uint8_t index)
 }
 
 void
-LteEnbRrc::SetLteEnbRrcSapUser(LteEnbRrcSapUser* s)
+NoriLteEnbRrc::SetLteEnbRrcSapUser(LteEnbRrcSapUser* s)
 {
     NS_LOG_FUNCTION(this << s);
     m_rrcSapUser = s;
 }
 
 LteEnbRrcSapProvider*
-LteEnbRrc::GetLteEnbRrcSapProvider()
+NoriLteEnbRrc::GetLteEnbRrcSapProvider()
 {
     NS_LOG_FUNCTION(this);
     return m_rrcSapProvider;
 }
 
 void
-LteEnbRrc::SetLteMacSapProvider(LteMacSapProvider* s)
+NoriLteEnbRrc::SetLteMacSapProvider(LteMacSapProvider* s)
 {
     NS_LOG_FUNCTION(this);
     m_macSapProvider = s;
 }
 
 void
-LteEnbRrc::SetS1SapProvider(EpcEnbS1SapProvider* s)
+NoriLteEnbRrc::SetS1SapProvider(EpcEnbS1SapProvider* s)
 {
     m_s1SapProvider = s;
 }
 
 EpcEnbS1SapUser*
-LteEnbRrc::GetS1SapUser()
+NoriLteEnbRrc::GetS1SapUser()
 {
     return m_s1SapUser;
 }
 
 void
-LteEnbRrc::SetLteEnbCphySapProvider(LteEnbCphySapProvider* s)
+NoriLteEnbRrc::SetLteEnbCphySapProvider(LteEnbCphySapProvider* s)
 {
     NS_LOG_FUNCTION(this << s);
     if (!m_cphySapProvider.empty())
@@ -2306,14 +2306,14 @@ LteEnbRrc::SetLteEnbCphySapProvider(LteEnbCphySapProvider* s)
 }
 
 LteEnbCphySapUser*
-LteEnbRrc::GetLteEnbCphySapUser()
+NoriLteEnbRrc::GetLteEnbCphySapUser()
 {
     NS_LOG_FUNCTION(this);
     return m_cphySapUser.at(0);
 }
 
 void
-LteEnbRrc::SetLteEnbCphySapProvider(LteEnbCphySapProvider* s, uint8_t pos)
+NoriLteEnbRrc::SetLteEnbCphySapProvider(LteEnbCphySapProvider* s, uint8_t pos)
 {
     NS_LOG_FUNCTION(this << s);
     if (m_cphySapProvider.size() > pos)
@@ -2328,22 +2328,22 @@ LteEnbRrc::SetLteEnbCphySapProvider(LteEnbCphySapProvider* s, uint8_t pos)
 }
 
 LteEnbCphySapUser*
-LteEnbRrc::GetLteEnbCphySapUser(uint8_t pos)
+NoriLteEnbRrc::GetLteEnbCphySapUser(uint8_t pos)
 {
     NS_LOG_FUNCTION(this);
     return m_cphySapUser.at(pos);
 }
 
 bool
-LteEnbRrc::HasUeManager(uint16_t rnti) const
+NoriLteEnbRrc::HasUeManager(uint16_t rnti) const
 {
     NS_LOG_FUNCTION(this << (uint32_t)rnti);
     auto it = m_ueMap.find(rnti);
     return (it != m_ueMap.end());
 }
 
-Ptr<UeManager>
-LteEnbRrc::GetUeManager(uint16_t rnti)
+Ptr<NoriUeManager>
+NoriLteEnbRrc::GetUeManager(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << (uint32_t)rnti);
     NS_ASSERT(0 != rnti);
@@ -2353,7 +2353,7 @@ LteEnbRrc::GetUeManager(uint16_t rnti)
 }
 
 std::vector<uint8_t>
-LteEnbRrc::AddUeMeasReportConfig(LteRrcSap::ReportConfigEutra config)
+NoriLteEnbRrc::AddUeMeasReportConfig(LteRrcSap::ReportConfigEutra config)
 {
     NS_LOG_FUNCTION(this);
 
@@ -2458,7 +2458,7 @@ LteEnbRrc::AddUeMeasReportConfig(LteRrcSap::ReportConfigEutra config)
 }
 
 void
-LteEnbRrc::ConfigureCell(std::map<uint8_t, Ptr<ComponentCarrierBaseStation>> ccPhyConf)
+NoriLteEnbRrc::ConfigureCell(std::map<uint8_t, Ptr<ComponentCarrierBaseStation>> ccPhyConf)
 {
     auto it = ccPhyConf.begin();
     NS_ASSERT(it != ccPhyConf.end());
@@ -2544,13 +2544,13 @@ LteEnbRrc::ConfigureCell(std::map<uint8_t, Ptr<ComponentCarrierBaseStation>> ccP
      * regularly transmitted every 80 ms by default (set the
      * SystemInformationPeriodicity attribute to configure this).
      */
-    Simulator::Schedule(MilliSeconds(16), &LteEnbRrc::SendSystemInformation, this);
+    Simulator::Schedule(MilliSeconds(16), &NoriLteEnbRrc::SendSystemInformation, this);
 
     m_configured = true;
 }
 
 void
-LteEnbRrc::SetCellId(uint16_t cellId)
+NoriLteEnbRrc::SetCellId(uint16_t cellId)
 {
     // update SIB1
     m_sib1.at(0).cellAccessRelatedInfo.cellIdentity = cellId;
@@ -2558,7 +2558,7 @@ LteEnbRrc::SetCellId(uint16_t cellId)
 }
 
 void
-LteEnbRrc::SetCellId(uint16_t cellId, uint8_t ccIndex)
+NoriLteEnbRrc::SetCellId(uint16_t cellId, uint8_t ccIndex)
 {
     // update SIB1
     m_sib1.at(ccIndex).cellAccessRelatedInfo.cellIdentity = cellId;
@@ -2566,7 +2566,7 @@ LteEnbRrc::SetCellId(uint16_t cellId, uint8_t ccIndex)
 }
 
 uint8_t
-LteEnbRrc::CellToComponentCarrierId(uint16_t cellId)
+NoriLteEnbRrc::CellToComponentCarrierId(uint16_t cellId)
 {
     NS_LOG_FUNCTION(this << cellId);
     for (auto& it : m_componentCarrierPhyConf)
@@ -2580,14 +2580,14 @@ LteEnbRrc::CellToComponentCarrierId(uint16_t cellId)
 }
 
 uint16_t
-LteEnbRrc::ComponentCarrierToCellId(uint8_t componentCarrierId)
+NoriLteEnbRrc::ComponentCarrierToCellId(uint8_t componentCarrierId)
 {
     NS_LOG_FUNCTION(this << +componentCarrierId);
     return m_componentCarrierPhyConf.at(componentCarrierId)->GetCellId();
 }
 
 bool
-LteEnbRrc::HasCellId(uint16_t cellId) const
+NoriLteEnbRrc::HasCellId(uint16_t cellId) const
 {
     for (auto& it : m_componentCarrierPhyConf)
     {
@@ -2600,13 +2600,13 @@ LteEnbRrc::HasCellId(uint16_t cellId) const
 }
 
 bool
-LteEnbRrc::SendData(Ptr<Packet> packet)
+NoriLteEnbRrc::SendData(Ptr<Packet> packet)
 {
     NS_LOG_FUNCTION(this << packet);
     EpsBearerTag tag;
     bool found = packet->RemovePacketTag(tag);
     NS_ASSERT_MSG(found, "no EpsBearerTag found in packet to be sent");
-    Ptr<UeManager> ueManager = GetUeManager(tag.GetRnti());
+    Ptr<NoriUeManager> ueManager = GetUeManager(tag.GetRnti());
 
     NS_LOG_INFO("Sending a packet of " << packet->GetSize() << " bytes to IMSI "
                                        << ueManager->GetImsi() << ", RNTI " << ueManager->GetRnti()
@@ -2617,13 +2617,13 @@ LteEnbRrc::SendData(Ptr<Packet> packet)
 }
 
 void
-LteEnbRrc::SetForwardUpCallback(Callback<void, Ptr<Packet>> cb)
+NoriLteEnbRrc::SetForwardUpCallback(Callback<void, Ptr<Packet>> cb)
 {
     m_forwardUpCallback = cb;
 }
 
 void
-LteEnbRrc::ConnectionRequestTimeout(uint16_t rnti)
+NoriLteEnbRrc::ConnectionRequestTimeout(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << rnti);
     NS_ASSERT_MSG(GetUeManager(rnti)->GetState() == NoriUeManager::INITIAL_RANDOM_ACCESS,
@@ -2637,7 +2637,7 @@ LteEnbRrc::ConnectionRequestTimeout(uint16_t rnti)
 }
 
 void
-LteEnbRrc::ConnectionSetupTimeout(uint16_t rnti)
+NoriLteEnbRrc::ConnectionSetupTimeout(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << rnti);
     NS_ASSERT_MSG(GetUeManager(rnti)->GetState() == NoriUeManager::CONNECTION_SETUP,
@@ -2651,7 +2651,7 @@ LteEnbRrc::ConnectionSetupTimeout(uint16_t rnti)
 }
 
 void
-LteEnbRrc::ConnectionRejectedTimeout(uint16_t rnti)
+NoriLteEnbRrc::ConnectionRejectedTimeout(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << rnti);
     NS_ASSERT_MSG(GetUeManager(rnti)->GetState() == NoriUeManager::CONNECTION_REJECTED,
@@ -2665,7 +2665,7 @@ LteEnbRrc::ConnectionRejectedTimeout(uint16_t rnti)
 }
 
 void
-LteEnbRrc::HandoverJoiningTimeout(uint16_t rnti)
+NoriLteEnbRrc::HandoverJoiningTimeout(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << rnti);
     NS_ASSERT_MSG(GetUeManager(rnti)->GetState() == NoriUeManager::HANDOVER_JOINING,
@@ -2685,7 +2685,7 @@ LteEnbRrc::HandoverJoiningTimeout(uint16_t rnti)
          * HandoverPreparationFailure message is reused to notify the source cell
          * through the X2 interface instead of creating a new message.
          */
-        Ptr<UeManager> ueManager = GetUeManager(rnti);
+        Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
         EpcX2Sap::HandoverPreparationFailureParams msg = ueManager->BuildHoPrepFailMsg();
         m_x2SapProvider->SendHandoverPreparationFailure(msg);
         RemoveUe(rnti);
@@ -2693,7 +2693,7 @@ LteEnbRrc::HandoverJoiningTimeout(uint16_t rnti)
 }
 
 void
-LteEnbRrc::HandoverLeavingTimeout(uint16_t rnti)
+NoriLteEnbRrc::HandoverLeavingTimeout(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << rnti);
     NS_ASSERT_MSG(GetUeManager(rnti)->GetState() == NoriUeManager::HANDOVER_LEAVING,
@@ -2711,7 +2711,7 @@ LteEnbRrc::HandoverLeavingTimeout(uint16_t rnti)
          * with the UE and also delete UE context at the source eNB and bearer
          * info at SGW and PGW.
          */
-        Ptr<UeManager> ueManager = GetUeManager(rnti);
+        Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
         EpcX2Sap::HandoverCancelParams msg = ueManager->BuildHoCancelMsg();
         m_x2SapProvider->SendHandoverCancel(msg);
         ueManager->SendRrcConnectionRelease();
@@ -2719,32 +2719,32 @@ LteEnbRrc::HandoverLeavingTimeout(uint16_t rnti)
 }
 
 void
-LteEnbRrc::SendHandoverRequest(uint16_t rnti, uint16_t cellId)
+NoriLteEnbRrc::SendHandoverRequest(uint16_t rnti, uint16_t cellId)
 {
     NS_LOG_FUNCTION(this << rnti << cellId);
     NS_LOG_LOGIC("Request to send HANDOVER REQUEST");
     NS_ASSERT(m_configured);
 
-    Ptr<UeManager> ueManager = GetUeManager(rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
     ueManager->PrepareHandover(cellId);
 }
 
 void
-LteEnbRrc::DoCompleteSetupUe(uint16_t rnti, LteEnbRrcSapProvider::CompleteSetupUeParameters params)
+NoriLteEnbRrc::DoCompleteSetupUe(uint16_t rnti, LteEnbRrcSapProvider::CompleteSetupUeParameters params)
 {
     NS_LOG_FUNCTION(this << rnti);
     GetUeManager(rnti)->CompleteSetupUe(params);
 }
 
 void
-LteEnbRrc::DoRecvRrcConnectionRequest(uint16_t rnti, LteRrcSap::RrcConnectionRequest msg)
+NoriLteEnbRrc::DoRecvRrcConnectionRequest(uint16_t rnti, LteRrcSap::RrcConnectionRequest msg)
 {
     NS_LOG_FUNCTION(this << rnti);
     GetUeManager(rnti)->RecvRrcConnectionRequest(msg);
 }
 
 void
-LteEnbRrc::DoRecvRrcConnectionSetupCompleted(uint16_t rnti,
+NoriLteEnbRrc::DoRecvRrcConnectionSetupCompleted(uint16_t rnti,
                                              LteRrcSap::RrcConnectionSetupCompleted msg)
 {
     NS_LOG_FUNCTION(this << rnti);
@@ -2752,7 +2752,7 @@ LteEnbRrc::DoRecvRrcConnectionSetupCompleted(uint16_t rnti,
 }
 
 void
-LteEnbRrc::DoRecvRrcConnectionReconfigurationCompleted(
+NoriLteEnbRrc::DoRecvRrcConnectionReconfigurationCompleted(
     uint16_t rnti,
     LteRrcSap::RrcConnectionReconfigurationCompleted msg)
 {
@@ -2761,7 +2761,7 @@ LteEnbRrc::DoRecvRrcConnectionReconfigurationCompleted(
 }
 
 void
-LteEnbRrc::DoRecvRrcConnectionReestablishmentRequest(
+NoriLteEnbRrc::DoRecvRrcConnectionReestablishmentRequest(
     uint16_t rnti,
     LteRrcSap::RrcConnectionReestablishmentRequest msg)
 {
@@ -2770,7 +2770,7 @@ LteEnbRrc::DoRecvRrcConnectionReestablishmentRequest(
 }
 
 void
-LteEnbRrc::DoRecvRrcConnectionReestablishmentComplete(
+NoriLteEnbRrc::DoRecvRrcConnectionReestablishmentComplete(
     uint16_t rnti,
     LteRrcSap::RrcConnectionReestablishmentComplete msg)
 {
@@ -2779,29 +2779,29 @@ LteEnbRrc::DoRecvRrcConnectionReestablishmentComplete(
 }
 
 void
-LteEnbRrc::DoRecvMeasurementReport(uint16_t rnti, LteRrcSap::MeasurementReport msg)
+NoriLteEnbRrc::DoRecvMeasurementReport(uint16_t rnti, LteRrcSap::MeasurementReport msg)
 {
     NS_LOG_FUNCTION(this << rnti);
     GetUeManager(rnti)->RecvMeasurementReport(msg);
 }
 
 void
-LteEnbRrc::DoInitialContextSetupRequest(EpcEnbS1SapUser::InitialContextSetupRequestParameters msg)
+NoriLteEnbRrc::DoInitialContextSetupRequest(EpcEnbS1SapUser::InitialContextSetupRequestParameters msg)
 {
     NS_LOG_FUNCTION(this);
-    Ptr<UeManager> ueManager = GetUeManager(msg.rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(msg.rnti);
     ueManager->InitialContextSetupRequest();
 }
 
 void
-LteEnbRrc::DoRecvIdealUeContextRemoveRequest(uint16_t rnti)
+NoriLteEnbRrc::DoRecvIdealUeContextRemoveRequest(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << rnti);
 
     // check if the RNTI to be removed is not stale
     if (HasUeManager(rnti))
     {
-        Ptr<UeManager> ueManager = GetUeManager(rnti);
+        Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
 
         if (ueManager->GetState() == NoriUeManager::HANDOVER_JOINING)
         {
@@ -2826,11 +2826,11 @@ LteEnbRrc::DoRecvIdealUeContextRemoveRequest(uint16_t rnti)
 }
 
 void
-LteEnbRrc::DoDataRadioBearerSetupRequest(
+NoriLteEnbRrc::DoDataRadioBearerSetupRequest(
     EpcEnbS1SapUser::DataRadioBearerSetupRequestParameters request)
 {
     NS_LOG_FUNCTION(this);
-    Ptr<UeManager> ueManager = GetUeManager(request.rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(request.rnti);
     ueManager->SetupDataRadioBearer(request.bearer,
                                     request.bearerId,
                                     request.gtpTeid,
@@ -2838,16 +2838,16 @@ LteEnbRrc::DoDataRadioBearerSetupRequest(
 }
 
 void
-LteEnbRrc::DoPathSwitchRequestAcknowledge(
+NoriLteEnbRrc::DoPathSwitchRequestAcknowledge(
     EpcEnbS1SapUser::PathSwitchRequestAcknowledgeParameters params)
 {
     NS_LOG_FUNCTION(this);
-    Ptr<UeManager> ueManager = GetUeManager(params.rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(params.rnti);
     ueManager->SendUeContextRelease();
 }
 
 void
-LteEnbRrc::DoRecvHandoverRequest(EpcX2SapUser::HandoverRequestParams req)
+NoriLteEnbRrc::DoRecvHandoverRequest(EpcX2SapUser::HandoverRequestParams req)
 {
     NS_LOG_FUNCTION(this);
 
@@ -2874,7 +2874,7 @@ LteEnbRrc::DoRecvHandoverRequest(EpcX2SapUser::HandoverRequestParams req)
 
     uint8_t componentCarrierId = CellToComponentCarrierId(req.targetCellId);
     uint16_t rnti = AddUe(NoriUeManager::HANDOVER_JOINING, componentCarrierId);
-    Ptr<UeManager> ueManager = GetUeManager(rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
     ueManager->SetSource(req.sourceCellId, req.oldEnbUeX2apId);
     ueManager->SetImsi(req.mmeUeS1apId);
     LteEnbCmacSapProvider::AllocateNcRaPreambleReturnValue anrcrv =
@@ -2893,7 +2893,7 @@ LteEnbRrc::DoRecvHandoverRequest(EpcX2SapUser::HandoverRequestParams req)
          * handover has failed and source cell is notified to release the RRC connection and delete
          * the UE context at eNodeB and SGW/PGW.
          */
-        Ptr<UeManager> ueManager = GetUeManager(rnti);
+        Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
         EpcX2Sap::HandoverPreparationFailureParams msg = ueManager->BuildHoPrepFailMsg();
         m_x2SapProvider->SendHandoverPreparationFailure(msg);
         RemoveUe(rnti); // remove the UE from the target eNB
@@ -2952,7 +2952,7 @@ LteEnbRrc::DoRecvHandoverRequest(EpcX2SapUser::HandoverRequestParams req)
 }
 
 void
-LteEnbRrc::DoRecvHandoverRequestAck(EpcX2SapUser::HandoverRequestAckParams params)
+NoriLteEnbRrc::DoRecvHandoverRequestAck(EpcX2SapUser::HandoverRequestAckParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -2964,12 +2964,12 @@ LteEnbRrc::DoRecvHandoverRequestAck(EpcX2SapUser::HandoverRequestAckParams param
     NS_LOG_LOGIC("targetCellId = " << params.targetCellId);
 
     uint16_t rnti = params.oldEnbUeX2apId;
-    Ptr<UeManager> ueManager = GetUeManager(rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
     ueManager->RecvHandoverRequestAck(params);
 }
 
 void
-LteEnbRrc::DoRecvHandoverPreparationFailure(EpcX2SapUser::HandoverPreparationFailureParams params)
+NoriLteEnbRrc::DoRecvHandoverPreparationFailure(EpcX2SapUser::HandoverPreparationFailureParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -2986,13 +2986,13 @@ LteEnbRrc::DoRecvHandoverPreparationFailure(EpcX2SapUser::HandoverPreparationFai
     // check if the RNTI is not stale
     if (HasUeManager(rnti))
     {
-        Ptr<UeManager> ueManager = GetUeManager(rnti);
+        Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
         ueManager->RecvHandoverPreparationFailure(params.targetCellId);
     }
 }
 
 void
-LteEnbRrc::DoRecvSnStatusTransfer(EpcX2SapUser::SnStatusTransferParams params)
+NoriLteEnbRrc::DoRecvSnStatusTransfer(EpcX2SapUser::SnStatusTransferParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -3008,13 +3008,13 @@ LteEnbRrc::DoRecvSnStatusTransfer(EpcX2SapUser::SnStatusTransferParams params)
     // check if the RNTI to receive SN transfer for is not stale
     if (HasUeManager(rnti))
     {
-        Ptr<UeManager> ueManager = GetUeManager(rnti);
+        Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
         ueManager->RecvSnStatusTransfer(params);
     }
 }
 
 void
-LteEnbRrc::DoRecvUeContextRelease(EpcX2SapUser::UeContextReleaseParams params)
+NoriLteEnbRrc::DoRecvUeContextRelease(EpcX2SapUser::UeContextReleaseParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -3034,7 +3034,7 @@ LteEnbRrc::DoRecvUeContextRelease(EpcX2SapUser::UeContextReleaseParams params)
 }
 
 void
-LteEnbRrc::DoRecvLoadInformation(EpcX2SapUser::LoadInformationParams params)
+NoriLteEnbRrc::DoRecvLoadInformation(EpcX2SapUser::LoadInformationParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -3047,7 +3047,7 @@ LteEnbRrc::DoRecvLoadInformation(EpcX2SapUser::LoadInformationParams params)
 }
 
 void
-LteEnbRrc::DoRecvResourceStatusUpdate(EpcX2SapUser::ResourceStatusUpdateParams params)
+NoriLteEnbRrc::DoRecvResourceStatusUpdate(EpcX2SapUser::ResourceStatusUpdateParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -3060,7 +3060,7 @@ LteEnbRrc::DoRecvResourceStatusUpdate(EpcX2SapUser::ResourceStatusUpdateParams p
 }
 
 void
-LteEnbRrc::DoRecvUeData(EpcX2SapUser::UeDataParams params)
+NoriLteEnbRrc::DoRecvUeData(EpcX2SapUser::UeDataParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -3083,7 +3083,7 @@ LteEnbRrc::DoRecvUeData(EpcX2SapUser::UeDataParams params)
 }
 
 void
-LteEnbRrc::DoRecvHandoverCancel(EpcX2SapUser::HandoverCancelParams params)
+NoriLteEnbRrc::DoRecvHandoverCancel(EpcX2SapUser::HandoverCancelParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -3098,14 +3098,14 @@ LteEnbRrc::DoRecvHandoverCancel(EpcX2SapUser::HandoverCancelParams params)
     uint16_t rnti = params.newEnbUeX2apId;
     if (HasUeManager(rnti))
     {
-        Ptr<UeManager> ueManager = GetUeManager(rnti);
+        Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
         ueManager->RecvHandoverCancel(params);
         GetUeManager(rnti)->RecvIdealUeContextRemoveRequest(rnti);
     }
 }
 
 uint16_t
-LteEnbRrc::DoAllocateTemporaryCellRnti(uint8_t componentCarrierId)
+NoriLteEnbRrc::DoAllocateTemporaryCellRnti(uint8_t componentCarrierId)
 {
     NS_LOG_FUNCTION(this << +componentCarrierId);
     // if no SRS index is available, then do not create a new UE context.
@@ -3118,21 +3118,21 @@ LteEnbRrc::DoAllocateTemporaryCellRnti(uint8_t componentCarrierId)
 }
 
 void
-LteEnbRrc::DoRrcConfigurationUpdateInd(LteEnbCmacSapUser::UeConfig cmacParams)
+NoriLteEnbRrc::DoRrcConfigurationUpdateInd(LteEnbCmacSapUser::UeConfig cmacParams)
 {
-    Ptr<UeManager> ueManager = GetUeManager(cmacParams.m_rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(cmacParams.m_rnti);
     ueManager->CmacUeConfigUpdateInd(cmacParams);
 }
 
 void
-LteEnbRrc::DoNotifyLcConfigResult(uint16_t rnti, uint8_t lcid, bool success)
+NoriLteEnbRrc::DoNotifyLcConfigResult(uint16_t rnti, uint8_t lcid, bool success)
 {
     NS_LOG_FUNCTION(this << (uint32_t)rnti);
     NS_FATAL_ERROR("not implemented");
 }
 
 std::vector<uint8_t>
-LteEnbRrc::DoAddUeMeasReportConfigForHandover(LteRrcSap::ReportConfigEutra reportConfig)
+NoriLteEnbRrc::DoAddUeMeasReportConfigForHandover(LteRrcSap::ReportConfigEutra reportConfig)
 {
     NS_LOG_FUNCTION(this);
     std::vector<uint8_t> measIds = AddUeMeasReportConfig(reportConfig);
@@ -3141,7 +3141,7 @@ LteEnbRrc::DoAddUeMeasReportConfigForHandover(LteRrcSap::ReportConfigEutra repor
 }
 
 uint8_t
-LteEnbRrc::DoAddUeMeasReportConfigForComponentCarrier(LteRrcSap::ReportConfigEutra reportConfig)
+NoriLteEnbRrc::DoAddUeMeasReportConfigForComponentCarrier(LteRrcSap::ReportConfigEutra reportConfig)
 {
     NS_LOG_FUNCTION(this);
     uint8_t measId = AddUeMeasReportConfig(reportConfig).at(0);
@@ -3150,19 +3150,19 @@ LteEnbRrc::DoAddUeMeasReportConfigForComponentCarrier(LteRrcSap::ReportConfigEut
 }
 
 void
-LteEnbRrc::DoSetNumberOfComponentCarriers(uint16_t numberOfComponentCarriers)
+NoriLteEnbRrc::DoSetNumberOfComponentCarriers(uint16_t numberOfComponentCarriers)
 {
     m_numberOfComponentCarriers = numberOfComponentCarriers;
 }
 
 void
-LteEnbRrc::DoTriggerHandover(uint16_t rnti, uint16_t targetCellId)
+NoriLteEnbRrc::DoTriggerHandover(uint16_t rnti, uint16_t targetCellId)
 {
     NS_LOG_FUNCTION(this << rnti << targetCellId);
 
     bool isHandoverAllowed = true;
 
-    Ptr<UeManager> ueManager = GetUeManager(rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
     NS_ASSERT_MSG(ueManager, "Cannot find UE context with RNTI " << rnti);
 
     if (m_anrSapProvider != nullptr && !HasCellId(targetCellId))
@@ -3198,7 +3198,7 @@ LteEnbRrc::DoTriggerHandover(uint16_t rnti, uint16_t targetCellId)
 }
 
 uint8_t
-LteEnbRrc::DoAddUeMeasReportConfigForAnr(LteRrcSap::ReportConfigEutra reportConfig)
+NoriLteEnbRrc::DoAddUeMeasReportConfigForAnr(LteRrcSap::ReportConfigEutra reportConfig)
 {
     NS_LOG_FUNCTION(this);
     uint8_t measId = AddUeMeasReportConfig(reportConfig).at(0);
@@ -3207,7 +3207,7 @@ LteEnbRrc::DoAddUeMeasReportConfigForAnr(LteRrcSap::ReportConfigEutra reportConf
 }
 
 uint8_t
-LteEnbRrc::DoAddUeMeasReportConfigForFfr(LteRrcSap::ReportConfigEutra reportConfig)
+NoriLteEnbRrc::DoAddUeMeasReportConfigForFfr(LteRrcSap::ReportConfigEutra reportConfig)
 {
     NS_LOG_FUNCTION(this);
     uint8_t measId = AddUeMeasReportConfig(reportConfig).at(0);
@@ -3216,16 +3216,16 @@ LteEnbRrc::DoAddUeMeasReportConfigForFfr(LteRrcSap::ReportConfigEutra reportConf
 }
 
 void
-LteEnbRrc::DoSetPdschConfigDedicated(uint16_t rnti,
+NoriLteEnbRrc::DoSetPdschConfigDedicated(uint16_t rnti,
                                      LteRrcSap::PdschConfigDedicated pdschConfigDedicated)
 {
     NS_LOG_FUNCTION(this);
-    Ptr<UeManager> ueManager = GetUeManager(rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
     ueManager->SetPdschConfigDedicated(pdschConfigDedicated);
 }
 
 void
-LteEnbRrc::DoSendLoadInformation(EpcX2Sap::LoadInformationParams params)
+NoriLteEnbRrc::DoSendLoadInformation(EpcX2Sap::LoadInformationParams params)
 {
     NS_LOG_FUNCTION(this);
 
@@ -3233,7 +3233,7 @@ LteEnbRrc::DoSendLoadInformation(EpcX2Sap::LoadInformationParams params)
 }
 
 uint16_t
-LteEnbRrc::AddUe(NoriUeManager::State state, uint8_t componentCarrierId)
+NoriLteEnbRrc::AddUe(NoriUeManager::State state, uint8_t componentCarrierId)
 {
     NS_LOG_FUNCTION(this);
     bool found = false;
@@ -3249,9 +3249,9 @@ LteEnbRrc::AddUe(NoriUeManager::State state, uint8_t componentCarrierId)
 
     NS_ASSERT_MSG(found, "no more RNTIs available (do you have more than 65535 UEs in a cell?)");
     m_lastAllocatedRnti = rnti;
-    Ptr<UeManager> ueManager = CreateObject<UeManager>(this, rnti, state, componentCarrierId);
+    Ptr<NoriUeManager> ueManager = CreateObject<NoriUeManager>(this, rnti, state, componentCarrierId);
     m_ccmRrcSapProvider->AddUe(rnti, (uint8_t)state);
-    m_ueMap.insert(std::pair<uint16_t, Ptr<UeManager>>(rnti, ueManager));
+    m_ueMap.insert(std::pair<uint16_t, Ptr<NoriUeManager>>(rnti, ueManager));
     ueManager->Initialize();
     const uint16_t cellId = ComponentCarrierToCellId(componentCarrierId);
     NS_LOG_DEBUG(this << " New UE RNTI " << rnti << " cellId " << cellId << " srs CI "
@@ -3261,7 +3261,7 @@ LteEnbRrc::AddUe(NoriUeManager::State state, uint8_t componentCarrierId)
 }
 
 void
-LteEnbRrc::RemoveUe(uint16_t rnti)
+NoriLteEnbRrc::RemoveUe(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << (uint32_t)rnti);
     auto it = m_ueMap.find(rnti);
@@ -3295,7 +3295,7 @@ LteEnbRrc::RemoveUe(uint16_t rnti)
 }
 
 TypeId
-LteEnbRrc::GetRlcType(EpsBearer bearer)
+NoriLteEnbRrc::GetRlcType(EpsBearer bearer)
 {
     switch (m_epsBearerToRlcMapping)
     {
@@ -3303,19 +3303,19 @@ LteEnbRrc::GetRlcType(EpsBearer bearer)
         return LteRlcSm::GetTypeId();
 
     case RLC_UM_ALWAYS:
-        return LteRlcUm::GetTypeId();
+        return NoriLteRlcUm::GetTypeId();
 
     case RLC_AM_ALWAYS:
-        return LteRlcAm::GetTypeId();
+        return NoriLteRlcAm::GetTypeId();
 
     case PER_BASED:
         if (bearer.GetPacketErrorLossRate() > 1.0e-5)
         {
-            return LteRlcUm::GetTypeId();
+            return NoriLteRlcUm::GetTypeId();
         }
         else
         {
-            return LteRlcAm::GetTypeId();
+            return NoriLteRlcAm::GetTypeId();
         }
 
     default:
@@ -3324,7 +3324,7 @@ LteEnbRrc::GetRlcType(EpsBearer bearer)
 }
 
 void
-LteEnbRrc::AddX2Neighbour(uint16_t cellId)
+NoriLteEnbRrc::AddX2Neighbour(uint16_t cellId)
 {
     NS_LOG_FUNCTION(this << cellId);
 
@@ -3335,7 +3335,7 @@ LteEnbRrc::AddX2Neighbour(uint16_t cellId)
 }
 
 void
-LteEnbRrc::SetCsgId(uint32_t csgId, bool csgIndication)
+NoriLteEnbRrc::SetCsgId(uint32_t csgId, bool csgIndication)
 {
     NS_LOG_FUNCTION(this << csgId << csgIndication);
     for (std::size_t componentCarrierId = 0; componentCarrierId < m_sib1.size();
@@ -3369,7 +3369,7 @@ static const uint16_t g_srsCiLow[SRS_ENTRIES] = {0, 0, 2, 7, 17, 37, 77, 157, 31
 static const uint16_t g_srsCiHigh[SRS_ENTRIES] = {0, 1, 6, 16, 36, 76, 156, 316, 636};
 
 void
-LteEnbRrc::SetSrsPeriodicity(uint32_t p)
+NoriLteEnbRrc::SetSrsPeriodicity(uint32_t p)
 {
     NS_LOG_FUNCTION(this << p);
     for (uint32_t id = 1; id < SRS_ENTRIES; ++id)
@@ -3391,7 +3391,7 @@ LteEnbRrc::SetSrsPeriodicity(uint32_t p)
 }
 
 uint32_t
-LteEnbRrc::GetSrsPeriodicity() const
+NoriLteEnbRrc::GetSrsPeriodicity() const
 {
     NS_LOG_FUNCTION(this);
     NS_ASSERT(m_srsCurrentPeriodicityId > 0);
@@ -3400,7 +3400,7 @@ LteEnbRrc::GetSrsPeriodicity() const
 }
 
 uint16_t
-LteEnbRrc::GetNewSrsConfigurationIndex()
+NoriLteEnbRrc::GetNewSrsConfigurationIndex()
 {
     NS_LOG_FUNCTION(this << m_ueSrsConfigurationIndexSet.size());
     // SRS
@@ -3457,7 +3457,7 @@ LteEnbRrc::GetNewSrsConfigurationIndex()
 }
 
 void
-LteEnbRrc::RemoveSrsConfigurationIndex(uint16_t srcCi)
+NoriLteEnbRrc::RemoveSrsConfigurationIndex(uint16_t srcCi)
 {
     NS_LOG_FUNCTION(this << srcCi);
     auto it = m_ueSrsConfigurationIndexSet.find(srcCi);
@@ -3467,7 +3467,7 @@ LteEnbRrc::RemoveSrsConfigurationIndex(uint16_t srcCi)
 }
 
 bool
-LteEnbRrc::IsMaxSrsReached()
+NoriLteEnbRrc::IsMaxSrsReached()
 {
     NS_ASSERT(m_srsCurrentPeriodicityId > 0);
     NS_ASSERT(m_srsCurrentPeriodicityId < SRS_ENTRIES);
@@ -3477,7 +3477,7 @@ LteEnbRrc::IsMaxSrsReached()
 }
 
 uint8_t
-LteEnbRrc::GetLogicalChannelGroup(EpsBearer bearer)
+NoriLteEnbRrc::GetLogicalChannelGroup(EpsBearer bearer)
 {
     if (bearer.GetResourceType() > 0) // 1, 2 for GBR and DC-GBR
     {
@@ -3490,13 +3490,13 @@ LteEnbRrc::GetLogicalChannelGroup(EpsBearer bearer)
 }
 
 uint8_t
-LteEnbRrc::GetLogicalChannelPriority(EpsBearer bearer)
+NoriLteEnbRrc::GetLogicalChannelPriority(EpsBearer bearer)
 {
     return bearer.qci;
 }
 
 void
-LteEnbRrc::SendSystemInformation()
+NoriLteEnbRrc::SendSystemInformation()
 {
     // NS_LOG_FUNCTION (this);
 
@@ -3527,14 +3527,14 @@ LteEnbRrc::SendSystemInformation()
      * For simplicity, we use the same periodicity for all SIBs. Note that in real
      * systems the periodicy of each SIBs could be different.
      */
-    Simulator::Schedule(m_systemInformationPeriodicity, &LteEnbRrc::SendSystemInformation, this);
+    Simulator::Schedule(m_systemInformationPeriodicity, &NoriLteEnbRrc::SendSystemInformation, this);
 }
 
 bool
-LteEnbRrc::IsRandomAccessCompleted(uint16_t rnti)
+NoriLteEnbRrc::IsRandomAccessCompleted(uint16_t rnti)
 {
     NS_LOG_FUNCTION(this << (uint32_t)rnti);
-    Ptr<UeManager> ueManager = GetUeManager(rnti);
+    Ptr<NoriUeManager> ueManager = GetUeManager(rnti);
     switch (ueManager->GetState())
     {
     case NoriUeManager::CONNECTED_NORMALLY:

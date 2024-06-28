@@ -26,7 +26,7 @@
  */
 
 #ifndef NORI_LTE_ENB_RRC_H
-#define NORI_ENB_RRC_H
+#define NORI_LTE_ENB_RRC_H
 
 #include "ns3/component-carrier.h"
 #include "ns3/epc-enb-s1-sap.h"
@@ -904,7 +904,7 @@ class NoriLteEnbRrc : public Object
      *
      * \return the corresponding UeManager instance
      */
-    Ptr<UeManager> GetUeManager(uint16_t rnti);
+    Ptr<NoriUeManager> GetUeManager(uint16_t rnti);
 
     /**
      * \brief Add a new UE measurement reporting configuration
@@ -1648,7 +1648,7 @@ class NoriLteEnbRrc : public Object
     /**
      * The `UeMap` attribute. List of UeManager by C-RNTI.
      */
-    std::map<uint16_t, Ptr<UeManager>> m_ueMap;
+    std::map<uint16_t, Ptr<NoriUeManager>> m_ueMap;
 
     /**
      * List of measurement configuration which are active in every UE attached to
