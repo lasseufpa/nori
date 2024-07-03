@@ -1,0 +1,4 @@
+<map id="ns3::NrHelper::EnableDlCtrlPhyTraces" name="ns3::NrHelper::EnableDlCtrlPhyTraces">
+<area shape="rect" id="node1" title="Enable DL CTRL PHY traces." alt="" coords="257,5,457,47"/>
+<area shape="rect" id="node2" href="$classns3_1_1NrHelper.html#a2be67a98be0216647516017af165d287" title="Enables the following traces: Transmitted/Received Control Messages DL/UL Phy Traces RLC traces PDCP ..." alt="" coords="5,13,209,39"/>
+</map>

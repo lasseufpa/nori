@@ -1,0 +1,5 @@
+<map id="ns3::NoriUeManager::RecvHandoverPreparationFailure" name="ns3::NoriUeManager::RecvHandoverPreparationFailure">
+<area shape="rect" id="node1" title=" " alt="" coords="5,35,248,76"/>
+<area shape="rect" id="node2" href="$classns3_1_1NoriUeManager.html#a2adf329be4302ab43d0e06175f8bd292" title="This function acts as an interface to trigger the connection release towards eNB, EPC and UE." alt="" coords="296,5,504,47"/>
+<area shape="rect" id="node3" href="$namespacens3.html#a5dc40058a0c7644211c83a65eb270848" title=" " alt="" coords="347,71,453,98"/>
+</map>

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['drbid_585',['drbid',['../classns3_1_1NoriRlcBearerInfo.html#a76078ab2bd9714d74017180ecd997119',1,'ns3::NoriRlcBearerInfo']]]
+  ['antennaelem_765',['antennaElem',['../structns3_1_1NrHelper_1_1AntennaParams.html#a53219b6ffe2430e7069a71cce1675d0a',1,'ns3::NrHelper::AntennaParams']]]
 ];

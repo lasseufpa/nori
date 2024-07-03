@@ -1,13 +1,11 @@
 var searchData=
 [
-  ['_7elteenbrrc_312',['~LteEnbRrc',['../classns3_1_1LteEnbRrc.html#a086fe2f2584837716ca274cd195f4f30',1,'ns3::LteEnbRrc']]],
-  ['_7emmwavehelper_313',['~MmWaveHelper',['../classns3_1_1mmwave_1_1MmWaveHelper.html#a66559650b4729cb2cd09ed269585f4b8',1,'ns3::mmwave::MmWaveHelper']]],
-  ['_7enorie2report_314',['~NoriE2Report',['../classns3_1_1NoriE2Report.html#aa56de39a8a8e2c2c6ef0dd2a83f9f34f',1,'ns3::NoriE2Report']]],
-  ['_7enorignbnetdevice_315',['~NoriGnbNetDevice',['../classns3_1_1NoriGnbNetDevice.html#ae7b2bc0c225b4ec13f693b859425cc4d',1,'ns3::NoriGnbNetDevice']]],
-  ['_7enorilterlc_316',['~NoriLteRlc',['../classns3_1_1NoriLteRlc.html#a0ebcb24edb5c32c254d5ae8689dc59cc',1,'ns3::NoriLteRlc']]],
-  ['_7enorilterlcam_317',['~NoriLteRlcAm',['../classns3_1_1NoriLteRlcAm.html#a88a408e0dfef77005b9fef94d5d93a98',1,'ns3::NoriLteRlcAm']]],
-  ['_7enorilterlcsm_318',['~NoriLteRlcSm',['../classns3_1_1NoriLteRlcSm.html#afd1295ee5804a945524f2354bd95de2a',1,'ns3::NoriLteRlcSm']]],
-  ['_7enorilterlcum_319',['~NoriLteRlcUm',['../classns3_1_1NoriLteRlcUm.html#a89723ff44d57f534860cdea79e697bb6',1,'ns3::NoriLteRlcUm']]],
-  ['_7enorirlcbearerinfo_320',['~NoriRlcBearerInfo',['../classns3_1_1NoriRlcBearerInfo.html#a2ccacaada5914cee5a6dfc20b99b3897',1,'ns3::NoriRlcBearerInfo']]],
-  ['_7enoriuemanager_321',['~NoriUeManager',['../classns3_1_1NoriUeManager.html#ae1d7ac9fb6dded167b7b4740aab458f2',1,'ns3::NoriUeManager']]]
+  ['uint32map_403',['Uint32Map',['../namespacens3.html#aa6b3502211a84f5a4b21e934a6b090ae',1,'ns3']]],
+  ['uint32statsmap_404',['Uint32StatsMap',['../namespacens3.html#af8213e0bbc25213f750b9911a86202cf',1,'ns3']]],
+  ['uint64map_405',['Uint64Map',['../namespacens3.html#abb0c8ba7f3de1bdb8242fcd561afc4bd',1,'ns3']]],
+  ['uint64statsmap_406',['Uint64StatsMap',['../namespacens3.html#aef87591c6b3635e655ed2c03dd63a1fe',1,'ns3']]],
+  ['ulrxpdu_407',['UlRxPdu',['../classns3_1_1NoriBearerStatsCalculator.html#a32ccb612a945fa23c7ce04dc9943853a',1,'ns3::NoriBearerStatsCalculator']]],
+  ['ultxpdu_408',['UlTxPdu',['../classns3_1_1NoriBearerStatsCalculator.html#ad2a507707a5cf31ec652d27b3d044e4c',1,'ns3::NoriBearerStatsCalculator']]],
+  ['updateconfig_409',['UpdateConfig',['../classns3_1_1NoriGnbNetDevice.html#abefaad92f96dff6b3f704114a565e573',1,'ns3::NoriGnbNetDevice']]],
+  ['updatetraces_410',['UpdateTraces',['../classns3_1_1NoriE2Report.html#aae011b67a08b48eea9c2e40adf03a6e0',1,'ns3::NoriE2Report']]]
 ];

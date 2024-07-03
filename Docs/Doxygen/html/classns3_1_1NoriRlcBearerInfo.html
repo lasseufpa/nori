@@ -82,11 +82,19 @@ $(function() {
 Inheritance diagram for ns3::NoriRlcBearerInfo:</div>
 <div class="dyncontent">
 <div class="center"><img src="classns3_1_1NoriRlcBearerInfo__inherit__graph.png" border="0" usemap="#ans3_1_1NoriRlcBearerInfo_inherit__map" alt="Inheritance graph"/></div>
+<map name="ans3_1_1NoriRlcBearerInfo_inherit__map" id="ans3_1_1NoriRlcBearerInfo_inherit__map">
+<area shape="rect" title=" " alt="" coords="5,80,173,107"/>
+<area shape="rect" title=" " alt="" coords="57,5,121,32"/>
+</map>
 <center><span class="legend">[<a href="graph_legend.html">legend</a>]</span></center></div>
 <div class="dynheader">
 Collaboration diagram for ns3::NoriRlcBearerInfo:</div>
 <div class="dyncontent">
 <div class="center"><img src="classns3_1_1NoriRlcBearerInfo__coll__graph.png" border="0" usemap="#ans3_1_1NoriRlcBearerInfo_coll__map" alt="Collaboration graph"/></div>
+<map name="ans3_1_1NoriRlcBearerInfo_coll__map" id="ans3_1_1NoriRlcBearerInfo_coll__map">
+<area shape="rect" title=" " alt="" coords="5,80,173,107"/>
+<area shape="rect" title=" " alt="" coords="57,5,121,32"/>
+</map>
 <center><span class="legend">[<a href="graph_legend.html">legend</a>]</span></center></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
@@ -123,8 +131,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aa43701af109e43026563c12daac7bc25"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f2d57911ade48695f95929e7b0e6ef5"><td class="memItemLeft" align="right" valign="top">LteEnbCmacSapProvider::LcInfo&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classns3_1_1NoriRlcBearerInfo.html#a0f2d57911ade48695f95929e7b0e6ef5">lcinfo</a></td></tr>
 <tr class="separator:a0f2d57911ade48695f95929e7b0e6ef5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad5c4848f858f54c7545b8e0c680dbfaa"><td class="memItemLeft" align="right" valign="top">Ptr&lt; LteRlc &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classns3_1_1NoriRlcBearerInfo.html#ad5c4848f858f54c7545b8e0c680dbfaa">m_rlc</a></td></tr>
-<tr class="separator:ad5c4848f858f54c7545b8e0c680dbfaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a22e44914327c27caf2674a9fe41444"><td class="memItemLeft" align="right" valign="top">Ptr&lt; <a class="el" href="classns3_1_1NoriLteRlc.html">NoriLteRlc</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classns3_1_1NoriRlcBearerInfo.html#a9a22e44914327c27caf2674a9fe41444">m_rlc</a></td></tr>
+<tr class="separator:a9a22e44914327c27caf2674a9fe41444"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock">
@@ -208,12 +216,12 @@ Public Attributes</h2></td></tr>
 <div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;    .AddConstructor&lt;NoriRlcBearerInfo&gt; ()</div>
 <div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;    .AddAttribute (<span class="stringliteral">&quot;LteRlc&quot;</span>, <span class="stringliteral">&quot;RLC instance of the secondary connection.&quot;</span>,</div>
 <div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;                   PointerValue (),</div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;                   MakePointerAccessor (&amp;<a class="code" href="classns3_1_1NoriRlcBearerInfo.html#ad5c4848f858f54c7545b8e0c680dbfaa">NoriRlcBearerInfo::m_rlc</a>),</div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;                   MakePointerChecker&lt;LteRlc&gt; ())</div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;                   MakePointerAccessor (&amp;<a class="code" href="classns3_1_1NoriRlcBearerInfo.html#a9a22e44914327c27caf2674a9fe41444">NoriRlcBearerInfo::m_rlc</a>),</div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;                   MakePointerChecker&lt;NoriLteRlc&gt; ())</div>
 <div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;    ;</div>
 <div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;  <span class="keywordflow">return</span> tid;</div>
 <div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;}</div>
-<div class="ttc" id="aclassns3_1_1NoriRlcBearerInfo_html_ad5c4848f858f54c7545b8e0c680dbfaa"><div class="ttname"><a href="classns3_1_1NoriRlcBearerInfo.html#ad5c4848f858f54c7545b8e0c680dbfaa">ns3::NoriRlcBearerInfo::m_rlc</a></div><div class="ttdeci">Ptr&lt; LteRlc &gt; m_rlc</div><div class="ttdef"><b>Definition:</b> <a href="nori-rlc-bearer-info_8h_source.html#l00026">nori-rlc-bearer-info.h:26</a></div></div>
+<div class="ttc" id="aclassns3_1_1NoriRlcBearerInfo_html_a9a22e44914327c27caf2674a9fe41444"><div class="ttname"><a href="classns3_1_1NoriRlcBearerInfo.html#a9a22e44914327c27caf2674a9fe41444">ns3::NoriRlcBearerInfo::m_rlc</a></div><div class="ttdeci">Ptr&lt; NoriLteRlc &gt; m_rlc</div><div class="ttdef"><b>Definition:</b> <a href="nori-rlc-bearer-info_8h_source.html#l00026">nori-rlc-bearer-info.h:26</a></div></div>
 </div><!-- fragment -->
 </div>
 </div>
@@ -314,14 +322,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad5c4848f858f54c7545b8e0c680dbfaa"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad5c4848f858f54c7545b8e0c680dbfaa">&#9670;&nbsp;</a></span>m_rlc</h2>
+<a id="a9a22e44914327c27caf2674a9fe41444"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9a22e44914327c27caf2674a9fe41444">&#9670;&nbsp;</a></span>m_rlc</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">Ptr&lt;LteRlc&gt; ns3::NoriRlcBearerInfo::m_rlc</td>
+          <td class="memname">Ptr&lt;<a class="el" href="classns3_1_1NoriLteRlc.html">NoriLteRlc</a>&gt; ns3::NoriRlcBearerInfo::m_rlc</td>
         </tr>
       </table>
 </div><div class="memdoc">

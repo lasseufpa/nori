@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['lteepsbearertorlcmapping_5ft_627',['LteEpsBearerToRlcMapping_t',['../classns3_1_1LteEnbRrc.html#a1c748bf2d69860b866dfda2a38427842',1,'ns3::LteEnbRrc']]]
+  ['lteepsbearertorlcmapping_5ft_825',['LteEpsBearerToRlcMapping_t',['../classns3_1_1NoriLteEnbRrc.html#a6684fb09aa6ad4cf503e9bd59d49d47b',1,'ns3::NoriLteEnbRrc']]]
 ];

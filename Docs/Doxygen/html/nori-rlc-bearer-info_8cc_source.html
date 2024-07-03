@@ -74,7 +74,7 @@ $(function() {
 <a href="nori-rlc-bearer-info_8cc.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160; </div>
 <div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="preprocessor">#include &quot;ns3/lte-radio-bearer-info.h&quot;</span></div>
 <div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="preprocessor">#include &quot;ns3/lte-ue-rrc.h&quot;</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="preprocessor">#include &quot;ns3/lte-rlc.h&quot;</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="preprocessor">#include &quot;ns3/nori-lte-rlc.h&quot;</span></div>
 <div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="preprocessor">#include &quot;ns3/lte-pdcp.h&quot;</span></div>
 <div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="preprocessor">#include &quot;ns3/nori-rlc-bearer-info.h&quot;</span></div>
 <div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
@@ -90,15 +90,15 @@ $(function() {
 <div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;    .AddConstructor&lt;NoriRlcBearerInfo&gt; ()</div>
 <div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;    .AddAttribute (<span class="stringliteral">&quot;LteRlc&quot;</span>, <span class="stringliteral">&quot;RLC instance of the secondary connection.&quot;</span>,</div>
 <div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;                   PointerValue (),</div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;                   MakePointerAccessor (&amp;<a class="code" href="classns3_1_1NoriRlcBearerInfo.html#ad5c4848f858f54c7545b8e0c680dbfaa">NoriRlcBearerInfo::m_rlc</a>),</div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;                   MakePointerChecker&lt;LteRlc&gt; ())</div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;                   MakePointerAccessor (&amp;<a class="code" href="classns3_1_1NoriRlcBearerInfo.html#a9a22e44914327c27caf2674a9fe41444">NoriRlcBearerInfo::m_rlc</a>),</div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;                   MakePointerChecker&lt;NoriLteRlc&gt; ())</div>
 <div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;    ;</div>
 <div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;  <span class="keywordflow">return</span> tid;</div>
 <div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;}</div>
 <div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;}</div>
 <div class="ttc" id="aclassns3_1_1NoriRlcBearerInfo_html_a0384a6b5f210346d707f87475680f6b0"><div class="ttname"><a href="classns3_1_1NoriRlcBearerInfo.html#a0384a6b5f210346d707f87475680f6b0">ns3::NoriRlcBearerInfo::GetTypeId</a></div><div class="ttdeci">static TypeId GetTypeId(void)</div><div class="ttdef"><b>Definition:</b> <a href="nori-rlc-bearer-info_8cc_source.html#l00011">nori-rlc-bearer-info.cc:11</a></div></div>
-<div class="ttc" id="aclassns3_1_1NoriRlcBearerInfo_html_ad5c4848f858f54c7545b8e0c680dbfaa"><div class="ttname"><a href="classns3_1_1NoriRlcBearerInfo.html#ad5c4848f858f54c7545b8e0c680dbfaa">ns3::NoriRlcBearerInfo::m_rlc</a></div><div class="ttdeci">Ptr&lt; LteRlc &gt; m_rlc</div><div class="ttdef"><b>Definition:</b> <a href="nori-rlc-bearer-info_8h_source.html#l00026">nori-rlc-bearer-info.h:26</a></div></div>
-<div class="ttc" id="anamespacens3_html"><div class="ttname"><a href="namespacens3.html">ns3</a></div><div class="ttdef"><b>Definition:</b> <a href="nori-helper_8cc_source.html#l00070">nori-helper.cc:70</a></div></div>
+<div class="ttc" id="aclassns3_1_1NoriRlcBearerInfo_html_a9a22e44914327c27caf2674a9fe41444"><div class="ttname"><a href="classns3_1_1NoriRlcBearerInfo.html#a9a22e44914327c27caf2674a9fe41444">ns3::NoriRlcBearerInfo::m_rlc</a></div><div class="ttdeci">Ptr&lt; NoriLteRlc &gt; m_rlc</div><div class="ttdef"><b>Definition:</b> <a href="nori-rlc-bearer-info_8h_source.html#l00026">nori-rlc-bearer-info.h:26</a></div></div>
+<div class="ttc" id="anamespacens3_html"><div class="ttname"><a href="namespacens3.html">ns3</a></div><div class="ttdef"><b>Definition:</b> <a href="nori-helper_8cc_source.html#l00049">nori-helper.cc:50</a></div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

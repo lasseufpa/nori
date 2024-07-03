@@ -1,0 +1,4 @@
+<map id="ns3::InitUmaBuildings" name="ns3::InitUmaBuildings">
+<area shape="rect" id="node1" title=" " alt="" coords="228,13,393,39"/>
+<area shape="rect" id="node2" href="$classns3_1_1NrHelper.html#a99cc1f64d400f3d7b314e65d15923af8" title="Initialize the bandwidth parts by creating and configuring the channel models, if they are not alread..." alt="" coords="5,5,180,47"/>
+</map>

@@ -1,0 +1,4 @@
+<map id="ns3::NrHelper::SetGnbAntennaAttribute" name="ns3::NrHelper::SetGnbAntennaAttribute">
+<area shape="rect" id="node1" title="Set an attribute for the GNB antenna, before it is created." alt="" coords="296,5,516,47"/>
+<area shape="rect" id="node2" href="$classns3_1_1NrHelper.html#a7a2676d621864ba1a28ed989f95d38e3" title="Set parameters for gNB and UE antenna arrays." alt="" coords="5,13,248,39"/>
+</map>

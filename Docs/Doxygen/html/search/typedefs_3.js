@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['newuecontexttracedcallback_620',['NewUeContextTracedCallback',['../classns3_1_1LteEnbRrc.html#a75264c6c2d37138999b8034e242c2197',1,'ns3::LteEnbRrc']]],
-  ['notifytxtracedcallback_621',['NotifyTxTracedCallback',['../classns3_1_1NoriLteRlc.html#a6576bc1de323679eb238b605905d76aa',1,'ns3::NoriLteRlc']]]
+  ['handoverfailuretracedcallback_810',['HandoverFailureTracedCallback',['../classns3_1_1NoriLteEnbRrc.html#a66b7ee9fb1f8377bb0fed355c1704e0e',1,'ns3::NoriLteEnbRrc']]],
+  ['handoverstarttracedcallback_811',['HandoverStartTracedCallback',['../classns3_1_1NoriLteEnbRrc.html#a7ee93c7780c07be32065dc178389e4e9',1,'ns3::NoriLteEnbRrc']]]
 ];

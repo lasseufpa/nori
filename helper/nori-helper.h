@@ -1,488 +1,1007 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-/*
-*   Copyright (c) 2011 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
-*   Copyright (c) 2015, NYU WIRELESS, Tandon School of Engineering, New York University
-*   Copyright (c) 2016, 2018, University of Padova, Dep. of Information Engineering, SIGNET lab.
-*
-*   This program is free software; you can redistribute it and/or modify
-*   it under the terms of the GNU General Public License version 2 as
-*   published by the Free Software Foundation;
-*
-*   This program is distributed in the hope that it will be useful,
-*   but WITHOUT ANY WARRANTY; without even the implied warranty of
-*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*   GNU General Public License for more details.
-*
-*   You should have received a copy of the GNU General Public License
-*   along with this program; if not, write to the Free Software
-*   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*
-*   Author: Marco Miozzo <marco.miozzo@cttc.es>
-*           Nicola Baldo  <nbaldo@cttc.es>
-*
-*   Modified by: Marco Mezzavilla < mezzavilla@nyu.edu>
-*                         Sourjya Dutta <sdutta@nyu.edu>
-*                         Russell Ford <russell.ford@nyu.edu>
-*                         Menglei Zhang <menglei@nyu.edu>
-*
-* Modified by: Michele Polese <michele.polese@gmail.com>
-*                 Dual Connectivity and Handover functionalities
-*
-* Modified by: Tommaso Zugno <tommasozugno@gmail.com>
-*                Integration of Carrier Aggregation
-*/
 
+// Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
+//
+// SPDX-License-Identifier: GPL-2.0-only
 
-#ifndef MMWAVE_HELPER_H
-#define MMWAVE_HELPER_H
+#ifndef NORI_HELPER_H
+#define NORI_HELPER_H
 
-#include <ns3/config.h>
-#include <ns3/simulator.h>
-#include <ns3/names.h>
-#include <ns3/net-device.h>
+#include "ns3/cc-bwp-helper.h"
+#include "ns3/ideal-beamforming-helper.h"
+#include "ns3/nr-bearer-stats-connector.h"
+#include "ns3/nr-mac-scheduling-stats.h"
+
+#include <ns3/eps-bearer.h>
 #include <ns3/net-device-container.h>
-#include <ns3/node.h>
 #include <ns3/node-container.h>
-#include <ns3/mobility-model.h>
-#include <ns3/spectrum-phy.h>
-#include <ns3/nr-ue-net-device.h>
-//#include <ns3/mc-ue-net-device.h>
-#include <ns3/nori-gnb-net-device.h>
-#include <ns3/nr-phy.h>
-#include <ns3/nr-ue-phy.h>
-#include <ns3/nr-gnb-phy.h>
-#include <ns3/nr-spectrum-value-helper.h>
-#include <ns3/nr-phy-mac-common.h>
-#include <ns3/nr-rrc-protocol-ideal.h>
-//#include "nr-phy-trace.h"
-//#include "nr-mac-trace.h"
-#include <ns3/epc-helper.h>
-#include <ns3/epc-ue-nas.h>
-#include <ns3/lte-enb-rrc.h>
-#include <ns3/lte-ue-rrc.h>
-#include <ns3/boolean.h>
-#include <ns3/epc-helper.h>
-#include <ns3/lte-ffr-algorithm.h>
-//#include <ns3/mmwave-bearer-stats-calculator.h>
-//#include <ns3/mc-stats-calculator.h>
-//#include <ns3/mmwave-bearer-stats-connector.h>
-#include <ns3/propagation-loss-model.h>
+#include <ns3/nr-control-messages.h>
+#include <ns3/nr-spectrum-phy.h>
+#include <ns3/object-factory.h>
+#include <ns3/three-gpp-propagation-loss-model.h>
+#include <ns3/three-gpp-spectrum-propagation-loss-model.h>
 
-#include <ns3/lte-enb-mac.h>
-#include <ns3/lte-enb-net-device.h>
-#include <ns3/lte-enb-phy.h>
-#include <ns3/ff-mac-scheduler.h>
-#include <ns3/lte-handover-algorithm.h>
-#include <ns3/epc-enb-s1-sap.h>
-#include <ns3/lte-anr.h>
-#include <ns3/lte-spectrum-value-helper.h>
-//#include <ns3/core-network-stats-calculator.h>
-//#include <ns3/mmwave-component-carrier-enb.h>
-
-
-namespace ns3 {
-
-class SpectrumChannel;
-class SpectrumpropagationLossModel;
-class PropagationLossModel;
-
-namespace mmwave {
-
-/* ... */
-class MmWaveUePhy;
-class MmWaveEnbPhy;
-class MmWaveSpectrumValueHelper;
-//class MmWave3gppChannel;
-
-class MmWaveHelper : public Object
+namespace ns3
 {
-public:
-  MmWaveHelper (void);
-  virtual ~MmWaveHelper (void);
 
-  static TypeId GetTypeId (void);
-  virtual void DoDispose (void);
+class NrUePhy;
+class NrGnbPhy;
+class SpectrumChannel;
+class NrSpectrumValueHelper;
+class NrGnbMac;
+class EpcHelper;
+class EpcTft;
+class NrBearerStatsCalculator;
+class NrMacRxTrace;
+class NrPhyRxTrace;
+class ComponentCarrierEnb;
+class ComponentCarrier;
+class NrMacScheduler;
+class NoriGnbNetDevice;
+class NrUeNetDevice;
+class NrUeMac;
+class BwpManagerGnb;
+class BwpManagerUe;
 
-  NetDeviceContainer InstallUeDevice (NodeContainer c);
-  NetDeviceContainer InstallMcUeDevice (NodeContainer c);
-  NetDeviceContainer InstallInterRatHoCapableUeDevice (NodeContainer c);
-  NetDeviceContainer InstallEnbDevice (NodeContainer c);
-  NetDeviceContainer InstallLteEnbDevice (NodeContainer c);
-  void SetChannelConditionModelType (std::string type);
-  void SetPathlossModelType (std::string type);
-  void SetChannelModelType (std::string type);
+/**
+ * \ingroup helper
+ * \brief Helper for a correct setup of every NR simulation
+ *
+ * This class will help you in setting up a single- or multi-cell scenario
+ * with NR. Most probably, you will interact with the NR module only through
+ * this class, so make sure everything that is written in the following is
+ * clear enough to start creating your own scenario.
+ *
+ * \section helper_pre Pre-requisite: Node creation and placement
+ *
+ * We assume that you read the ns-3 tutorials, and you're able to create
+ * your own node placement, as well as the mobility model that you prefer
+ * for your scenario. For simple cases, we provide a class that can help you
+ * in setting up a grid-like scenario. Please take a look at the
+ * GridScenarioHelper documentation in that case.
+ *
+ * \section helper_creating Creating the helper
+ *
+ * Usually, the helper is created on the heap, and have to live till the end
+ * of the simulation program:
+ *
+\verbatim
+  Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper> ();
+  Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
+  Ptr<NoriHelper> NoriHelper = CreateObject<NoriHelper> ();
 
-  /**
-   * Set an attribute to the SpectrumPropagationLossModels
-   * \param name name of the attribute to set
-   * \param value value to set
-   */
-  void SetChannelModelAttribute (std::string name, const AttributeValue &value);
+  NoriHelper->SetBeamformingHelper (idealBeamformingHelper);
+  NoriHelper->SetEpcHelper (epcHelper);
+\endverbatim
+ *
+ * As you can see, we have created two other object that can help this class:
+ * the IdealBeamformingHelper and the NrPointToPointEpcHelper. Please refer to
+ * the documentation of such classes if you need more information about them.
+ *
+ * \section helper_dividing Dividing the spectrum and creating the channels
+ *
+ * The spectrum management is delegated to the class CcBwpHelper. Please
+ * refer to its documentation to have more information. After having divided
+ * the spectrum in component carriers and bandwidth part, use the method
+ * InitializeOperationBand() to create the channels and other things that will
+ * be used by the channel modeling part.
+ *
+ * \section helper_configuring Configuring the cells
+ *
+ * After the spectrum part is ready, it is time to check how to configure the
+ * cells. The configuration is done in the most typical ns-3 way, through the
+ * Attributes. We assume that you already know what an attribute is; if not,
+ * please read the ns-3 documentation about objects and attributes.
+ *
+ *
+ * We have two different ways to configure the attributes of our objects
+ * (and, therefore, configure the cell). The first is before the object are
+ * created: as this class is responsible to create all the object that are needed
+ * in the module, we provide many methods (prefixed with "Set") that can
+ * store the attribute values for the objects, until they are created and then
+ * these values applied. For instance, we can set the antenna dimensions for
+ * all the UEs with:
+ *
+\verbatim
+  // Antennas for all the UEs
+  NoriHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (2));
+  NoriHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (4));
+\endverbatim
+ *
+ * These attributes will be stored, and then used inside the creation methods
+ * InstallGnbDevice() and InstallUeDevice(). In this case, the antenna dimensions
+ * will be taken inside the InstallUeDevice() method, and all the UEs created
+ * will have these dimensions.
+ *
+ * Of course, it is possible to divide the nodes, and install them separately
+ * with different attributes. For example:
+ *
+\verbatim
+  NodeContainer ueFirstSet;
+  NodeContainer ueSecondSet;
+  ...
+  NoriHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (2));
+  NoriHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (4));
+  ...
+  NetDeviceContainer ueFirstSetNetDevs = NoriHelper->InstallUeDevice (ueFirstSet, allBwps);
+  ...
+  // Then, prepare the second set:
+  NoriHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (4));
+  NoriHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (8));
+  ...
+  NetDeviceContainer ueSecondSetNetDevs = NoriHelper->InstallUeDevice (ueSecondSet, allBwps);
+  ...
+\endverbatim
+ *
+ * In this way, you can configure different sets of nodes with different properties.
+ *
+ * The second configuration option is setting the attributes after the object are
+ * created. Once you have a pointer to the object, you can use the Object::SetAttribute()
+ * method on it. To get the pointer, use one of the helper methods to retrieve
+ * a pointer to the PHY, MAC, or scheduler, given the index of the bandwidth part:
+ *
+\verbatim
+  ...
+  NetDeviceContainer enbNetDev = NoriHelper->InstallGnbDevice (gnbContainer, allBwps);
+  NoriHelper->GetGnbPhy (enbNetDev.Get (0), 0)->SetAttribute ("Numerology", UintegerValue (2));
+\endverbatim
+ *
+ * In the snippet, we are selecting the first gnb (`enbNetDev.Get (0)`) and
+ * then selecting the first BWP (`, 0`). We are using the method GetGnbPhy()
+ * to obtain the PHY pointer, and then setting the `Numerology` attribute
+ * on it. The list of attributes is present in the class description, as well
+ * as some reminder on how configure it through the helper.
+ *
+ * \section helper_installing Installing UEs and GNBs
+ *
+ * The installation part is done through two methods: InstallGnbDevice()
+ * and InstallUeDevice(). Pass to these methods the container of the nodes,
+ * plus the spectrum configuration that comes from CcBwpHelper.
+ *
+ * \section helper_finishing Finishing the configuration
+ *
+ * After you finish the configuration, please remember to call UpdateConfig()
+ * on all the NetDevices:
+ *
+\verbatim
+  for (auto it = enbNetDev.Begin (); it != enbNetDev.End (); ++it)
+    {
+      DynamicCast<NoriGnbNetdevice> (*it)->UpdateConfig ();
+    }
 
-  /**
-   * Set an attribute to the MmWaveEnbNetDevice
-   * \param name name of the attribute to set
-   * \param value value to set
-   */
-  void SetMmWaveEnbNetDeviceAttribute (std::string name, const AttributeValue &value);
-
-  /**
-   * Set an attribute to the MmWaveUeNetDevice
-   * \param name name of the attribute to set
-   * \param value value to set
-   */
-  void SetMmWaveUeNetDeviceAttribute (std::string name, const AttributeValue &value);
-
-  /**
-   * Set an attribute to the McUeNetDevice
-   * \param name name of the attribute to set
-   * \param value value to set
-   */
-  void SetMcUeNetDeviceAttribute (std::string name, const AttributeValue &value);
-
-  void SetLtePathlossModelType (std::string type);
-  
-  /**
-   * Set the type of beamforming model to be used
-   * \param type beamforming model type
-   */
-  void SetBeamformingModelType (std::string type);
-  
-  /**
-   * Set an attribute to the MmWaveBeamformingModel
-   * \param name name of the attribute to set
-   * \param value value to set
-   */
-  void SetBeamformingModelAttribute (std::string name, const AttributeValue &value);
-
-  /**
-   * This method is used to set the MmWaveComponentCarrier map.
-   * The structure will be used within InstallSingleEnbDevice,
-   * InstallSingleUeNetDevice and InstallSingleMcUeDevice.
-   *
-   * \param ccMapParams the component carrier map
-   */
-  void SetCcPhyParams ( std::map< uint8_t, MmWaveComponentCarrier> ccMapParams);
-
-  /**
-   * This method is used to get the MmWaveComponentCarrier map.
-   *
-   * \return ccmap the component carrier map
-   */
-  std::map< uint8_t, MmWaveComponentCarrier> GetCcPhyParams ();
-
-  /**
-   * This method is used to set the ComponentCarrier map.
-   * The structure will be used within InstallSingleLteEnbDevice,
-   * and InstallSingleMcUeDevice.
-   *
-   * \param ccMapParams the component carrier map
-   */
-  void SetLteCcPhyParams ( std::map< uint8_t, ComponentCarrier> ccMapParams);
-
-  /**
-   * Attach mmWave-only ueDevices to the closest enbDevice
-   */
-  void AttachToClosestEnb (NetDeviceContainer ueDevices, NetDeviceContainer enbDevices);
-  /**
-   * Attach MC ueDevices to the closest LTE enbDevice, register all MmWave eNBs to the MmWaveUePhy
-   */
-  void AttachToClosestEnb (NetDeviceContainer ueDevices, NetDeviceContainer mmWaveEnbDevices, NetDeviceContainer lteEnbDevices);
-
-  /**
-   * Attach to an eNB selecting which one with an index
-   * \param ueDevice the ueNetDevice
-   * \param enbDevices all the eNBs
-   * \param index an index to select the eNB (cellId - 1)
-   */
-  void AttachToEnbWithIndex (Ptr<NetDevice> ueDevice, NetDeviceContainer enbDevices, uint32_t index);
-  
-
-  /**
-   * Attach MC ueDevices to the closest MmWave eNB device, register all MmWave eNBs to the MmWaveUePhy,
-   * store all cellId in each LteUeRrc layer.
-   * This must be used when attaching InterRatHandover capable devices
-   * \param ueDevices the ueNetDevice
-   * \param mmWaveEnbDevices all the mmwave eNBs
-   * \param lteEnbDevices all the lte eNBs
-   */
-  void AttachIrToClosestEnb (NetDeviceContainer ueDevices, NetDeviceContainer mmWaveEnbDevices, NetDeviceContainer lteEnbDevices);
-
-
-  void EnableTraces ();
-
-  void SetSchedulerType (std::string type);
-  std::string GetSchedulerType () const;
-
-  void SetLteSchedulerType (std::string type);
-  std::string GetLteSchedulerType () const;
-
-  void ActivateDataRadioBearer (NetDeviceContainer ueDevices, EpsBearer bearer);
-  void ActivateDataRadioBearer (Ptr<NetDevice> ueDevice, EpsBearer bearer);
-  void SetEpcHelper (Ptr<EpcHelper> epcHelper);
-
-  void SetHarqEnabled (bool harqEnabled);
-  bool GetHarqEnabled ();
-  void SetSnrTest (bool snrTest);
-  bool GetSnrTest ();
-  Ptr<PropagationLossModel> GetPathLossModel (uint8_t index);
-
-  /**
-  * Set the type of FFR algorithm to be used by LTE eNodeB devices.
-  *
-  * \param type type of FFR algorithm, must be a type name of any class
-  *             inheriting from ns3::LteFfrAlgorithm, for example:
-  *             "ns3::LteFrNoOpAlgorithm"
-  *
-  * Equivalent with setting the `FfrAlgorithm` attribute.
-  */
-  void SetLteFfrAlgorithmType (std::string type);
-
-  /**
-  *
-  * \return the LTE FFR algorithm type
-  */
-  std::string GetLteFfrAlgorithmType () const;
-
-  /**
-  * Set the type of handover algorithm to be used by LTE eNodeB devices.
-  *
-  * \param type type of handover algorithm, must be a type name of any class
-  *             inheriting from ns3::LteHandoverAlgorithm, for example:
-  *             "ns3::NoOpHandoverAlgorithm"
-  *
-  * Equivalent with setting the `HandoverAlgorithm` attribute.
-  */
-  void SetLteHandoverAlgorithmType (std::string type);
-
-  /**
-  *
-  * \return the LTE handover algorithm type
-  */
-  std::string GetLteHandoverAlgorithmType () const;
-
-  void AddX2Interface (NodeContainer enbNodes);
-  void AddX2Interface (NodeContainer lteEnbNodes, NodeContainer mmWaveEnbNodes);
-  void AddX2Interface (Ptr<Node> enbNode1, Ptr<Node> enbNode2);
-
-  /**
-* Set the type of carrier component algorithm to be used by gNodeB devices.
-*
-* \param type type of carrier component manager
-*
-*/
-  void SetEnbComponentCarrierManagerType (std::string type);
-
-  /**
-   *
-   * \return the carrier gnb component carrier manager type
-   */
-  std::string GetEnbComponentCarrierManagerType () const;
-
-  /**
-* Set the type of carrier component algorithm to be used by eNodeB devices.
-*
-* \param type type of carrier component manager
-*
-*/
-  void SetLteEnbComponentCarrierManagerType (std::string type);
-
-  /**
-   *
-   * \return the carrier enb component carrier manager type
-   */
-  std::string GetLteEnbComponentCarrierManagerType () const;
-
-  /**
-* Set the type of Component Carrier Manager to be used by Ue devices.
-*
-* \param type type of UE Component Carrier Manager
-*
-*/
-  void SetUeComponentCarrierManagerType (std::string type);
-
-  /**
-   *
-   * \return the carrier ue component carrier manager type
-   */
-  std::string GetUeComponentCarrierManagerType () const;
-
-  /**
-   * Set the blockage attribute of each channel if MmWave3gppChannel is used.
-   *
-   * \param blockageMap (CC ID, blockage attribute value)
-   */
-  void SetBlockageMap (std::map<uint8_t, bool> blockageMap);
-
-  void EnablePdcpTraces (void);
-  void EnableMcTraces (void);
-  void EnableRlcTraces (void);
-  void EnableDlPhyTrace ();
-  void EnableUlPhyTrace ();
-  void EnableEnbSchedTrace ();
-
-  void EnableE2PdcpTraces (void);
-  Ptr<MmWaveBearerStatsCalculator> GetE2PdcpStats (void);
-  void EnableE2RlcTraces (void);
-  Ptr<MmWaveBearerStatsCalculator> GetE2RlcStats (void);
-
-  void SetBasicCellId (uint16_t basicCellId);
-  uint16_t GetBasicCellId () const;
-  
-protected:
-  virtual void DoInitialize ();
-
-private:
-  void MmWaveChannelModelInitialization ();
-  void LteChannelModelInitialization ();
-
-  Ptr<NetDevice> InstallSingleUeDevice (Ptr<Node> n);
-  Ptr<NetDevice> InstallSingleMcUeDevice (Ptr<Node> n);
-  Ptr<NetDevice> InstallSingleEnbDevice (Ptr<Node> n);
-  Ptr<NetDevice> InstallSingleLteEnbDevice (Ptr<Node> n);
-  Ptr<NetDevice> InstallSingleInterRatHoCapableUeDevice (Ptr<Node> n);
-
-  void AttachToClosestEnb (Ptr<NetDevice> ueDevice, NetDeviceContainer enbDevices);
-  void AttachMcToClosestEnb (Ptr<NetDevice> ueDevice, NetDeviceContainer mmWaveEnbDevices, NetDeviceContainer lteEnbDevices);
-  void AttachIrToClosestEnb (Ptr<NetDevice> ueDevice, NetDeviceContainer mmWaveEnbDevices, NetDeviceContainer lteEnbDevices);
-
-  //void EnableDlPhyTrace ();
-  //void EnableUlPhyTrace ();
-  void EnableEnbPacketCountTrace ();
-  void EnableUePacketCountTrace ();
-  void EnableTransportBlockTrace ();
-  //void EnableRlcTraces (void);
-  Ptr<MmWaveBearerStatsCalculator> GetRlcStats (void);
-  //void EnablePdcpTraces (void);
-  Ptr<MmWaveBearerStatsCalculator> GetPdcpStats (void);
-  //void EnableMcTraces (void);
-  Ptr<McStatsCalculator> GetMcStats (void);
-  
-  uint64_t GetStartTime (void);
-
-  std::map< uint8_t, Ptr<SpectrumChannel> > m_channel;       // mmWave TDD channel
-  Ptr<SpectrumChannel> m_downlinkChannel;       /// The downlink LTE channel used in the simulation.
-  Ptr<SpectrumChannel> m_uplinkChannel;         /// The uplink LTE channel used in the simulation.
-
-  std::string m_channelConditionModelType; //!< the type of the channel condition model to be used (empty string means no channel condition model)
-
-  std::map< uint8_t, Ptr<Object> > m_pathlossModel;
-  std::string m_pathlossModelType;
-  Ptr<Object> m_downlinkPathlossModel;       /// The path loss model used in the LTE downlink channel.
-  Ptr<Object> m_uplinkPathlossModel;         /// The path loss model used in the LTE uplink channel.
-
-
-  std::string m_spectrumPropagationLossModelType; //!< the type of the SpectrumPropagationLossModel to use (if needed)
-
-  ObjectFactory m_enbNetDeviceFactory;
-  ObjectFactory m_lteEnbNetDeviceFactory;
-  ObjectFactory m_ueNetDeviceFactory;
-  ObjectFactory m_mcUeNetDeviceFactory;
-  ObjectFactory m_channelFactory;               // TODO check if one factory for the channel is enough
-  ObjectFactory m_channelConditionModelFactory; //!< the factory for the ChannelConditionModel objects
-  ObjectFactory m_pathlossModelFactory;         // Each channel (mmWave, LteUl & LteDl) may have a different pathloss with diff attributes
-  ObjectFactory m_spectrumPropagationLossModelFactory; //!< the factory for the SpectrumPropagationLossModel objects
-  ObjectFactory m_schedulerFactory;
-  ObjectFactory m_lteSchedulerFactory;       // Factory for LTE scheduler
-  ObjectFactory m_ffrAlgorithmFactory;
-  ObjectFactory m_lteFfrAlgorithmFactory;
-  ObjectFactory m_lteHandoverAlgorithmFactory;
-
-  ObjectFactory m_lteChannelFactory;            /// Factory of both the downlink and uplink LTE channels.
-  ObjectFactory m_dlPathlossModelFactory;               /// Factory of path loss model object for the downlink channel.
-  ObjectFactory m_ulPathlossModelFactory;               /// Factory of path loss model object for the uplink channel.
-
-  ObjectFactory m_enbComponentCarrierManagerFactory;            /// Factory of enb component carrier manager object.
-  ObjectFactory m_ueComponentCarrierManagerFactory;         /// Factory of ue component carrier manager object.
-
-  ObjectFactory m_lteEnbComponentCarrierManagerFactory;         /// Factory of enb component carrier manager object.
-
-  uint64_t m_imsiCounter;
-  uint16_t m_cellIdCounter;
-  uint16_t m_basicCellId;
-
-  Ptr<MmWavePhyTrace> m_phyStats;
-  Ptr<MmWaveMacTrace> m_enbStats;
-
-  ObjectFactory m_lteUeAntennaModelFactory;             /// Factory of antenna object for Lte UE.
-  ObjectFactory m_lteEnbAntennaModelFactory;       /// Factory of antenna objects for Lte eNB.
-
-  ObjectFactory m_bfModelFactory; //!< Factory for the beamforming model 
-  /**
-  * From lte-helper.h
-  * The `UsePdschForCqiGeneration` attribute. If true, DL-CQI will be
-  * calculated from PDCCH as signal and PDSCH as interference. If false,
-  * DL-CQI will be calculated from PDCCH as signal and PDCCH as interference.
-  */
-  bool m_usePdschForCqiGeneration;
-  bool m_isAnrEnabled;
-
-  Ptr<EpcHelper> m_epcHelper;
-
-  bool m_harqEnabled;
-  bool m_rlcAmEnabled;
-  bool m_snrTest;
-  bool m_useIdealRrc;       // Initialized as true in the constructor
-
-  Ptr<MmWaveBearerStatsCalculator> m_rlcStats;
-  Ptr<MmWaveBearerStatsCalculator> m_pdcpStats;
-  Ptr<MmWaveBearerStatsCalculator> m_e2PdcpStats;
-  Ptr<MmWaveBearerStatsCalculator> m_e2PdcpStatsLte;
-  Ptr<MmWaveBearerStatsCalculator> m_e2RlcStats;
-  Ptr<MmWaveBearerStatsCalculator> m_e2RlcStatsLte;
-  Ptr<McStatsCalculator> m_mcStats;
-  Ptr<MmWaveBearerStatsConnector> m_radioBearerStatsConnector;
-  Ptr<CoreNetworkStatsCalculator> m_cnStats;
-
-  /**
-* The `LteUseCa` attribute. If true, Carrier Aggregation is enabled in the
-   * LTE stack.
-*/
-  bool m_lteUseCa;
+  for (auto it = ueNetDev.Begin (); it != ueNetDev.End (); ++it)
+    {
+      DynamicCast<NrUeNetDevice> (*it)->UpdateConfig ();
+    }
+\endverbatim
+ *
+ * The call to UpdateConfig() will finish the configuration, and update the
+ * RRC layer.
+ *
+ * \section helper_bearers Dedicated bearers
+ *
+ * We have methods to open dedicated UE bearers: ActivateDedicatedEpsBearer()
+ * and DeActivateDedicatedEpsBearer(). Please take a look at their documentation
+ * for more information.
+ *
+ * \section helper_attachment Attachment of UEs to GNBs
+ *
+ * We provide two methods to attach a set of UE to a GNB: AttachToClosestEnb()
+ * and AttachToEnb(). Through these function, you will manually attach one or
+ * more UEs to a specified GNB.
+ *
+ * \section helper_Traces Traces
+ *
+ * We provide a method that enables the generation of files that include among
+ * others information related to the received packets at the gNB and UE side,
+ * the control messages transmitted and received from/at the gNB and UE side,
+ * the SINR, as well as RLC and PDCP statistics such as the packet size.
+ * Please refer to their documentation for more information.
+ * Enabling the traces is done by simply adding the method enableTraces() in the
+ * scenario.
+ *
+ */
+class NoriHelper : public Object
+{
+  public:
+    /**
+     * \brief NoriHelper constructor
+     */
+    NoriHelper();
+    /**
+     * \brief ~NoriHelper
+     */
+    ~NoriHelper() override;
 
     /**
-* The `E2Mode` attribute. If true, enable E2 interface
-*/
-  bool m_e2mode_nr;
-  bool m_e2mode_lte;
-  std::string m_e2ip;
-  uint16_t m_e2port;
-  uint16_t m_e2localPort;
+     * \brief GetTypeId
+     * \return the type id of the object
+     */
+    static TypeId GetTypeId();
 
-  /**
-* The `UseCa` attribute. If true, Carrier Aggregation is enabled in the MmWave
-   * stack.
-*/
-  bool m_useCa;
+    /**
+     * \brief Install one (or more) UEs
+     * \param c Node container with the UEs
+     * \param allBwps The spectrum configuration that comes from CcBwpHelper
+     * \return a NetDeviceContainer with the net devices that have been installed.
+     *
+     */
+    NetDeviceContainer InstallUeDevice(
+        const NodeContainer& c,
+        const std::vector<std::reference_wrapper<BandwidthPartInfoPtr>>& allBwps);
+    /**
+     * \brief Install one (or more) GNBs
+     * \param c Node container with the GNB
+     * \param allBwps The spectrum configuration that comes from CcBwpHelper
+     * \return a NetDeviceContainer with the net devices that have been installed.
+     */
+    NetDeviceContainer InstallGnbDevice(
+        const NodeContainer& c,
+        const std::vector<std::reference_wrapper<BandwidthPartInfoPtr>> allBwps);
 
-  /**
-* This contains all the informations about each LTE component carrier
-*/
-  std::map< uint8_t, ComponentCarrier > m_lteComponentCarrierPhyParams;
+    /**
+     * \brief Get the number of configured BWP for a specific GNB NetDevice
+     * \param gnbDevice The GNB NetDevice, obtained from InstallGnbDevice()
+     * \return the number of BWP installed, or 0 if there are errors
+     */
+    static uint32_t GetNumberBwp(const Ptr<const NetDevice>& gnbDevice);
+    /**
+     * \brief Get a pointer to the PHY of the GNB at the specified BWP
+     * \param gnbDevice The GNB NetDevice, obtained from InstallGnbDevice()
+     * \param bwpIndex The index of the BWP required
+     * \return A pointer to the PHY layer of the GNB, or nullptr if there are errors
+     */
+    static Ptr<NrGnbPhy> GetGnbPhy(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex);
+    /**
+     * \brief Get a pointer to the MAC of the GNB at the specified BWP
+     * \param gnbDevice The GNB NetDevice, obtained from InstallGnbDevice()
+     * \param bwpIndex The index of the BWP required
+     * \return A pointer to the MAC layer of the GNB, or nullptr if there are errors
+     */
+    static Ptr<NrGnbMac> GetGnbMac(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex);
+    /**
+     * \brief Get a pointer to the MAC of the UE at the specified BWP
+     * \param ueDevice The UE NetDevice, obtained from InstallUeDevice()
+     * \param bwpIndex The index of the BWP required
+     * \return A pointer to the MAC layer of the UE, or nullptr if there are errors
+     */
+    static Ptr<NrUeMac> GetUeMac(const Ptr<NetDevice>& ueDevice, uint32_t bwpIndex);
+    /**
+     * \brief Get a pointer to the PHY of the UE at the specified BWP
+     * \param ueDevice The UE NetDevice, obtained from InstallUeDevice()
+     * \param bwpIndex The index of the BWP required
+     * \return A pointer to the PHY layer of the UE, or nullptr if there are errors
+     */
+    static Ptr<NrUePhy> GetUePhy(const Ptr<NetDevice>& ueDevice, uint32_t bwpIndex);
+    /**
+     * \brief Get the BwpManager of the GNB
+     * \param gnbDevice the GNB NetDevice, obtained from InstallGnbDevice()
+     * \return A pointer to the BwpManager of the GNB, or nullptr if there are errors
+     */
+    static Ptr<BwpManagerGnb> GetBwpManagerGnb(const Ptr<NetDevice>& gnbDevice);
+    /**
+     * \brief Get the BwpManager of the UE
+     * \param ueDevice the UE NetDevice, obtained from InstallGnbDevice()
+     * \return A pointer to the BwpManager of the UE, or nullptr if there are errors
+     */
+    static Ptr<BwpManagerUe> GetBwpManagerUe(const Ptr<NetDevice>& ueDevice);
+    /**
+     * \brief Get the Scheduler from the GNB specified
+     * \param gnbDevice The GNB NetDevice, obtained from InstallGnbDevice()
+     * \param bwpIndex The index of the BWP required
+     * \return A pointer to the scheduler, or nullptr if there are errors
+     */
+    static Ptr<NrMacScheduler> GetScheduler(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex);
 
-  /**
-* This contains all the informations about each mmWave component carrier
-*/
-  std::map< uint8_t, MmWaveComponentCarrier > m_componentCarrierPhyParams;
+    /**
+     * \brief Attach the UE specified to the closest GNB
+     * \param ueDevices UE devices to attach
+     * \param enbDevices GNB devices from which the algorithm has to select the closest
+     */
+    void AttachToClosestEnb(NetDeviceContainer ueDevices, NetDeviceContainer enbDevices);
+    /**
+     * \brief Attach a UE to a particular GNB
+     * \param ueDevice the UE device
+     * \param gnbDevice the GNB device to which attach the UE
+     */
+    void AttachToEnb(const Ptr<NetDevice>& ueDevice, const Ptr<NetDevice>& gnbDevice);
 
-  /**
-   * Number of LTE component carriers that will be installed by default at LTE
-         * eNodeB and MC-UE devices.
-   */
-  uint16_t m_noOfLteCcs;
+    /**
+     * \brief Enables the following traces:
+     * Transmitted/Received Control Messages
+     * DL/UL Phy Traces
+     * RLC traces
+     * PDCP traces
+     *
+     */
+    void EnableTraces();
 
-  /**
-* Number of component carriers that will be installed by default at gNodeB
-   * and UE devices.
-*/
-  uint16_t m_noOfCcs;
-  
-  uint64_t m_startTime; //!< starting time of the MmWaveHelper life in epoch format
+    /**
+     * \brief Activate a Data Radio Bearer on a given UE devices
+     *
+     * \param ueDevices the set of UE devices
+     * \param bearer the characteristics of the bearer to be activated
+     */
+    void ActivateDataRadioBearer(NetDeviceContainer ueDevices, EpsBearer bearer);
+    /**
+     * \brief Activate a Data Radio Bearer on a UE device.
+     *
+     * This method will schedule the actual activation
+     * the bearer so that it happens after the UE got connected.
+     *
+     * \param ueDevice the UE device
+     * \param bearer the characteristics of the bearer to be activated
+     */
+    void ActivateDataRadioBearer(Ptr<NetDevice> ueDevice, EpsBearer bearer);
+    /**
+     * Set the EpcHelper to be used to setup the EPC network in
+     * conjunction with the setup of the LTE radio access network.
+     *
+     * \note if no EpcHelper is ever set, then LteHelper will default
+     * to creating a simulation with no EPC, using LteRlcSm as
+     * the RLC model, and without supporting any IP networking. In other
+     * words, it will be a radio-level simulation involving only LTE PHY
+     * and MAC and the Scheduler, with a saturation traffic model for
+     * the RLC.
+     *
+     * \param epcHelper a pointer to the EpcHelper to be used
+     */
+    void SetEpcHelper(Ptr<EpcHelper> epcHelper);
 
+    /**
+     * \brief Set an ideal beamforming helper
+     * \param beamformingHelper a pointer to the beamforming helper
+     *
+     */
+    void SetBeamformingHelper(Ptr<BeamformingHelperBase> beamformingHelper);
+
+    /**
+     * \brief SetHarqEnabled
+     * \param harqEnabled
+     *
+     * We never really tested this function, so please be careful when using it.
+     */
+    void SetHarqEnabled(bool harqEnabled);
+    /**
+     * \brief GetHarqEnabled
+     * \return the value of HarqEnabled variable
+     */
+    bool GetHarqEnabled() const;
+    /**
+     * \brief SetSnrTest
+     * \param snrTest
+     *
+     * We never really tested this function, so please be careful when using it.
+     */
+    void SetSnrTest(bool snrTest);
+    /**
+     * \brief GetSnrTest
+     * \return the value of SnrTest variable
+     */
+    bool GetSnrTest() const;
+
+    /**
+     * \brief Flags for OperationBand initialization.
+     */
+    enum OperationBandFlags : uint8_t
+    {
+        INIT_PROPAGATION = 0x01, //!< Initialize the propagation loss model
+        INIT_FADING = 0x02,      //!< Initialize the fading model
+        INIT_CHANNEL = 0x04      //!< Initialize the channel model
+    };
+
+    /**
+     * \brief Initialize the bandwidth parts by creating and configuring the channel
+     * models, if they are not already initialized.
+     *
+     * If the models are already set (i.e., the pointers are not null) the helper
+     * will not touch anything.
+     *
+     * \param band the band representation
+     * \param flags the flags for the initialization. Default to initialize everything
+     */
+    void InitializeOperationBand(OperationBandInfo* band,
+                                 uint8_t flags = INIT_PROPAGATION | INIT_FADING | INIT_CHANNEL);
+
+    /**
+     * Activate a dedicated EPS bearer on a given set of UE devices.
+     *
+     * \param ueDevices the set of UE devices
+     * \param bearer the characteristics of the bearer to be activated
+     * \param tft the Traffic Flow Template that identifies the traffic to go on this bearer
+     * \returns bearer ID
+     */
+    uint8_t ActivateDedicatedEpsBearer(NetDeviceContainer ueDevices,
+                                       EpsBearer bearer,
+                                       Ptr<EpcTft> tft);
+
+    /**
+     * Activate a dedicated EPS bearer on a given UE device.
+     *
+     * \param ueDevice the UE device
+     * \param bearer the characteristics of the bearer to be activated
+     * \param tft the Traffic Flow Template that identifies the traffic to go on this bearer.
+     * \returns bearer ID
+     */
+    uint8_t ActivateDedicatedEpsBearer(Ptr<NetDevice> ueDevice, EpsBearer bearer, Ptr<EpcTft> tft);
+
+    /**
+     *  \brief Manually trigger dedicated bearer de-activation at specific simulation time
+     *  \param ueDevice the UE on which dedicated bearer to be de-activated must be of the type
+     * LteUeNetDevice \param enbDevice eNB, must be of the type LteEnbNetDevice \param bearerId
+     * Bearer Identity which is to be de-activated
+     *
+     *  \warning Requires the use of EPC mode. See SetEpcHelper() method.
+     */
+
+    void DeActivateDedicatedEpsBearer(Ptr<NetDevice> ueDevice,
+                                      Ptr<NetDevice> enbDevice,
+                                      uint8_t bearerId);
+
+    /**
+     * \brief Set an attribute for the UE MAC, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     * \see NrUeMac
+     */
+    void SetUeMacAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the GNB MAC, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     * \see NrGnbMac
+     */
+    void SetGnbMacAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the GNB spectrum, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     * \see NrSpectrumPhy
+     */
+    void SetGnbSpectrumAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the UE spectrum, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     * \see NrSpectrumPhy
+     */
+    void SetUeSpectrumAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the UE channel access manager, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     *
+     * \see NrChAccessManager
+     */
+    void SetUeChannelAccessManagerAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the GNB channel access manager, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     *
+     * \see NrChAccessManager
+     */
+    void SetGnbChannelAccessManagerAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the scheduler, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     * \see NrMacSchedulerNs3
+     */
+    void SetSchedulerAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the UE PHY, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     *
+     * \see NrUePhy
+     */
+    void SetUePhyAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the GNB PHY, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     *
+     * \see NrGnbPhy
+     */
+    void SetGnbPhyAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the UE antenna, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     *
+     * \see UniformPlanarArray (in ns-3 documentation)
+     */
+    void SetUeAntennaAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the GNB antenna, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     *
+     * \see UniformPlanarArray (in ns-3 documentation)
+     */
+    void SetGnbAntennaAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set the TypeId of the UE Channel Access Manager. Works only before it is created.
+     *
+     * \param typeId the type of the object
+     *
+     * \see NrChAccessManager
+     * \see NrAlwaysOnAccessManager
+     */
+    void SetUeChannelAccessManagerTypeId(const TypeId& typeId);
+
+    /**
+     * \brief Set the TypeId of the GNB Channel Access Manager. Works only before it is created.
+     *
+     * \param typeId the type of the object
+     *
+     * \see NrChAccessManager
+     * \see NrAlwaysOnAccessManager
+     */
+    void SetGnbChannelAccessManagerTypeId(const TypeId& typeId);
+
+    /**
+     * \brief Set the Scheduler TypeId. Works only before it is created.
+     * \param typeId The scheduler type
+     *
+     * \see NrMacSchedulerOfdmaPF
+     * \see NrMacSchedulerOfdmaRR
+     * \see NrMacSchedulerOfdmaMR
+     * \see NrMacSchedulerTdmaPF
+     * \see NrMacSchedulerTdmaRR
+     * \see NrMacSchedulerTdmaMR
+     */
+    void SetSchedulerTypeId(const TypeId& typeId);
+
+    /**
+     * \brief Set the TypeId of the GNB BWP Manager. Works only before it is created.
+     * \param typeId Type of the object
+     *
+     * \see BwpManagerAlgorithm
+     */
+    void SetGnbBwpManagerAlgorithmTypeId(const TypeId& typeId);
+
+    /**
+     * \brief Set an attribute for the GNB BWP Manager, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     */
+    void SetGnbBwpManagerAlgorithmAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set the TypeId of the UE BWP Manager. Works only before it is created.
+     * \param typeId Type of the object
+     *
+     * \see BwpManagerAlgorithm
+     */
+    void SetUeBwpManagerAlgorithmTypeId(const TypeId& typeId);
+
+    /*
+     * \brief Sets the TypeId of the PhasedArraySpectrumPropagationLossModel to be used
+     * \param typeId Type of the object
+     */
+    void SetPhasedArraySpectrumPropagationLossModelTypeId(const TypeId& typeId);
+
+    /**
+     * \brief Set an attribute for the GNB BWP Manager, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     */
+    void SetUeBwpManagerAlgorithmAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set an attribute for the PhasedArraySpectrumPropagationLossModel before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     */
+    void SetPhasedArraySpectrumPropagationLossModelAttribute(const std::string& n,
+                                                             const AttributeValue& v);
+
+    /**
+     * Set an attribute for the Channel Condition model, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     */
+    void SetChannelConditionModelAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * Set an attribute for the pathloss model, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     */
+    void SetPathlossAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * Set an attribute for the GNB DL AMC, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     *
+     * \see NrAmc
+     */
+    void SetGnbDlAmcAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * Set an attribute for the GNB UL AMC, before it is created.
+     *
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     *
+     * \see NrAmc
+     */
+    void SetGnbUlAmcAttribute(const std::string& n, const AttributeValue& v);
+
+    /*
+     * \brief Sets beam managers attribute.
+     * \param n the name of the attribute
+     * \param v the value of the attribute
+     */
+    void SetGnbBeamManagerAttribute(const std::string& n, const AttributeValue& v);
+
+    /**
+     * \brief Set the TypeId of the beam manager
+     * \param typeId the type of the object
+     *
+     */
+    void SetGnbBeamManagerTypeId(const TypeId& typeId);
+
+    /**
+     * \brief Set the ErrorModel for UL AMC and UE spectrum at the same time
+     * \param errorModelTypeId The TypeId of the error model
+     *
+     * Equivalent to the calls to
+     *
+     * * SetGnbUlAmcAttribute ("ErrorModelType", ....
+     * * SetGnbSpectrumAttribute ("ErrorModelType", ...
+     *
+     * \see NrErrorModel
+     * \see NrEesmIrT2
+     * \see NrEesmIrT1
+     * \see NrEesmCcT1
+     * \see NrEesmCcT2
+     * \see NrLteMiErrorModel
+     *
+     */
+    void SetUlErrorModel(const std::string& errorModelTypeId);
+
+    /**
+     * \brief Set the ErrorModel for DL AMC and GNB spectrum at the same time
+     * \param errorModelTypeId The TypeId of the error model
+     *
+     * Equivalent to the calls to
+     *
+     * * SetGnbDlAmcAttribute ("ErrorModelType", ....
+     * * SetUeSpectrumAttribute ("ErrorModelType", ...
+     *
+     * \see NrErrorModel
+     * \see NrEesmIrT2
+     * \see NrEesmIrT1
+     * \see NrEesmCcT1
+     * \see NrEesmCcT2
+     * \see NrLteMiErrorModel
+     */
+    void SetDlErrorModel(const std::string& errorModelTypeId);
+
+    /**
+     * \brief Enable DL DATA PHY traces
+     */
+    void EnableDlDataPhyTraces();
+
+    /**
+     * \brief Enable DL CTRL PHY traces
+     */
+    void EnableDlCtrlPhyTraces();
+
+    /**
+     * \brief Enable UL PHY traces
+     */
+    void EnableUlPhyTraces();
+
+    /**
+     * \brief Get the phy traces object
+     *
+     * \return The NrPhyRxTrace object to write PHY traces
+     */
+    Ptr<NrPhyRxTrace> GetPhyRxTrace();
+
+    /**
+     * \brief Enable gNB packet count trace
+     */
+    void EnableGnbPacketCountTrace();
+
+    /**
+     * \brief Enable UE packet count trace
+     *
+     */
+    void EnableUePacketCountTrace();
+
+    /**
+     * \brief Enable transport block trace
+     *
+     * At the time of writing this documentation
+     * this method only connect the ReportDownlinkTbSize
+     * of NrUePhy.
+     */
+    void EnableTransportBlockTrace();
+
+    /**
+     * \brief Enable gNB PHY CTRL TX and RX traces
+     */
+    void EnableGnbPhyCtrlMsgsTraces();
+
+    /**
+     * \brief Enable UE PHY CTRL TX and RX traces
+     */
+    void EnableUePhyCtrlMsgsTraces();
+
+    /**
+     * \brief Enable gNB MAC CTRL TX and RX traces
+     */
+    void EnableGnbMacCtrlMsgsTraces();
+
+    /**
+     * \brief Enable UE MAC CTRL TX and RX traces
+     */
+    void EnableUeMacCtrlMsgsTraces();
+
+    /**
+     * \brief Get the RLC stats calculator object
+     *
+     * \return The NrBearerStatsCalculator stats calculator object to write RLC traces
+     */
+    Ptr<NrBearerStatsCalculator> GetRlcStatsCalculator();
+
+    /**
+     * \brief Enable RLC simple traces (DL RLC TX, DL RLC RX, UL DL TX, UL DL RX)
+     */
+    void EnableRlcSimpleTraces();
+
+    /**
+     * \brief Enable PDCP traces (DL PDCP TX, DL PDCP RX, UL PDCP TX, UL PDCP RX)
+     */
+    void EnablePdcpSimpleTraces();
+
+    /**
+     * \brief Enable RLC calculator and end-to-end RCL traces to file
+     */
+    void EnableRlcE2eTraces();
+
+    /**
+     * \brief Enable PDCP calculator and end-to-end PDCP traces to file
+     */
+    void EnablePdcpE2eTraces();
+
+    /**
+     * \brief Get the PDCP stats calculator object
+     *
+     * \return The NrBearerStatsCalculator stats calculator object to write PDCP traces
+     */
+    Ptr<NrBearerStatsCalculator> GetPdcpStatsCalculator();
+
+    /**
+     * Enable trace sinks for DL MAC layer scheduling.
+     */
+    void EnableDlMacSchedTraces();
+
+    /**
+     * Enable trace sinks for UL MAC layer scheduling.
+     */
+    void EnableUlMacSchedTraces();
+
+    /**
+     * \brief Enable trace sinks for DL and UL pathloss
+     */
+    void EnablePathlossTraces();
+
+    /*
+     * \brief Enable DL CTRL pathloss trace from a serving cell (this trace connects
+     * to NrSpectrumPhy trace, which is implementation wise different from
+     * EnablePathlossTrace function which is implemented in by using
+     * MultiModelSpectrumChannel trace and which
+     * generates pathloss traces for both DL and UL
+     */
+    void EnableDlCtrlPathlossTraces(NetDeviceContainer& netDeviceContainer);
+
+    /*
+     * \brief Enable DL CTRL pathloss trace from a serving cell (this trace connects
+     * to NrSpectrumPhy trace, which is implementation wise different from
+     * EnablePathlossTrace function which is implemented in by using
+     * MultiModelSpectrumChannel trace and which generates pathloss traces for
+     * both DL and UL)
+     */
+    void EnableDlDataPathlossTraces(NetDeviceContainer& netDeviceContainer);
+
+    /**
+     * Assign a fixed random variable stream number to the random variables used.
+     *
+     * The InstallGnbDevice() or InstallUeDevice method should have previously
+     * been called by the user on the given devices.
+     *
+     *
+     * \param c NetDeviceContainer of the set of net devices for which the
+     *          LteNetDevice should be modified to use a fixed stream
+     * \param stream first stream index to use
+     * \return the number of stream indices (possibly zero) that have been assigned
+     */
+    int64_t AssignStreams(NetDeviceContainer c, int64_t stream);
+
+    /// \brief parameters of the gNB or UE antenna arrays
+    struct AntennaParams
+    {
+        std::string antennaElem{"ns3::IsotropicAntennaModel"}; ///< Antenna type
+        size_t nAntCols{1};          ///< Number of antenna element columns (horizontal width)
+        size_t nAntRows{1};          ///< Number of antenna element rows (vertical height)
+        bool isDualPolarized{false}; ///< true if antennas are cross-polarized (dual-polarized)
+        size_t nHorizPorts{1};       ///< Number of antenna ports in horizontal direction
+        size_t nVertPorts{1};        ///< Number of antenna ports in vertical direction
+        double bearingAngle{0.0};    ///< Bearing angle in radians
+        double polSlantAngle{0.0};   ///< Polarization slant angle in radians
+    };
+
+    /// \brief parameters for the search of optimal rank and precoding matrix indicator (RI, PMI)
+    struct MimoPmiParams
+    {
+        std::string pmSearchMethod{"ns3::NrPmSearchFull"}; ///< Precoding matrix search algorithm
+        std::string fullSearchCb{"ns3::NrCbTwoPort"}; ///< Codebook when using full-search algorithm
+        uint8_t rankLimit{UINT8_MAX}; ///< Limit maximum MIMO rank to model limited UE capabilities.
+    };
+
+    /// \brief Set TypeId of the precoding matrix search algorithm
+    /// \param typeId Class TypeId
+    void SetPmSearchTypeId(const TypeId& typeId);
+
+    /// \brief Set attribute of the precoding matrix search algorithm
+    /// \param name attribute to set
+    /// \param value value of the attribute
+    void SetPmSearchAttribute(const std::string& name, const AttributeValue& value);
+
+    /// \brief Set parameters for gNB and UE antenna arrays
+    /// \param ap the struct with antenna parameters
+    void SetupGnbAntennas(const AntennaParams& ap);
+
+    /// \brief Set parameters for gNB and UE antenna arrays
+    /// \param ap the struct with antenna parameters
+    void SetupUeAntennas(const AntennaParams& ap);
+
+    /// \brief Set parameters for PMI search in MIMO operation
+    /// \param mp the struct with MIMO PMI parameters
+    void SetupMimoPmi(const MimoPmiParams& mp);
+
+  private:
+    bool m_enableMimoFeedback{false}; ///< Let UE compute MIMO feedback with PMI and RI
+    ObjectFactory m_pmSearchFactory;  ///< Factory for precoding matrix search algorithm
+
+    /**
+     * Assign a fixed random variable stream number to the channel and propagation
+     * objects. This function will save the objects to which it has assigned stream
+     * to not overwrite assignment, because these objects are shared by gNB and UE
+     * devices.
+     *
+     * The InstallGnbDevice() or InstallUeDevice method should have previously
+     * been called by the user on the given devices.
+     *
+     *
+     * \param c NetDeviceContainer of the set of net devices for which the
+     *          LteNetDevice should be modified to use a fixed stream
+     * \param stream first stream index to use
+     * \return the number of stream indices (possibly zero) that have been assigned
+     */
+    int64_t DoAssignStreamsToChannelObjects(Ptr<NrSpectrumPhy> phy, int64_t currentStream);
+
+    /**
+     *  \brief The actual function to trigger a manual bearer de-activation
+     *  \param ueDevice the UE on which bearer to be de-activated must be of the type LteUeNetDevice
+     *  \param enbDevice eNB, must be of the type LteEnbNetDevice
+     *  \param bearerId Bearer Identity which is to be de-activated
+     *
+     *  This method is normally scheduled by DeActivateDedicatedEpsBearer() to run at a specific
+     *  time when a manual bearer de-activation is desired by the simulation user.
+     */
+    void DoDeActivateDedicatedEpsBearer(Ptr<NetDevice> ueDevice,
+                                        Ptr<NetDevice> enbDevice,
+                                        uint8_t bearerId);
+
+    Ptr<NrGnbPhy> CreateGnbPhy(const Ptr<Node>& n,
+                               const std::unique_ptr<BandwidthPartInfo>& bwp,
+                               const Ptr<NoriGnbNetDevice>& dev,
+                               const NrSpectrumPhy::NrPhyRxCtrlEndOkCallback& phyEndCtrlCallback);
+    Ptr<NrMacScheduler> CreateGnbSched();
+    Ptr<NrGnbMac> CreateGnbMac();
+
+    Ptr<NrUeMac> CreateUeMac() const;
+    Ptr<NrUePhy> CreateUePhy(const Ptr<Node>& n,
+                             const std::unique_ptr<BandwidthPartInfo>& bwp,
+                             const Ptr<NrUeNetDevice>& dev,
+                             const NrSpectrumPhy::NrPhyDlHarqFeedbackCallback& dlHarqCallback,
+                             const NrSpectrumPhy::NrPhyRxCtrlEndOkCallback& phyRxCtrlCallback);
+
+    Ptr<NetDevice> InstallSingleUeDevice(
+        const Ptr<Node>& n,
+        const std::vector<std::reference_wrapper<BandwidthPartInfoPtr>> allBwps);
+    Ptr<NetDevice> InstallSingleGnbDevice(
+        const Ptr<Node>& n,
+        const std::vector<std::reference_wrapper<BandwidthPartInfoPtr>> allBwps);
+    void AttachToClosestEnb(Ptr<NetDevice> ueDevice, NetDeviceContainer enbDevices);
+
+    ObjectFactory m_gnbNetDeviceFactory;            //!< NetDevice factory for gnb
+    ObjectFactory m_ueNetDeviceFactory;             //!< NetDevice factory for ue
+    ObjectFactory m_channelFactory;                 //!< Channel factory
+    ObjectFactory m_ueMacFactory;                   //!< UE MAC factory
+    ObjectFactory m_gnbMacFactory;                  //!< GNB MAC factory
+    ObjectFactory m_ueSpectrumFactory;              //!< UE Spectrum factory
+    ObjectFactory m_gnbSpectrumFactory;             //!< GNB spectrum factory
+    ObjectFactory m_uePhyFactory;                   //!< UE PHY factory
+    ObjectFactory m_gnbPhyFactory;                  //!< GNB PHY factory
+    ObjectFactory m_ueChannelAccessManagerFactory;  //!< UE Channel access manager factory
+    ObjectFactory m_gnbChannelAccessManagerFactory; //!< GNB Channel access manager factory
+    ObjectFactory m_schedFactory;                   //!< Scheduler factory
+    ObjectFactory m_ueAntennaFactory;               //!< UE antenna factory
+    ObjectFactory m_gnbAntennaFactory;              //!< UE antenna factory
+    ObjectFactory m_gnbBwpManagerAlgoFactory;       //!< BWP manager algorithm factory
+    ObjectFactory m_ueBwpManagerAlgoFactory;        //!< BWP manager algorithm factory
+    ObjectFactory m_channelConditionModelFactory;   //!< Channel condition factory
+    ObjectFactory m_spectrumPropagationFactory;     //!< Spectrum Factory
+    ObjectFactory m_pathlossModelFactory;           //!< Pathloss factory
+    ObjectFactory m_gnbDlAmcFactory;                //!< DL AMC factory
+    ObjectFactory m_gnbUlAmcFactory;                //!< UL AMC factory
+    ObjectFactory m_gnbBeamManagerFactory;          //!< gNb Beam manager factory
+    ObjectFactory m_ueBeamManagerFactory;           //!< UE beam manager factory
+
+    uint64_t m_imsiCounter{0};   //!< Imsi counter
+    uint16_t m_cellIdCounter{1}; //!< CellId Counter
+
+    Ptr<EpcHelper> m_epcHelper{nullptr};                     //!< Ptr to the EPC helper (optional)
+    Ptr<BeamformingHelperBase> m_beamformingHelper{nullptr}; //!< Ptr to the beamforming helper
+
+    bool m_harqEnabled{false};
+    bool m_snrTest{false};
+
+    Ptr<NrPhyRxTrace> m_phyStats; //!< Pointer to the PhyRx stats
+    Ptr<NrMacRxTrace> m_macStats; //!< Pointer to the MacRx stats
+
+    NrBearerStatsConnector
+        m_radioBearerStatsConnectorSimpleTraces; //!< RLC and PDCP statistics connector for simple
+                                                 //!< file statistics
+    NrBearerStatsConnector
+        m_radioBearerStatsConnectorCalculator; //!< RLC and PDCP statistics connector for complex
+                                               //!< calculator statistics
+
+    std::map<uint8_t, ComponentCarrier> m_componentCarrierPhyParams; //!< component carrier map
+    std::vector<Ptr<Object>>
+        m_channelObjectsWithAssignedStreams; //!< channel and propagation objects to which NoriHelper
+    //!< has assigned streams in order to avoid double
+    //!< assignments
+    Ptr<NrMacSchedulingStats> m_macSchedStats; //!<< Pointer to NrMacStatsCalculator
 };
 
-}
+} // namespace ns3
 
-}
-
-#endif /* MMWAVE_HELPER_H */
+#endif /* NR_HELPER_H */

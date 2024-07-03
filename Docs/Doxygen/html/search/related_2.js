@@ -1,9 +1,9 @@
 var searchData=
 [
-  ['memberepcenbs1sapuser_3c_20lteenbrrc_20_3e_650',['MemberEpcEnbS1SapUser&lt; LteEnbRrc &gt;',['../classns3_1_1LteEnbRrc.html#a209c30e8ec094d8582484fc8401ccfe5',1,'ns3::LteEnbRrc']]],
-  ['memberlteanrsapuser_3c_20lteenbrrc_20_3e_651',['MemberLteAnrSapUser&lt; LteEnbRrc &gt;',['../classns3_1_1LteEnbRrc.html#aa4633f94605355c16c9179a4fe00b5c8',1,'ns3::LteEnbRrc']]],
-  ['memberlteccmrrcsapuser_3c_20lteenbrrc_20_3e_652',['MemberLteCcmRrcSapUser&lt; LteEnbRrc &gt;',['../classns3_1_1LteEnbRrc.html#a96ec28a5785c698280e84358ebc64561',1,'ns3::LteEnbRrc']]],
-  ['memberlteenbrrcsapprovider_3c_20lteenbrrc_20_3e_653',['MemberLteEnbRrcSapProvider&lt; LteEnbRrc &gt;',['../classns3_1_1LteEnbRrc.html#a9a20fa3e4d1499788bf43db9838cca09',1,'ns3::LteEnbRrc']]],
-  ['memberlteffrrrcsapuser_3c_20lteenbrrc_20_3e_654',['MemberLteFfrRrcSapUser&lt; LteEnbRrc &gt;',['../classns3_1_1LteEnbRrc.html#abeceff6f007c0a4c34b234c13cf8ae86',1,'ns3::LteEnbRrc']]],
-  ['memberltehandovermanagementsapuser_3c_20lteenbrrc_20_3e_655',['MemberLteHandoverManagementSapUser&lt; LteEnbRrc &gt;',['../classns3_1_1LteEnbRrc.html#ac3f732ab2e355690a2207ad7aaf1b70d',1,'ns3::LteEnbRrc']]]
+  ['memberepcenbs1sapuser_3c_20norilteenbrrc_20_3e_852',['MemberEpcEnbS1SapUser&lt; NoriLteEnbRrc &gt;',['../classns3_1_1NoriLteEnbRrc.html#ada759e74c044c2f5451442eb4e6601f5',1,'ns3::NoriLteEnbRrc']]],
+  ['memberlteanrsapuser_3c_20norilteenbrrc_20_3e_853',['MemberLteAnrSapUser&lt; NoriLteEnbRrc &gt;',['../classns3_1_1NoriLteEnbRrc.html#a80a61fe887dd4caafae41fb88fc4df63',1,'ns3::NoriLteEnbRrc']]],
+  ['memberlteccmrrcsapuser_3c_20norilteenbrrc_20_3e_854',['MemberLteCcmRrcSapUser&lt; NoriLteEnbRrc &gt;',['../classns3_1_1NoriLteEnbRrc.html#a28a5be8754a883fed4f375d2badc3985',1,'ns3::NoriLteEnbRrc']]],
+  ['memberlteenbrrcsapprovider_3c_20norilteenbrrc_20_3e_855',['MemberLteEnbRrcSapProvider&lt; NoriLteEnbRrc &gt;',['../classns3_1_1NoriLteEnbRrc.html#afe9ddea803eade610b63762fba1e7b53',1,'ns3::NoriLteEnbRrc']]],
+  ['memberlteffrrrcsapuser_3c_20norilteenbrrc_20_3e_856',['MemberLteFfrRrcSapUser&lt; NoriLteEnbRrc &gt;',['../classns3_1_1NoriLteEnbRrc.html#a954e4d11c9d8f910f1c88a145f2ff3db',1,'ns3::NoriLteEnbRrc']]],
+  ['memberltehandovermanagementsapuser_3c_20norilteenbrrc_20_3e_857',['MemberLteHandoverManagementSapUser&lt; NoriLteEnbRrc &gt;',['../classns3_1_1NoriLteEnbRrc.html#ab81ecdbc3071fc306f8170565a8b3105',1,'ns3::NoriLteEnbRrc']]]
 ];

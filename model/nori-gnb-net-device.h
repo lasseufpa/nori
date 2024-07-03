@@ -4,12 +4,12 @@
 
 #include "nori-E2-report.h"
 #include "nori-lte-rlc.h"
-#include "nori-bearer-stats-calculator.h"
+#include "ns3/nori-bearer-stats-calculator.h"
 
 #include <ns3/bandwidth-part-gnb.h>
 #include <ns3/event-id.h>
 #include <ns3/lte-enb-rrc.h>
-//#include <ns3/lte-rlc.h>
+#include <ns3/lte-rlc.h>
 //#include <ns3/nr-bearer-stats-calculator.h>
 #include <ns3/nr-gnb-mac.h>
 #include <ns3/nr-gnb-net-device.h>
@@ -91,7 +91,7 @@ class NoriGnbNetDevice : public NrGnbNetDevice
     Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuCp(std::string plmId);
     Ptr<KpmIndicationMessage> BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId);
     std::string GetImsiString(uint64_t imsi);
-    uint32_t GetRlcBufferOccupancy(Ptr<NoriLteRlc> rlc) const;
+    uint32_t GetRlcBufferOccupancy(Ptr<LteRlc> rlc) const;
 
     bool m_sendCuUp;
     bool m_sendCuCp;

@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['handoverjoiningtimeout_468',['HandoverJoiningTimeout',['../classns3_1_1LteEnbRrc.html#a8374075a52ca40290d3f15e253ef94ff',1,'ns3::LteEnbRrc']]],
-  ['handoverleavingtimeout_469',['HandoverLeavingTimeout',['../classns3_1_1LteEnbRrc.html#a3ded0535ab2c7f5b1346cf787745d06d',1,'ns3::LteEnbRrc']]],
-  ['hascellid_470',['HasCellId',['../classns3_1_1LteEnbRrc.html#abcc8e528d640b08f9b95bd02981adb7e',1,'ns3::LteEnbRrc']]],
-  ['hasuemanager_471',['HasUeManager',['../classns3_1_1LteEnbRrc.html#a4ec3e93fb421daf98457c69672633fa2',1,'ns3::LteEnbRrc']]]
+  ['handoverjoiningtimeout_608',['HandoverJoiningTimeout',['../classns3_1_1NoriLteEnbRrc.html#ac761cdd4493b8159facfb2fa52d59cfe',1,'ns3::NoriLteEnbRrc']]],
+  ['handoverleavingtimeout_609',['HandoverLeavingTimeout',['../classns3_1_1NoriLteEnbRrc.html#aa7e26c63ceeb1766d3b31a22818df134',1,'ns3::NoriLteEnbRrc']]],
+  ['hascellid_610',['HasCellId',['../classns3_1_1NoriLteEnbRrc.html#adb2673395b69a8b53113687f12b64a18',1,'ns3::NoriLteEnbRrc']]],
+  ['hasuemanager_611',['HasUeManager',['../classns3_1_1NoriLteEnbRrc.html#ad7270e4e05a60601b46c3b3fb4f872ef',1,'ns3::NoriLteEnbRrc']]]
 ];

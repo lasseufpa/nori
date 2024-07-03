@@ -30,7 +30,7 @@
 #include "ns3/uinteger.h"
 #include <ns3/packet.h>
 #include <ns3/simple-ref-count.h>
-
+#include <ns3/lte-rlc.h>
 namespace ns3
 {
 
@@ -45,7 +45,7 @@ namespace ns3
  * (LTE_RLC) in LTE, see 3GPP TS 36.322
  *
  */
-class NoriLteRlc : public Object // SimpleRefCount<LteRlc>
+class NoriLteRlc : public LteRlc // SimpleRefCount<LteRlc>
 {
     /// allow LteRlcSpecificLteMacSapUser class friend access
     friend class LteRlcSpecificLteMacSapUser;
@@ -212,8 +212,8 @@ class NoriLteRlc : public Object // SimpleRefCount<LteRlc>
      */
     TracedCallback<Ptr<const Packet>> m_txDropTrace;
 
-    uint32_t m_txBytesInReportingPeriod;
     uint32_t m_txPacketsInReportingPeriod;
+    uint32_t m_txBytesInReportingPeriod;
     
 };
 

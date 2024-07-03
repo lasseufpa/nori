@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['connectionhandovertracedcallback_616',['ConnectionHandoverTracedCallback',['../classns3_1_1LteEnbRrc.html#a511388f84b17252dd700c80bd4b2ebb6',1,'ns3::LteEnbRrc']]]
+  ['connectionhandovertracedcallback_807',['ConnectionHandoverTracedCallback',['../classns3_1_1NoriLteEnbRrc.html#adbaebb639b947d6acdb9d2dfdf72cefe',1,'ns3::NoriLteEnbRrc']]]
 ];

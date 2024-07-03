@@ -1,0 +1,5 @@
+<map id="ns3::NoriGnbNetDevice::KpmSubscriptionCallback" name="ns3::NoriGnbNetDevice::KpmSubscriptionCallback">
+<area shape="rect" id="node1" title="Callback function for handling RIC subscription requests." alt="" coords="451,5,647,47"/>
+<area shape="rect" id="node2" href="$classns3_1_1NoriGnbNetDevice.html#aa89f235a5e317298369216d109a9c2b8" title="Sets the E2 termination for the NoriGnbNetDevice." alt="" coords="228,5,403,47"/>
+<area shape="rect" id="node3" href="$classns3_1_1NoriGnbNetDevice.html#a4ec6cded175a53f91ab11db9b0e7bd5d" title="Get the TypeId of the NoriGnbNetDevice class." alt="" coords="5,5,180,47"/>
+</map>
