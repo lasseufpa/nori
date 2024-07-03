@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['sourcecellid_613',['sourceCellId',['../classns3_1_1NoriRlcBearerInfo.html#aaabfb58635a43839b15ee5e1d7830533',1,'ns3::NoriRlcBearerInfo']]],
-  ['srs_5fentries_614',['SRS_ENTRIES',['../namespacens3.html#aaf5b96bcac774c553e55e91b666eea7e',1,'ns3']]]
+  ['isdualpolarized_775',['isDualPolarized',['../structns3_1_1NrHelper_1_1AntennaParams.html#a29c517dd2ebc50ad64f4ee61312bd3c4',1,'ns3::NrHelper::AntennaParams']]]
 ];

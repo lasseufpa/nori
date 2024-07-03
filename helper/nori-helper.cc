@@ -1,2954 +1,1906 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-/*
-*   Copyright (c) 2011 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
-*   Copyright (c) 2015, NYU WIRELESS, Tandon School of Engineering, New York University
-*   Copyright (c) 2016, 2018, University of Padova, Dep. of Information Engineering, SIGNET lab.
-*
-*   This program is free software; you can redistribute it and/or modify
-*   it under the terms of the GNU General Public License version 2 as
-*   published by the Free Software Foundation;
-*
-*   This program is distributed in the hope that it will be useful,
-*   but WITHOUT ANY WARRANTY; without even the implied warranty of
-*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*   GNU General Public License for more details.
-*
-*   You should have received a copy of the GNU General Public License
-*   along with this program; if not, write to the Free Software
-*   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*
-*   Author: Marco Miozzo <marco.miozzo@cttc.es>
-*           Nicola Baldo  <nbaldo@cttc.es>
-*
-*   Modified by: Marco Mezzavilla < mezzavilla@nyu.edu>
-*                         Sourjya Dutta <sdutta@nyu.edu>
-*                         Russell Ford <russell.ford@nyu.edu>
-*                         Menglei Zhang <menglei@nyu.edu>
-*
-* Modified by: Michele Polese <michele.polese@gmail.com>
-*                 Dual Connectivity and Handover functionalities
-*
-* Modified by: Tommaso Zugno <tommasozugno@gmail.com>
-*                Integration of Carrier Aggregation
-*/
 
+// Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
+//
+// SPDX-License-Identifier: GPL-2.0-only
 
+#include "nori-helper.h"
 
-#include <ns3/string.h>
-#include <ns3/log.h>
-#include <ns3/abort.h>
-#include <ns3/pointer.h>
-#include <iostream>
-#include <string>
-#include <sstream>
-#include "mmwave-helper.h"
-#include <ns3/abort.h>
-#include <ns3/multi-model-spectrum-channel.h>
-#include <ns3/uinteger.h>
-#include <ns3/double.h>
-#include <ns3/ipv4.h>
-#include <ns3/mmwave-lte-rrc-protocol-real.h>
+#include "nori-bearer-stats-calculator.h"
+#include "ns3/nr-mac-rx-trace.h"
+#include "ns3/nr-phy-rx-trace.h"
+
+#include <ns3/bandwidth-part-gnb.h>
+#include <ns3/bandwidth-part-ue.h>
+#include <ns3/beam-manager.h>
+#include <ns3/buildings-channel-condition-model.h>
+#include <ns3/bwp-manager-algorithm.h>
+#include <ns3/bwp-manager-gnb.h>
+#include <ns3/bwp-manager-ue.h>
 #include <ns3/epc-enb-application.h>
+#include <ns3/epc-helper.h>
+#include <ns3/epc-ue-nas.h>
 #include <ns3/epc-x2.h>
-#include <ns3/friis-spectrum-propagation-loss.h>
-#include <ns3/mmwave-rrc-protocol-ideal.h>
-#include <ns3/lte-spectrum-phy.h>
 #include <ns3/lte-chunk-processor.h>
-#include <ns3/isotropic-antenna-model.h>
-#include <ns3/mmwave-propagation-loss-model.h>
-#include <ns3/lte-enb-component-carrier-manager.h>
-#include <ns3/lte-ue-component-carrier-manager.h>
-#include <ns3/cc-helper.h>
-#include <ns3/object-map.h>
-#include <ns3/three-gpp-spectrum-propagation-loss-model.h>
-#include <ns3/channel-condition-model.h>
+#include <ns3/lte-rrc-protocol-ideal.h>
+#include <ns3/lte-rrc-protocol-real.h>
+#include <ns3/lte-ue-rrc.h>
+#include <ns3/multi-model-spectrum-channel.h>
+#include <ns3/names.h>
+#include <ns3/nr-ch-access-manager.h>
+#include <ns3/nr-gnb-mac.h>
+#include <ns3/nori-gnb-net-device.h>
+#include <ns3/nr-gnb-phy.h>
+#include <ns3/nr-mac-scheduler-tdma-rr.h>
+#include <ns3/nr-pm-search-full.h>
+#include <ns3/nr-rrc-protocol-ideal.h>
+#include <ns3/nr-ue-mac.h>
+#include <ns3/nr-ue-net-device.h>
+#include <ns3/nr-ue-phy.h>
+#include <ns3/three-gpp-channel-model.h>
 #include <ns3/three-gpp-propagation-loss-model.h>
-#include <ns3/mmwave-beamforming-model.h>
-#include <sys/time.h>
-#include <ctime>
+#include <ns3/three-gpp-spectrum-propagation-loss-model.h>
+#include <ns3/three-gpp-v2v-channel-condition-model.h>
+#include <ns3/three-gpp-v2v-propagation-loss-model.h>
+#include <ns3/uniform-planar-array.h>
 
-namespace ns3 {
+#include <algorithm>
+
+namespace ns3
+{
 
 /* ... */
-NS_LOG_COMPONENT_DEFINE ("MmWaveHelper");
+NS_LOG_COMPONENT_DEFINE("NoriHelper");
 
-namespace mmwave {
+NS_OBJECT_ENSURE_REGISTERED(NoriHelper);
 
-NS_OBJECT_ENSURE_REGISTERED (MmWaveHelper);
-
-MmWaveHelper::MmWaveHelper (void)
-  : m_imsiCounter (0),
-    m_cellIdCounter (1),
-    m_basicCellId (1),
-    m_harqEnabled (false),
-    m_rlcAmEnabled (false),
-    m_snrTest (false),
-    m_useIdealRrc (false)
+NoriHelper::NoriHelper()
 {
-  NS_LOG_FUNCTION (this);
-  m_channelFactory.SetTypeId (MultiModelSpectrumChannel::GetTypeId ());
-  m_lteChannelFactory.SetTypeId (MultiModelSpectrumChannel::GetTypeId ());
-  m_enbNetDeviceFactory.SetTypeId (MmWaveEnbNetDevice::GetTypeId ());
-  m_lteEnbNetDeviceFactory.SetTypeId (LteEnbNetDevice::GetTypeId ());
-  m_ueNetDeviceFactory.SetTypeId (MmWaveUeNetDevice::GetTypeId ());
+    NS_LOG_FUNCTION(this);
+    m_channelFactory.SetTypeId(MultiModelSpectrumChannel::GetTypeId());
+    m_gnbNetDeviceFactory.SetTypeId(NrGnbNetDevice::GetTypeId());
+    m_ueNetDeviceFactory.SetTypeId(NrUeNetDevice::GetTypeId());
+    m_ueMacFactory.SetTypeId(NrUeMac::GetTypeId());
+    m_gnbMacFactory.SetTypeId(NrGnbMac::GetTypeId());
+    m_ueSpectrumFactory.SetTypeId(NrSpectrumPhy::GetTypeId());
+    m_gnbSpectrumFactory.SetTypeId(NrSpectrumPhy::GetTypeId());
+    m_uePhyFactory.SetTypeId(NrUePhy::GetTypeId());
+    m_gnbPhyFactory.SetTypeId(NrGnbPhy::GetTypeId());
+    m_ueChannelAccessManagerFactory.SetTypeId(NrAlwaysOnAccessManager::GetTypeId());
+    m_gnbChannelAccessManagerFactory.SetTypeId(NrAlwaysOnAccessManager::GetTypeId());
+    m_schedFactory.SetTypeId(NrMacSchedulerTdmaRR::GetTypeId());
+    m_ueAntennaFactory.SetTypeId(UniformPlanarArray::GetTypeId());
+    m_gnbAntennaFactory.SetTypeId(UniformPlanarArray::GetTypeId());
+    m_gnbBwpManagerAlgoFactory.SetTypeId(BwpManagerAlgorithmStatic::GetTypeId());
+    m_ueBwpManagerAlgoFactory.SetTypeId(BwpManagerAlgorithmStatic::GetTypeId());
+    m_gnbUlAmcFactory.SetTypeId(NrAmc::GetTypeId());
+    m_gnbDlAmcFactory.SetTypeId(NrAmc::GetTypeId());
+    m_gnbBeamManagerFactory.SetTypeId(BeamManager::GetTypeId());
+    m_ueBeamManagerFactory.SetTypeId(BeamManager::GetTypeId());
+    m_spectrumPropagationFactory.SetTypeId(ThreeGppSpectrumPropagationLossModel::GetTypeId());
 
-  m_mcUeNetDeviceFactory.SetTypeId (McUeNetDevice::GetTypeId ());
+    // Initialization that is there just because the user can configure attribute
+    // through the helper methods without making it sad that no TypeId is set.
+    // When the TypeId is changed, the user-set attribute will be maintained.
+    m_pathlossModelFactory.SetTypeId(ThreeGppPropagationLossModel::GetTypeId());
+    m_channelConditionModelFactory.SetTypeId(ThreeGppChannelConditionModel::GetTypeId());
 
-  m_lteUeAntennaModelFactory.SetTypeId (IsotropicAntennaModel::GetTypeId ());
-  m_lteEnbAntennaModelFactory.SetTypeId (IsotropicAntennaModel::GetTypeId ());
-  
-  m_bfModelFactory.SetTypeId (MmWaveSvdBeamforming::GetTypeId ());
-  
-  m_startTime = GetStartTime ();
+    Config::SetDefault("ns3::EpsBearer::Release", UintegerValue(18));
+
+    m_phyStats = CreateObject<NrPhyRxTrace>();
+    m_macSchedStats = CreateObject<NrMacSchedulingStats>();
 }
 
-MmWaveHelper::~MmWaveHelper (void)
+NoriHelper::~NoriHelper()
 {
-  NS_LOG_FUNCTION (this);
+    NS_LOG_FUNCTION(this);
 }
 
 TypeId
-MmWaveHelper::GetTypeId (void)
+NoriHelper::GetTypeId()
 {
-  static TypeId
-    tid =
-    TypeId ("ns3::MmWaveHelper")
-    .SetParent<Object> ()
-    .AddConstructor<MmWaveHelper> ()
-    .AddAttribute ("PathlossModel",
-                   "The type of path-loss model to be used. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting from ns3::PropagationLossModel.",
-                   StringValue ("ns3::ThreeGppUmaPropagationLossModel"),
-                   MakeStringAccessor (&MmWaveHelper::SetPathlossModelType),
-                   MakeStringChecker ())
-    .AddAttribute ("ChannelModel",
-                   "The type of MIMO channel model to be used. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting from ns3::SpectrumPropagationLossModel.",
-                   StringValue ("ns3::ThreeGppSpectrumPropagationLossModel"),
-                   MakeStringAccessor (&MmWaveHelper::SetChannelModelType),
-                   MakeStringChecker ())
-    .AddAttribute ("Scheduler",
-                   "The type of scheduler to be used for MmWave eNBs. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting from ns3::MmWaveMacScheduler.",
-                   StringValue ("ns3::MmWaveFlexTtiMacScheduler"),
-                   MakeStringAccessor (&MmWaveHelper::SetSchedulerType,
-                                       &MmWaveHelper::GetSchedulerType),
-                   MakeStringChecker ())
-    .AddAttribute ("HarqEnabled",
-                   "Enable Hybrid ARQ",
-                   BooleanValue (true),
-                   MakeBooleanAccessor (&MmWaveHelper::m_harqEnabled),
-                   MakeBooleanChecker ())
-    .AddAttribute ("RlcAmEnabled",
-                   "Enable RLC Acknowledged Mode",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&MmWaveHelper::m_rlcAmEnabled),
-                   MakeBooleanChecker ())
-    .AddAttribute ("LteScheduler",
-                   "The type of scheduler to be used for LTE eNBs. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting from ns3::FfMacScheduler.",
-                   StringValue ("ns3::PfFfMacScheduler"),
-                   MakeStringAccessor (&MmWaveHelper::SetLteSchedulerType,
-                                       &MmWaveHelper::GetLteSchedulerType),
-                   MakeStringChecker ())
-    .AddAttribute ("LteFfrAlgorithm",
-                   "The type of FFR algorithm to be used for LTE eNBs. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting from ns3::LteFfrAlgorithm.",
-                   StringValue ("ns3::LteFrNoOpAlgorithm"),
-                   MakeStringAccessor (&MmWaveHelper::SetLteFfrAlgorithmType,
-                                       &MmWaveHelper::GetLteFfrAlgorithmType),
-                   MakeStringChecker ())
-    .AddAttribute ("LteHandoverAlgorithm",
-                   "The type of handover algorithm to be used for LTE eNBs. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting from ns3::LteHandoverAlgorithm.",
-                   StringValue ("ns3::NoOpHandoverAlgorithm"),
-                   MakeStringAccessor (&MmWaveHelper::SetLteHandoverAlgorithmType,
-                                       &MmWaveHelper::GetLteHandoverAlgorithmType),
-                   MakeStringChecker ())
-    .AddAttribute ("LtePathlossModel",
-                   "The type of pathloss model to be used for the 2 LTE channels. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting from ns3::PropagationLossModel.",
-                   StringValue ("ns3::FriisPropagationLossModel"),
-                   MakeStringAccessor (&MmWaveHelper::SetLtePathlossModelType),
-                   MakeStringChecker ())
-    .AddAttribute ("BeamformingModel",
-                   "The type of beamforming model to be used.",
-                   StringValue ("ns3::MmWaveSvdBeamforming"),
-                   MakeStringAccessor (&MmWaveHelper::SetBeamformingModelType),
-                   MakeStringChecker ())
-    .AddAttribute ("UsePdschForCqiGeneration",
-                   "If true, DL-CQI will be calculated from PDCCH as signal and PDSCH as interference "
-                   "If false, DL-CQI will be calculated from PDCCH as signal and PDCCH as interference  ",
-                   BooleanValue (true),
-                   MakeBooleanAccessor (&MmWaveHelper::m_usePdschForCqiGeneration),
-                   MakeBooleanChecker ())
-    .AddAttribute ("AnrEnabled",
-                   "Activate or deactivate Automatic Neighbour Relation function",
-                   BooleanValue (true),
-                   MakeBooleanAccessor (&MmWaveHelper::m_isAnrEnabled),
-                   MakeBooleanChecker ())
-    .AddAttribute ("UseIdealRrc",
-                   "Use Ideal or Real RRC",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&MmWaveHelper::m_useIdealRrc),
-                   MakeBooleanChecker ())
-    .AddAttribute ("BasicCellId",
-                   "The next value will be the first cellId",
-                   UintegerValue (1),
-                   MakeUintegerAccessor (&MmWaveHelper::SetBasicCellId,
-                                         &MmWaveHelper::GetBasicCellId),
-                   MakeUintegerChecker<uint16_t> ())
-    .AddAttribute ("BasicImsi",
-                   "The next value will be the first imsi",
-                   UintegerValue (0),
-                   MakeUintegerAccessor (&MmWaveHelper::m_imsiCounter),
-                   MakeUintegerChecker<uint16_t> ())
-    .AddAttribute ("EnbComponentCarrierManager",
-                   "The type of Component Carrier Manager to be used for gNBs. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting ns3::LteEnbComponentCarrierManager.",
-                   StringValue ("ns3::MmWaveNoOpComponentCarrierManager"),
-                   MakeStringAccessor (&MmWaveHelper::SetEnbComponentCarrierManagerType,
-                                       &MmWaveHelper::GetEnbComponentCarrierManagerType),
-                   MakeStringChecker ())
-    .AddAttribute ("UeComponentCarrierManager",
-                   "The type of Component Carrier Manager to be used for UEs. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting ns3::LteUeComponentCarrierManager.",
-                   StringValue ("ns3::SimpleUeComponentCarrierManager"),
-                   MakeStringAccessor (&MmWaveHelper::SetUeComponentCarrierManagerType,
-                                       &MmWaveHelper::GetUeComponentCarrierManagerType),
-                   MakeStringChecker ())
-    .AddAttribute ("LteEnbComponentCarrierManager",
-                   "The type of Component Carrier Manager to be used for eNBs. "
-                   "The allowed values for this attributes are the type names "
-                   "of any class inheriting ns3::LteEnbComponentCarrierManager.",
-                   StringValue ("ns3::NoOpComponentCarrierManager"),
-                   MakeStringAccessor (&MmWaveHelper::SetLteEnbComponentCarrierManagerType,
-                                       &MmWaveHelper::GetLteEnbComponentCarrierManagerType),
-                   MakeStringChecker ())
-    .AddAttribute ("UseCa",
-                   "If true, Carrier Aggregation feature is enabled in the mmWave stack and a valid Component Carrier Map is expected."
-                   "If false, single carrier simulation.",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&MmWaveHelper::m_useCa),
-                   MakeBooleanChecker ())
-    .AddAttribute ("LteUseCa",
-                   "If true, Carrier Aggregation feature is enabled in the LTE stack and a valid Component Carrier Map is expected."
-                   "If false, single carrier simulation.",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&MmWaveHelper::m_lteUseCa),
-                   MakeBooleanChecker ())
-    .AddAttribute ("NumberOfComponentCarriers",
-                   "Set the number of mmWave Component Carriers to use "
-                   "If it is more than one and m_useCa is false, it will raise an error ",
-                   UintegerValue (1),
-                   MakeUintegerAccessor (&MmWaveHelper::m_noOfCcs),
-                   MakeUintegerChecker<uint16_t> (MIN_NO_MMW_CC, MAX_NO_MMW_CC))
-    .AddAttribute ("NumberOfLteComponentCarriers",
-                   "Set the number of LTE Component Carriers to use "
-                   "If it is more than one and m_lteUseCa is false, it will raise an error ",
-                   UintegerValue (1),
-                   MakeUintegerAccessor (&MmWaveHelper::m_noOfLteCcs),
-                   MakeUintegerChecker<uint16_t> (MIN_NO_CC, MAX_NO_CC))
-    .AddAttribute ("E2ModeNr",
-                   "If true, enable reporting over E2 for NR cells.",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&MmWaveHelper::m_e2mode_nr),
-                   MakeBooleanChecker ())
-    .AddAttribute ("E2ModeLte",
-                   "If true, enable reporting over E2 for LTE cells.",
-                   BooleanValue (true),
-                   MakeBooleanAccessor (&MmWaveHelper::m_e2mode_lte),
-                   MakeBooleanChecker ())
-    .AddAttribute ("E2TermIp",
-                   "The IP address of the RIC E2 termination",
-                   StringValue ("10.244.0.240"),
-                   MakeStringAccessor (&MmWaveHelper::m_e2ip),
-                   MakeStringChecker ())
-    .AddAttribute ("E2Port",
-                   "Port number for E2",
-                   UintegerValue (36422),
-                   MakeUintegerAccessor (&MmWaveHelper::m_e2port),
-                   MakeUintegerChecker<uint16_t> ())
-    .AddAttribute ("E2LocalPort",
-                   "The first port number for the local bind",
-                   UintegerValue (38470),
-                   MakeUintegerAccessor (&MmWaveHelper::m_e2localPort),
-                   MakeUintegerChecker<uint16_t> ())
-  ;
+    static TypeId tid = TypeId("ns3::NoriHelper")
+                            .SetParent<Object>()
+                            .AddConstructor<NoriHelper>()
+                            .AddAttribute("EnableMimoFeedback",
+                                          "Generate CQI feedback with RI and PMI for MIMO support",
+                                          BooleanValue(false),
+                                          MakeBooleanAccessor(&NoriHelper::m_enableMimoFeedback),
+                                          MakeBooleanChecker())
+                            .AddAttribute("PmSearchMethod",
+                                          "Type of the precoding matrix search method.",
+                                          TypeIdValue(NrPmSearchFull::GetTypeId()),
+                                          MakeTypeIdAccessor(&NoriHelper::SetPmSearchTypeId),
+                                          MakeTypeIdChecker())
+                            .AddAttribute("HarqEnabled",
+                                          "Enable Hybrid ARQ",
+                                          BooleanValue(true),
+                                          MakeBooleanAccessor(&NoriHelper::m_harqEnabled),
+                                          MakeBooleanChecker());
+    return tid;
+}
 
-  return tid;
+typedef std::function<void(ObjectFactory*, ObjectFactory*)> InitPathLossFn;
+
+static void
+InitRma(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppRmaPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(ThreeGppRmaChannelConditionModel::GetTypeId());
+}
+
+static void
+InitRma_LoS(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppRmaPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(AlwaysLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitRma_nLoS(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppRmaPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(NeverLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitUma(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppUmaPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(ThreeGppUmaChannelConditionModel::GetTypeId());
+}
+
+static void
+InitUma_LoS(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppUmaPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(AlwaysLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitUma_nLoS(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppUmaPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(NeverLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitUmi(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppUmiStreetCanyonPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(
+        ThreeGppUmiStreetCanyonChannelConditionModel::GetTypeId());
+}
+
+static void
+InitUmi_LoS(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppUmiStreetCanyonPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(AlwaysLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitUmi_nLoS(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppUmiStreetCanyonPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(NeverLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitIndoorOpen(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppIndoorOfficePropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(
+        ThreeGppIndoorOpenOfficeChannelConditionModel::GetTypeId());
+}
+
+static void
+InitIndoorOpen_LoS(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppIndoorOfficePropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(AlwaysLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitIndoorOpen_nLoS(ObjectFactory* pathlossModelFactory,
+                    ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppIndoorOfficePropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(NeverLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitIndoorMixed(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppIndoorOfficePropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(
+        ThreeGppIndoorMixedOfficeChannelConditionModel::GetTypeId());
+}
+
+static void
+InitIndoorMixed_LoS(ObjectFactory* pathlossModelFactory,
+                    ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppIndoorOfficePropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(AlwaysLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitIndoorMixed_nLoS(ObjectFactory* pathlossModelFactory,
+                     ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppIndoorOfficePropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(NeverLosChannelConditionModel::GetTypeId());
+}
+
+static void
+InitUmaBuildings(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppUmaPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(BuildingsChannelConditionModel::GetTypeId());
+}
+
+static void
+InitUmiBuildings(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppUmiStreetCanyonPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(BuildingsChannelConditionModel::GetTypeId());
+}
+
+static void
+InitV2VHighway(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppV2vHighwayPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(ThreeGppV2vHighwayChannelConditionModel::GetTypeId());
+}
+
+static void
+InitV2VUrban(ObjectFactory* pathlossModelFactory, ObjectFactory* channelConditionModelFactory)
+{
+    pathlossModelFactory->SetTypeId(ThreeGppV2vUrbanPropagationLossModel::GetTypeId());
+    channelConditionModelFactory->SetTypeId(ThreeGppV2vUrbanChannelConditionModel::GetTypeId());
 }
 
 void
-MmWaveHelper::DoDispose (void)
+NoriHelper::InitializeOperationBand(OperationBandInfo* band, uint8_t flags)
 {
-  NS_LOG_FUNCTION (this);
-  m_channel.clear ();
-  m_componentCarrierPhyParams.clear ();
-  m_lteComponentCarrierPhyParams.clear ();
-  Object::DoDispose ();
-}
+    NS_LOG_FUNCTION(this);
 
-void
-MmWaveHelper::DoInitialize ()
-{
-  NS_LOG_FUNCTION (this);
+    static std::unordered_map<BandwidthPartInfo::Scenario, InitPathLossFn, std::hash<int>>
+        initLookupTable{
+            {BandwidthPartInfo::RMa,
+             std::bind(&InitRma, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::RMa_LoS,
+             std::bind(&InitRma_LoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::RMa_nLoS,
+             std::bind(&InitRma_nLoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::UMa,
+             std::bind(&InitUma, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::UMa_LoS,
+             std::bind(&InitUma_LoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::UMa_nLoS,
+             std::bind(&InitUma_nLoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::UMi_StreetCanyon,
+             std::bind(&InitUmi, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::UMi_StreetCanyon_LoS,
+             std::bind(&InitUmi_LoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::UMi_StreetCanyon_nLoS,
+             std::bind(&InitUmi_nLoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::InH_OfficeOpen,
+             std::bind(&InitIndoorOpen, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::InH_OfficeOpen_LoS,
+             std::bind(&InitIndoorOpen_LoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::InH_OfficeOpen_nLoS,
+             std::bind(&InitIndoorOpen_nLoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::InH_OfficeMixed,
+             std::bind(&InitIndoorMixed, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::InH_OfficeMixed_LoS,
+             std::bind(&InitIndoorMixed_LoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::InH_OfficeMixed_nLoS,
+             std::bind(&InitIndoorMixed_nLoS, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::UMa_Buildings,
+             std::bind(&InitUmaBuildings, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::UMi_Buildings,
+             std::bind(&InitUmiBuildings, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::V2V_Highway,
+             std::bind(&InitV2VHighway, std::placeholders::_1, std::placeholders::_2)},
+            {BandwidthPartInfo::V2V_Urban,
+             std::bind(&InitV2VUrban, std::placeholders::_1, std::placeholders::_2)},
+        };
 
-  // cc initialization
-  // if useCa=false and SetCcPhyParams() has not been called, setup a default CC.
-  if (!m_useCa && m_componentCarrierPhyParams.size () == 0)
+    // Iterate over all CCs, and instantiate the channel and propagation model
+    for (const auto& cc : band->m_cc)
     {
-      NS_LOG_INFO ("useCa=false and empty CC map. Create the default CC.");
-      
-      // For custom configurations use the method SetCcPhyParams
-      Ptr<MmWavePhyMacCommon> phyMacConfig = CreateObject<MmWavePhyMacCommon> ();      
-      Ptr<MmWaveComponentCarrier> cc = CreateObject<MmWaveComponentCarrier> ();
-      cc->SetConfigurationParameters (phyMacConfig);
-      cc->SetAsPrimary (true);
-
-      //create the ccMap
-      std::map<uint8_t, MmWaveComponentCarrier > map;
-      map [0] = *cc;
-
-      this->SetCcPhyParams (map);
-    }
-
-  MmWaveChannelModelInitialization ();      // channel initialization
-
-  m_phyStats = CreateObject<MmWavePhyTrace> ();
-  m_radioBearerStatsConnector = CreateObject<MmWaveBearerStatsConnector> ();
-  m_enbStats = CreateObject<MmWaveMacTrace> ();
-
-  // DoInitialize() will be called only once over the lifetime of an Object, 
-  // just like DoDispose() is called only once.
-  m_basicCellId = m_cellIdCounter;
-
-  // lte cc initialization
-  // if m_lteUseCa=false and SetLteCcPhyParams() has not been called, setup a default LTE CC
-  if (!m_lteUseCa && m_lteComponentCarrierPhyParams.size () == 0)
-    {
-      // create the map of LTE component carriers
-      Ptr<CcHelper> lteCcHelper = CreateObject<CcHelper> ();
-      lteCcHelper->SetNumberOfComponentCarriers (1);
-      lteCcHelper->SetUlEarfcn (18100);
-      lteCcHelper->SetDlEarfcn (100);
-      lteCcHelper->SetDlBandwidth (100);
-      lteCcHelper->SetUlBandwidth (100);
-      std::map< uint8_t, ComponentCarrier > lteCcMap = lteCcHelper->EquallySpacedCcs ();
-      lteCcMap.at (0).SetAsPrimary (true);
-      this->SetLteCcPhyParams (lteCcMap);
-    }
-
-  LteChannelModelInitialization ();      // lte channel initialization
-
-  m_cnStats = 0;       //core network stats calculator
-
-  Object::DoInitialize ();
-}
-
-void
-MmWaveHelper::SetBasicCellId (uint16_t basicCellId)
-{
-  m_cellIdCounter = basicCellId;
-  m_basicCellId = basicCellId;
-}
-
-uint16_t
-MmWaveHelper::GetBasicCellId () const
-{
-  return m_basicCellId;
-}
-
-void
-MmWaveHelper::MmWaveChannelModelInitialization (void)
-{
-  NS_LOG_FUNCTION (this);
-  // setup of mmWave channel & related
-  //create a channel for each CC
-  for (std::map<uint8_t, MmWaveComponentCarrier >::iterator it = m_componentCarrierPhyParams.begin (); it != m_componentCarrierPhyParams.end (); ++it)
-    {
-      Ptr<SpectrumChannel> channel = m_channelFactory.Create<SpectrumChannel> ();
-      Ptr<MmWavePhyMacCommon> phyMacCommon = m_componentCarrierPhyParams.at (it->first).GetConfigurationParameters ();
-
-      // create the channel condition model (if needed)
-      Ptr<ChannelConditionModel> ccm;
-      if (!m_channelConditionModelType.empty ())
-      {
-        ccm = m_channelConditionModelFactory.Create<ChannelConditionModel> ();
-      }
-
-      // create the propagation loss model
-      if (!m_pathlossModelType.empty ())
+        for (const auto& bwp : cc->m_bwp)
         {
-          Ptr<PropagationLossModel> plm = m_pathlossModelFactory.Create<PropagationLossModel> ();
-          if (plm)
+            // Initialize the type ID of the factories by calling the relevant
+            // static function defined above and stored inside the lookup table
+            initLookupTable.at(bwp->m_scenario)(&m_pathlossModelFactory,
+                                                &m_channelConditionModelFactory);
+
+            auto channelConditionModel =
+                m_channelConditionModelFactory.Create<ChannelConditionModel>();
+
+            if (bwp->m_propagation == nullptr && flags & INIT_PROPAGATION)
             {
-              plm->SetAttributeFailSafe ("Frequency", DoubleValue (phyMacCommon->GetCenterFrequency ()));
-
-              // associate the channel condition model to the propagation loss model (if needed)
-              if (ccm)
-              {
-                plm->SetAttributeFailSafe ("ChannelConditionModel", PointerValue (ccm));
-              }
-
-              // set the propagation loss model in the channel
-              channel->AddPropagationLossModel (plm);
+                bwp->m_propagation = m_pathlossModelFactory.Create<ThreeGppPropagationLossModel>();
+                bwp->m_propagation->SetAttributeFailSafe("Frequency",
+                                                         DoubleValue(bwp->m_centralFrequency));
+                DynamicCast<ThreeGppPropagationLossModel>(bwp->m_propagation)
+                    ->SetChannelConditionModel(channelConditionModel);
             }
 
-          // store the propagation loss model
-          m_pathlossModel[it->first] = plm;
-        }
-      else
-        {
-          NS_LOG_WARN (this << " No PropagationLossModel!");
-        }
-
-      // create and configure the SpectrumPropagationLossModel
-      if (!m_spectrumPropagationLossModelType.empty ())
-        {
-          Ptr<SpectrumPropagationLossModel> splm = m_spectrumPropagationLossModelFactory.Create<SpectrumPropagationLossModel> ();
-
-          // if the selected model is ThreeGppSpectrumPropagationLossModel we 
-          // need a special configuration procedure, otherwise, for the other 
-          // models, we try to configure the frequency
-          Ptr<ThreeGppSpectrumPropagationLossModel> threeGppSplm = DynamicCast<ThreeGppSpectrumPropagationLossModel> (splm);
-          if (threeGppSplm)
+            if (bwp->m_3gppChannel == nullptr && flags & INIT_FADING)
             {
-              threeGppSplm->SetChannelModelAttribute ("Frequency", DoubleValue (phyMacCommon->GetCenterFrequency ()));
-              
-              // the ThreeGppSpectrumPropagationLossModel must have the same ChannelConditionModel as the 
-              // propagation loss model instace
-              if (ccm) // the channel condition model was created using the factory
-              {
-                threeGppSplm->SetChannelModelAttribute ("ChannelConditionModel", PointerValue (ccm));
-              }
-              else if (!m_pathlossModel.empty ()) // the channel condition model was created inside the propagation loss model 
-              {
-                PointerValue ptr; 
-                m_pathlossModel.at (it->first)->GetAttribute ("ChannelConditionModel", ptr);
-                ccm = ptr.Get<ChannelConditionModel> ();
-                threeGppSplm->SetChannelModelAttribute ("ChannelConditionModel", PointerValue (ccm));
-              }
-              else
-              {
-                NS_LOG_DEBUG ("ChannelConditionModel not set for ThreeGppSpectrumPropagationLossModel");
-              }
-            }
-          else 
-            {
-              splm->SetAttributeFailSafe ("Frequency", DoubleValue (phyMacCommon->GetCenterFrequency ()));
+                bwp->m_3gppChannel =
+                    m_spectrumPropagationFactory.Create<ThreeGppSpectrumPropagationLossModel>();
+                DynamicCast<ThreeGppSpectrumPropagationLossModel>(bwp->m_3gppChannel)
+                    ->SetChannelModelAttribute("Frequency", DoubleValue(bwp->m_centralFrequency));
+                DynamicCast<ThreeGppSpectrumPropagationLossModel>(bwp->m_3gppChannel)
+                    ->SetChannelModelAttribute("Scenario", StringValue(bwp->GetScenario()));
+                DynamicCast<ThreeGppSpectrumPropagationLossModel>(bwp->m_3gppChannel)
+                    ->SetChannelModelAttribute("ChannelConditionModel",
+                                               PointerValue(channelConditionModel));
             }
 
-          // set the propagation loss model in the channel
-          channel->AddSpectrumPropagationLossModel (splm);
+            if (bwp->m_channel == nullptr && flags & INIT_CHANNEL)
+            {
+                bwp->m_channel = m_channelFactory.Create<SpectrumChannel>();
+                bwp->m_channel->AddPropagationLossModel(bwp->m_propagation);
+                bwp->m_channel->AddPhasedArraySpectrumPropagationLossModel(bwp->m_3gppChannel);
+            }
         }
-      else
-        {
-          NS_LOG_WARN (this << " No SpectrumPropagationLossModel!");
-        }
-
-      m_channel [it->first] = channel;
-    }    //end for
-}
-
-void
-MmWaveHelper::LteChannelModelInitialization (void)
-{
-  NS_LOG_FUNCTION (this);
-  // setup of LTE channels & related
-  m_downlinkChannel = m_lteChannelFactory.Create<SpectrumChannel> ();
-  m_uplinkChannel = m_lteChannelFactory.Create<SpectrumChannel> ();
-  m_downlinkPathlossModel = m_dlPathlossModelFactory.Create ();
-  Ptr<SpectrumPropagationLossModel> dlSplm = m_downlinkPathlossModel->GetObject<SpectrumPropagationLossModel> ();
-  if (dlSplm != 0)
-    {
-      NS_LOG_LOGIC (this << " using a SpectrumPropagationLossModel in DL");
-      m_downlinkChannel->AddSpectrumPropagationLossModel (dlSplm);
-    }
-  else
-    {
-      NS_LOG_LOGIC (this << " using a PropagationLossModel in DL");
-      Ptr<PropagationLossModel> dlPlm = m_downlinkPathlossModel->GetObject<PropagationLossModel> ();
-      NS_ASSERT_MSG (dlPlm != 0, " " << m_downlinkPathlossModel << " is neither PropagationLossModel nor SpectrumPropagationLossModel");
-      m_downlinkChannel->AddPropagationLossModel (dlPlm);
-    }
-
-  m_uplinkPathlossModel = m_ulPathlossModelFactory.Create ();
-  Ptr<SpectrumPropagationLossModel> ulSplm = m_uplinkPathlossModel->GetObject<SpectrumPropagationLossModel> ();
-  if (ulSplm != 0)
-    {
-      NS_LOG_LOGIC (this << " using a SpectrumPropagationLossModel in UL");
-      m_uplinkChannel->AddSpectrumPropagationLossModel (ulSplm);
-    }
-  else
-    {
-      NS_LOG_LOGIC (this << " using a PropagationLossModel in UL");
-      Ptr<PropagationLossModel> ulPlm = m_uplinkPathlossModel->GetObject<PropagationLossModel> ();
-      NS_ASSERT_MSG (ulPlm != 0, " " << m_uplinkPathlossModel << " is neither PropagationLossModel nor SpectrumPropagationLossModel");
-      m_uplinkChannel->AddPropagationLossModel (ulPlm);
-    }
-  // TODO consider if adding LTE fading
-  // TODO add mac & phy LTE stats
-}
-
-void
-MmWaveHelper::SetLtePathlossModelType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_dlPathlossModelFactory = ObjectFactory ();
-  m_dlPathlossModelFactory.SetTypeId (type);
-  m_ulPathlossModelFactory = ObjectFactory ();
-  m_ulPathlossModelFactory.SetTypeId (type);
-}
-
-void
-MmWaveHelper::SetBeamformingModelType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_bfModelFactory = ObjectFactory (type);
-}
-
-void
-MmWaveHelper::SetChannelConditionModelType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_channelConditionModelType = type;
-  if (!type.empty ())
-    {
-      m_channelConditionModelFactory = ObjectFactory ();
-      m_channelConditionModelFactory.SetTypeId (type);
     }
 }
 
-void
-MmWaveHelper::SetPathlossModelType (std::string type)
+uint32_t
+NoriHelper::GetNumberBwp(const Ptr<const NetDevice>& gnbDevice)
 {
-  NS_LOG_FUNCTION (this << type);
-  m_pathlossModelType = type;
-  if (!type.empty ())
+    NS_LOG_FUNCTION(gnbDevice);
+    Ptr<const NrGnbNetDevice> netDevice = DynamicCast<const NrGnbNetDevice>(gnbDevice);
+    if (netDevice == nullptr)
     {
-      m_pathlossModelFactory = ObjectFactory ();
-      m_pathlossModelFactory.SetTypeId (type);
+        return 0;
     }
+    return netDevice->GetCcMapSize();
 }
 
-Ptr<PropagationLossModel>
-MmWaveHelper::GetPathLossModel (uint8_t index)
+Ptr<NrGnbPhy>
+NoriHelper::GetGnbPhy(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex)
 {
-  NS_LOG_FUNCTION (this << index);
-  NS_ASSERT_MSG (m_pathlossModel.find (index) != m_pathlossModel.end (), "Unable to find the requested pathloss model");
-  return m_pathlossModel.at (index)->GetObject<PropagationLossModel> ();
-}
-
-void
-MmWaveHelper::SetChannelModelType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_spectrumPropagationLossModelType = type;
-  if (!type.empty ())
+    NS_LOG_FUNCTION(gnbDevice << bwpIndex);
+    NS_ASSERT(bwpIndex < UINT8_MAX);
+    Ptr<NrGnbNetDevice> netDevice = DynamicCast<NrGnbNetDevice>(gnbDevice);
+    if (netDevice == nullptr)
     {
-      m_spectrumPropagationLossModelFactory = ObjectFactory ();
-      m_spectrumPropagationLossModelFactory.SetTypeId (type);
+        return nullptr;
     }
+    return netDevice->GetPhy(static_cast<uint8_t>(bwpIndex));
+}
+
+Ptr<NrGnbMac>
+NoriHelper::GetGnbMac(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex)
+{
+    NS_LOG_FUNCTION(gnbDevice << bwpIndex);
+    NS_ASSERT(bwpIndex < UINT8_MAX);
+    Ptr<NrGnbNetDevice> netDevice = DynamicCast<NrGnbNetDevice>(gnbDevice);
+    if (netDevice == nullptr)
+    {
+        return nullptr;
+    }
+    return netDevice->GetMac(static_cast<uint8_t>(bwpIndex));
+}
+
+Ptr<NrUeMac>
+NoriHelper::GetUeMac(const Ptr<NetDevice>& ueDevice, uint32_t bwpIndex)
+{
+    NS_LOG_FUNCTION(ueDevice << bwpIndex);
+    NS_ASSERT(bwpIndex < UINT8_MAX);
+    Ptr<NrUeNetDevice> netDevice = DynamicCast<NrUeNetDevice>(ueDevice);
+    if (netDevice == nullptr)
+    {
+        return nullptr;
+    }
+    return netDevice->GetMac(static_cast<uint8_t>(bwpIndex));
+}
+
+Ptr<NrUePhy>
+NoriHelper::GetUePhy(const Ptr<NetDevice>& ueDevice, uint32_t bwpIndex)
+{
+    NS_LOG_FUNCTION(ueDevice << bwpIndex);
+    NS_ASSERT(bwpIndex < UINT8_MAX);
+    Ptr<NrUeNetDevice> netDevice = DynamicCast<NrUeNetDevice>(ueDevice);
+    if (netDevice == nullptr)
+    {
+        return nullptr;
+    }
+    return netDevice->GetPhy(static_cast<uint8_t>(bwpIndex));
+}
+
+Ptr<BwpManagerGnb>
+NoriHelper::GetBwpManagerGnb(const Ptr<NetDevice>& gnbDevice)
+{
+    NS_LOG_FUNCTION(gnbDevice);
+
+    Ptr<NrGnbNetDevice> netDevice = DynamicCast<NrGnbNetDevice>(gnbDevice);
+    if (netDevice == nullptr)
+    {
+        return nullptr;
+    }
+
+    return netDevice->GetBwpManager();
+}
+
+Ptr<BwpManagerUe>
+NoriHelper::GetBwpManagerUe(const Ptr<NetDevice>& ueDevice)
+{
+    NS_LOG_FUNCTION(ueDevice);
+
+    Ptr<NrUeNetDevice> netDevice = DynamicCast<NrUeNetDevice>(ueDevice);
+    if (netDevice == nullptr)
+    {
+        return nullptr;
+    }
+
+    return netDevice->GetBwpManager();
+}
+
+Ptr<NrMacScheduler>
+NoriHelper::GetScheduler(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex)
+{
+    NS_LOG_FUNCTION(gnbDevice << bwpIndex);
+
+    Ptr<NrGnbNetDevice> netDevice = DynamicCast<NrGnbNetDevice>(gnbDevice);
+    if (netDevice == nullptr)
+    {
+        return nullptr;
+    }
+
+    return netDevice->GetScheduler(bwpIndex);
 }
 
 void
-MmWaveHelper::SetChannelModelAttribute (std::string name, const AttributeValue &value)
+NoriHelper::SetHarqEnabled(bool harqEnabled)
 {
-  NS_LOG_FUNCTION (this);
-  m_spectrumPropagationLossModelFactory.Set (name, value);
-}
-
-void
-MmWaveHelper::SetMmWaveEnbNetDeviceAttribute (std::string name, const AttributeValue &value)
-{
-  NS_LOG_FUNCTION (this);
-  m_enbNetDeviceFactory.Set (name, value);
-}
-
-void
-MmWaveHelper::SetMmWaveUeNetDeviceAttribute (std::string name, const AttributeValue &value)
-{
-  NS_LOG_FUNCTION (this);
-  m_ueNetDeviceFactory.Set (name, value);
-}
-
-void
-MmWaveHelper::SetMcUeNetDeviceAttribute (std::string name, const AttributeValue &value)
-{
-  NS_LOG_FUNCTION (this);
-  m_mcUeNetDeviceFactory.Set (name, value);
-}
-
-void
-MmWaveHelper::SetBeamformingModelAttribute (std::string name, const AttributeValue &value)
-{
-  NS_LOG_FUNCTION (this);
-  m_bfModelFactory.Set (name, value);
-}
-
-void
-MmWaveHelper::SetSchedulerType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_schedulerFactory = ObjectFactory ();
-  m_schedulerFactory.SetTypeId (type);
-}
-std::string
-MmWaveHelper::GetSchedulerType () const
-{
-  return m_schedulerFactory.GetTypeId ().GetName ();
-}
-
-void
-MmWaveHelper::SetLteSchedulerType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_lteSchedulerFactory = ObjectFactory ();
-  m_lteSchedulerFactory.SetTypeId (type);
-}
-
-std::string
-MmWaveHelper::GetLteSchedulerType () const
-{
-  return m_lteSchedulerFactory.GetTypeId ().GetName ();
-}
-
-
-std::string
-MmWaveHelper::GetLteFfrAlgorithmType () const
-{
-  return m_lteFfrAlgorithmFactory.GetTypeId ().GetName ();
-}
-
-void
-MmWaveHelper::SetLteFfrAlgorithmType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_lteFfrAlgorithmFactory = ObjectFactory ();
-  m_lteFfrAlgorithmFactory.SetTypeId (type);
-}
-
-// TODO add attributes
-
-std::string
-MmWaveHelper::GetLteHandoverAlgorithmType () const
-{
-  return m_lteHandoverAlgorithmFactory.GetTypeId ().GetName ();
-}
-
-void
-MmWaveHelper::SetLteHandoverAlgorithmType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_lteHandoverAlgorithmFactory = ObjectFactory ();
-  m_lteHandoverAlgorithmFactory.SetTypeId (type);
-}
-
-void
-MmWaveHelper::SetHarqEnabled (bool harqEnabled)
-{
-  m_harqEnabled = harqEnabled;
+    m_harqEnabled = harqEnabled;
 }
 
 bool
-MmWaveHelper::GetHarqEnabled ()
+NoriHelper::GetHarqEnabled() const
 {
-  return m_harqEnabled;
+    return m_harqEnabled;
 }
 
 void
-MmWaveHelper::SetSnrTest (bool snrTest)
+NoriHelper::SetSnrTest(bool snrTest)
 {
-  m_snrTest = snrTest;
+    m_snrTest = snrTest;
 }
 
 bool
-MmWaveHelper::GetSnrTest ()
+NoriHelper::GetSnrTest() const
 {
-  return m_snrTest;
+    return m_snrTest;
+}
+
+NetDeviceContainer
+NoriHelper::InstallUeDevice(const NodeContainer& c,
+                          const std::vector<std::reference_wrapper<BandwidthPartInfoPtr>>& allBwps)
+{
+    NS_LOG_FUNCTION(this);
+    Initialize(); // Run DoInitialize (), if necessary
+    NetDeviceContainer devices;
+    for (NodeContainer::Iterator i = c.Begin(); i != c.End(); ++i)
+    {
+        Ptr<Node> node = *i;
+        Ptr<NetDevice> device = InstallSingleUeDevice(node, allBwps);
+        device->SetAddress(Mac48Address::Allocate());
+        devices.Add(device);
+    }
+    return devices;
+}
+
+NetDeviceContainer
+NoriHelper::InstallGnbDevice(const NodeContainer& c,
+                           const std::vector<std::reference_wrapper<BandwidthPartInfoPtr>> allBwps)
+{
+    NS_LOG_FUNCTION(this);
+    Initialize(); // Run DoInitialize (), if necessary
+    NetDeviceContainer devices;
+    for (NodeContainer::Iterator i = c.Begin(); i != c.End(); ++i)
+    {
+        Ptr<Node> node = *i;
+        Ptr<NetDevice> device = InstallSingleGnbDevice(node, allBwps);
+        device->SetAddress(Mac48Address::Allocate());
+        devices.Add(device);
+    }
+    return devices;
+}
+
+Ptr<NrUeMac>
+NoriHelper::CreateUeMac() const
+{
+    NS_LOG_FUNCTION(this);
+    Ptr<NrUeMac> mac = m_ueMacFactory.Create<NrUeMac>();
+    return mac;
+}
+
+Ptr<NrUePhy>
+NoriHelper::CreateUePhy(const Ptr<Node>& n,
+                      const std::unique_ptr<BandwidthPartInfo>& bwp,
+                      const Ptr<NrUeNetDevice>& dev,
+                      const NrSpectrumPhy::NrPhyDlHarqFeedbackCallback& dlHarqCallback,
+                      const NrSpectrumPhy::NrPhyRxCtrlEndOkCallback& phyRxCtrlCallback)
+{
+    NS_LOG_FUNCTION(this);
+
+    Ptr<NrUePhy> phy = m_uePhyFactory.Create<NrUePhy>();
+
+    NS_ASSERT(bwp->m_channel != nullptr);
+
+    phy->InstallCentralFrequency(bwp->m_centralFrequency);
+
+    phy->ScheduleStartEventLoop(n->GetId(), 0, 0, 0);
+
+    // connect CAM and PHY
+    Ptr<NrChAccessManager> cam =
+        DynamicCast<NrChAccessManager>(m_ueChannelAccessManagerFactory.Create());
+    phy->SetCam(cam);
+    // set device
+    phy->SetDevice(dev);
+
+    Ptr<MobilityModel> mm = n->GetObject<MobilityModel>();
+    NS_ASSERT_MSG(
+        mm,
+        "MobilityModel needs to be set on node before calling NoriHelper::InstallUeDevice ()");
+
+    Ptr<NrSpectrumPhy> channelPhy =
+        m_ueSpectrumFactory.Create<NrSpectrumPhy>(); // Create NrSpectrumPhy
+
+    if (m_harqEnabled)
+    {
+        Ptr<NrHarqPhy> harq = Create<NrHarqPhy>(); // Create HARQ instance
+        channelPhy->InstallHarqPhyModule(harq);
+        channelPhy->SetPhyDlHarqFeedbackCallback(dlHarqCallback);
+    }
+    channelPhy->SetIsEnb(false);
+    channelPhy->SetDevice(dev); // each NrSpectrumPhy should have a pointer to device
+
+    Ptr<UniformPlanarArray> antenna =
+        m_ueAntennaFactory.Create<UniformPlanarArray>(); // Create antenna per panel
+    channelPhy->SetAntenna(antenna);
+
+    cam->SetNrSpectrumPhy(channelPhy); // connect CAM
+
+    Ptr<LteChunkProcessor> pData = Create<LteChunkProcessor>();
+    pData->AddCallback(MakeCallback(&NrSpectrumPhy::UpdateSinrPerceived, channelPhy));
+    channelPhy->AddDataSinrChunkProcessor(pData);
+
+    Ptr<NrMimoChunkProcessor> pDataMimo{nullptr};
+    if (bwp->m_3gppChannel)
+    {
+        pDataMimo = Create<NrMimoChunkProcessor>();
+        pDataMimo->AddCallback(MakeCallback(&NrSpectrumPhy::UpdateMimoSinrPerceived, channelPhy));
+        channelPhy->AddDataMimoChunkProcessor(pDataMimo);
+    }
+    if (bwp->m_3gppChannel && m_enableMimoFeedback)
+    {
+        // Report DL CQI, PMI, RI (channel quality, MIMO precoding matrix and rank indicators)
+        pDataMimo->AddCallback(MakeCallback(&NrUePhy::GenerateDlCqiReportMimo, phy));
+    }
+    else
+    {
+        // SISO CQI feedback
+        pData->AddCallback(MakeCallback(&NrUePhy::GenerateDlCqiReport, phy));
+    }
+
+    Ptr<LteChunkProcessor> pRs = Create<LteChunkProcessor>();
+    pRs->AddCallback(MakeCallback(&NrUePhy::ReportRsReceivedPower, phy));
+    channelPhy->AddRsPowerChunkProcessor(pRs);
+
+    Ptr<LteChunkProcessor> pSinr = Create<LteChunkProcessor>();
+    pSinr->AddCallback(MakeCallback(&NrSpectrumPhy::ReportDlCtrlSinr, channelPhy));
+    channelPhy->AddDlCtrlSinrChunkProcessor(pSinr);
+
+    channelPhy->SetChannel(bwp->m_channel);
+    channelPhy->InstallPhy(phy);
+    channelPhy->SetMobility(mm);
+    channelPhy->SetPhyRxDataEndOkCallback(MakeCallback(&NrUePhy::PhyDataPacketReceived, phy));
+    channelPhy->SetPhyRxCtrlEndOkCallback(phyRxCtrlCallback);
+
+    Ptr<BeamManager> beamManager = m_ueBeamManagerFactory.Create<BeamManager>();
+    beamManager->Configure(antenna);
+    channelPhy->SetBeamManager(beamManager);
+    phy->InstallSpectrumPhy(channelPhy);
+    return phy;
+}
+
+Ptr<NetDevice>
+NoriHelper::InstallSingleUeDevice(
+    const Ptr<Node>& n,
+    const std::vector<std::reference_wrapper<BandwidthPartInfoPtr>> allBwps)
+{
+    NS_LOG_FUNCTION(this);
+
+    Ptr<NrUeNetDevice> dev = m_ueNetDeviceFactory.Create<NrUeNetDevice>();
+    dev->SetNode(n);
+
+    std::map<uint8_t, Ptr<BandwidthPartUe>> ueCcMap;
+
+    // Create, for each ue, its bandwidth parts
+    for (uint32_t bwpId = 0; bwpId < allBwps.size(); ++bwpId)
+    {
+        Ptr<BandwidthPartUe> cc = CreateObject<BandwidthPartUe>();
+        double bwInKhz = allBwps[bwpId].get()->m_channelBandwidth / 1000.0;
+        NS_ABORT_MSG_IF(bwInKhz / 100.0 > 65535.0,
+                        "A bandwidth of " << bwInKhz / 100.0 << " kHz cannot be represented");
+        cc->SetUlBandwidth(static_cast<uint16_t>(bwInKhz / 100));
+        cc->SetDlBandwidth(static_cast<uint16_t>(bwInKhz / 100));
+        cc->SetDlEarfcn(0); // Used for nothing..
+        cc->SetUlEarfcn(0); // Used for nothing..
+
+        auto mac = CreateUeMac();
+        cc->SetMac(mac);
+
+        auto phy = CreateUePhy(
+            n,
+            allBwps[bwpId].get(),
+            dev,
+            MakeCallback(&NrUeNetDevice::EnqueueDlHarqFeedback, dev),
+            std::bind(&NrUeNetDevice::RouteIngoingCtrlMsgs, dev, std::placeholders::_1, bwpId));
+
+        phy->SetBwpId(bwpId);
+        cc->SetPhy(phy);
+
+        if (bwpId == 0)
+        {
+            cc->SetAsPrimary(true);
+        }
+        else
+        {
+            cc->SetAsPrimary(false);
+        }
+
+        ueCcMap.insert(std::make_pair(bwpId, cc));
+    }
+
+    Ptr<LteUeComponentCarrierManager> ccmUe =
+        DynamicCast<LteUeComponentCarrierManager>(CreateObject<BwpManagerUe>());
+    DynamicCast<BwpManagerUe>(ccmUe)->SetBwpManagerAlgorithm(
+        m_ueBwpManagerAlgoFactory.Create<BwpManagerAlgorithm>());
+
+    Ptr<LteUeRrc> rrc = CreateObject<LteUeRrc>();
+    rrc->m_numberOfComponentCarriers = ueCcMap.size();
+    // run InitializeSap to create the proper number of sap provider/users
+    rrc->InitializeSap();
+    rrc->SetLteMacSapProvider(ccmUe->GetLteMacSapProvider());
+    // setting ComponentCarrierManager SAP
+    rrc->SetLteCcmRrcSapProvider(ccmUe->GetLteCcmRrcSapProvider());
+    ccmUe->SetLteCcmRrcSapUser(rrc->GetLteCcmRrcSapUser());
+    ccmUe->SetNumberOfComponentCarriers(ueCcMap.size());
+
+    bool useIdealRrc = true;
+    if (useIdealRrc)
+    {
+        Ptr<nrUeRrcProtocolIdeal> rrcProtocol = CreateObject<nrUeRrcProtocolIdeal>();
+        rrcProtocol->SetUeRrc(rrc);
+        rrc->AggregateObject(rrcProtocol);
+        rrcProtocol->SetLteUeRrcSapProvider(rrc->GetLteUeRrcSapProvider());
+        rrc->SetLteUeRrcSapUser(rrcProtocol->GetLteUeRrcSapUser());
+    }
+    else
+    {
+        Ptr<LteUeRrcProtocolReal> rrcProtocol = CreateObject<LteUeRrcProtocolReal>();
+        rrcProtocol->SetUeRrc(rrc);
+        rrc->AggregateObject(rrcProtocol);
+        rrcProtocol->SetLteUeRrcSapProvider(rrc->GetLteUeRrcSapProvider());
+        rrc->SetLteUeRrcSapUser(rrcProtocol->GetLteUeRrcSapUser());
+    }
+
+    if (m_epcHelper != nullptr)
+    {
+        rrc->SetUseRlcSm(false);
+    }
+    else
+    {
+        rrc->SetUseRlcSm(true);
+    }
+    Ptr<EpcUeNas> nas = CreateObject<EpcUeNas>();
+
+    nas->SetAsSapProvider(rrc->GetAsSapProvider());
+    nas->SetDevice(dev);
+    nas->SetForwardUpCallback(MakeCallback(&NrUeNetDevice::Receive, dev));
+
+    rrc->SetAsSapUser(nas->GetAsSapUser());
+
+    for (auto& it : ueCcMap)
+    {
+        rrc->SetLteUeCmacSapProvider(it.second->GetMac()->GetUeCmacSapProvider(), it.first);
+        it.second->GetMac()->SetUeCmacSapUser(rrc->GetLteUeCmacSapUser(it.first));
+
+        it.second->GetPhy()->SetUeCphySapUser(rrc->GetLteUeCphySapUser());
+        rrc->SetLteUeCphySapProvider(it.second->GetPhy()->GetUeCphySapProvider(), it.first);
+
+        it.second->GetPhy()->SetPhySapUser(it.second->GetMac()->GetPhySapUser());
+        it.second->GetMac()->SetPhySapProvider(it.second->GetPhy()->GetPhySapProvider());
+
+        bool ccmTest =
+            ccmUe->SetComponentCarrierMacSapProviders(it.first,
+                                                      it.second->GetMac()->GetUeMacSapProvider());
+
+        if (!ccmTest)
+        {
+            NS_FATAL_ERROR("Error in SetComponentCarrierMacSapProviders");
+        }
+    }
+
+    NS_ABORT_MSG_IF(m_imsiCounter >= 0xFFFFFFFF, "max num UEs exceeded");
+    uint64_t imsi = ++m_imsiCounter;
+
+    dev->SetAttribute("Imsi", UintegerValue(imsi));
+    dev->SetCcMap(ueCcMap);
+    dev->SetAttribute("nrUeRrc", PointerValue(rrc));
+    dev->SetAttribute("EpcUeNas", PointerValue(nas));
+    dev->SetAttribute("LteUeComponentCarrierManager", PointerValue(ccmUe));
+
+    n->AddDevice(dev);
+
+    if (m_epcHelper != nullptr)
+    {
+        m_epcHelper->AddUe(dev, dev->GetImsi());
+    }
+
+    dev->Initialize();
+
+    return dev;
+}
+
+Ptr<NrGnbPhy>
+NoriHelper::CreateGnbPhy(const Ptr<Node>& n,
+                       const std::unique_ptr<BandwidthPartInfo>& bwp,
+                       const Ptr<NoriGnbNetDevice>& dev,
+                       const NrSpectrumPhy::NrPhyRxCtrlEndOkCallback& phyEndCtrlCallback)
+{
+    NS_LOG_FUNCTION(this);
+
+    Ptr<NrGnbPhy> phy = m_gnbPhyFactory.Create<NrGnbPhy>();
+
+    DoubleValue frequency;
+    phy->InstallCentralFrequency(bwp->m_centralFrequency);
+
+    phy->ScheduleStartEventLoop(n->GetId(), 0, 0, 0);
+
+    // PHY <--> CAM
+    Ptr<NrChAccessManager> cam =
+        DynamicCast<NrChAccessManager>(m_gnbChannelAccessManagerFactory.Create());
+    phy->SetCam(cam);
+    phy->SetDevice(dev);
+
+    Ptr<MobilityModel> mm = n->GetObject<MobilityModel>();
+    NS_ASSERT_MSG(
+        mm,
+        "MobilityModel needs to be set on node before calling NoriHelper::InstallEnbDevice ()");
+
+    Ptr<NrSpectrumPhy> channelPhy = m_gnbSpectrumFactory.Create<NrSpectrumPhy>();
+    Ptr<UniformPlanarArray> antenna = m_gnbAntennaFactory.Create<UniformPlanarArray>();
+    channelPhy->SetAntenna(antenna);
+    cam->SetNrSpectrumPhy(channelPhy);
+
+    channelPhy->InstallHarqPhyModule(
+        Create<NrHarqPhy>()); // there should be one HARQ instance per NrSpectrumPhy
+    channelPhy->SetIsEnb(true);
+    channelPhy->SetDevice(dev); // each NrSpectrumPhy should have a pointer to device
+    channelPhy->SetChannel(
+        bwp->m_channel); // each NrSpectrumPhy needs to have a pointer to the SpectrumChannel
+    // object of the corresponding spectrum part
+    channelPhy->InstallPhy(phy); // each NrSpectrumPhy should have a pointer to its NrPhy
+
+    Ptr<LteChunkProcessor> pData =
+        Create<LteChunkProcessor>(); // create pData chunk processor per NrSpectrumPhy
+    Ptr<LteChunkProcessor> pSrs =
+        Create<LteChunkProcessor>(); // create pSrs per processor per NrSpectrumPhy
+    if (!m_snrTest)
+    {
+        // TODO: rename to GeneratePuschCqiReport, replace when enabling uplink MIMO
+        pData->AddCallback(MakeCallback(&NrGnbPhy::GenerateDataCqiReport,
+                                        phy)); // connect DATA chunk processor that will
+        // call GenerateDataCqiReport function
+        pData->AddCallback(MakeCallback(&NrSpectrumPhy::UpdateSinrPerceived,
+                                        channelPhy)); // connect DATA chunk processor that will
+        // call UpdateSinrPerceived function
+        pSrs->AddCallback(MakeCallback(&NrSpectrumPhy::UpdateSrsSinrPerceived,
+                                       channelPhy)); // connect SRS chunk processor that will
+                                                     // call UpdateSrsSinrPerceived function
+        if (bwp->m_3gppChannel)
+        {
+            auto pDataMimo = Create<NrMimoChunkProcessor>();
+            pDataMimo->AddCallback(
+                MakeCallback(&NrSpectrumPhy::UpdateMimoSinrPerceived, channelPhy));
+            channelPhy->AddDataMimoChunkProcessor(pDataMimo);
+        }
+    }
+    channelPhy->AddDataSinrChunkProcessor(pData); // set DATA chunk processor to NrSpectrumPhy
+    channelPhy->AddSrsSinrChunkProcessor(pSrs);   // set SRS chunk processor to NrSpectrumPhy
+    channelPhy->SetMobility(mm);                  // set mobility model to this NrSpectrumPhy
+    channelPhy->SetPhyRxDataEndOkCallback(
+        MakeCallback(&NrGnbPhy::PhyDataPacketReceived, phy));  // connect PhyRxDataEndOk callback
+    channelPhy->SetPhyRxCtrlEndOkCallback(phyEndCtrlCallback); // connect PhyRxCtrlEndOk
+                                                               // callback
+    channelPhy->SetPhyUlHarqFeedbackCallback(
+        MakeCallback(&NrGnbPhy::ReportUlHarqFeedback, phy)); // PhyUlHarqFeedback callback
+
+    Ptr<BeamManager> beamManager = m_gnbBeamManagerFactory.Create<BeamManager>();
+    beamManager->Configure(antenna);
+    channelPhy->SetBeamManager(beamManager);
+    phy->InstallSpectrumPhy(channelPhy); // finally let know phy that there is this spectrum phy
+
+    return phy;
+}
+
+Ptr<NrGnbMac>
+NoriHelper::CreateGnbMac()
+{
+    NS_LOG_FUNCTION(this);
+
+    Ptr<NrGnbMac> mac = m_gnbMacFactory.Create<NrGnbMac>();
+    return mac;
+}
+
+Ptr<NrMacScheduler>
+NoriHelper::CreateGnbSched()
+{
+    NS_LOG_FUNCTION(this);
+
+    auto sched = m_schedFactory.Create<NrMacSchedulerNs3>();
+    auto dlAmc = m_gnbDlAmcFactory.Create<NrAmc>();
+    auto ulAmc = m_gnbUlAmcFactory.Create<NrAmc>();
+
+    sched->InstallDlAmc(dlAmc);
+    sched->InstallUlAmc(ulAmc);
+
+    return sched;
+}
+
+Ptr<NetDevice>
+NoriHelper::InstallSingleGnbDevice(
+    const Ptr<Node>& n,
+    const std::vector<std::reference_wrapper<BandwidthPartInfoPtr>> allBwps)
+{
+    NS_ABORT_MSG_IF(m_cellIdCounter == 65535, "max num gNBs exceeded");
+
+    Ptr<NrGnbNetDevice> dev = m_gnbNetDeviceFactory.Create<NrGnbNetDevice>();
+
+    NS_LOG_DEBUG("Creating gNB, cellId = " << m_cellIdCounter);
+    uint16_t cellId = m_cellIdCounter++;
+
+    dev->SetCellId(cellId);
+    dev->SetNode(n);
+
+    // create component carrier map for this gNB device
+    std::map<uint8_t, Ptr<BandwidthPartGnb>> ccMap;
+
+    for (uint32_t bwpId = 0; bwpId < allBwps.size(); ++bwpId)
+    {
+        NS_LOG_DEBUG("Creating BandwidthPart, id = " << bwpId);
+        Ptr<BandwidthPartGnb> cc = CreateObject<BandwidthPartGnb>();
+        double bwInKhz = allBwps[bwpId].get()->m_channelBandwidth / 1000.0;
+        NS_ABORT_MSG_IF(bwInKhz / 100.0 > 65535.0,
+                        "A bandwidth of " << bwInKhz / 100.0 << " kHz cannot be represented");
+
+        cc->SetUlBandwidth(static_cast<uint16_t>(bwInKhz / 100));
+        cc->SetDlBandwidth(static_cast<uint16_t>(bwInKhz / 100));
+        cc->SetDlEarfcn(0); // Argh... handover not working
+        cc->SetUlEarfcn(0); // Argh... handover not working
+        cc->SetCellId(m_cellIdCounter++);
+
+        auto phy = CreateGnbPhy(
+            n,
+            allBwps[bwpId].get(),
+            dev,
+            std::bind(&NrGnbNetDevice::RouteIngoingCtrlMsgs, dev, std::placeholders::_1, bwpId));
+        phy->SetBwpId(bwpId);
+        cc->SetPhy(phy);
+
+        auto mac = CreateGnbMac();
+        cc->SetMac(mac);
+        phy->GetCam()->SetNrGnbMac(mac);
+
+        auto sched = CreateGnbSched();
+        cc->SetNrMacScheduler(sched);
+
+        if (bwpId == 0)
+        {
+            cc->SetAsPrimary(true);
+        }
+        else
+        {
+            cc->SetAsPrimary(false);
+        }
+
+        ccMap.insert(std::make_pair(bwpId, cc));
+    }
+
+    Ptr<LteEnbRrc> rrc = CreateObject<LteEnbRrc>();
+    Ptr<LteEnbComponentCarrierManager> ccmEnbManager =
+        DynamicCast<LteEnbComponentCarrierManager>(CreateObject<BwpManagerGnb>());
+    DynamicCast<BwpManagerGnb>(ccmEnbManager)
+        ->SetBwpManagerAlgorithm(m_gnbBwpManagerAlgoFactory.Create<BwpManagerAlgorithm>());
+
+    // Convert Enb carrier map to only PhyConf map
+    // we want to make RRC to be generic, to be able to work with any type of carriers, not only
+    // strictly LTE carriers
+    std::map<uint8_t, Ptr<ComponentCarrierBaseStation>> ccPhyConfMap;
+    for (const auto& i : ccMap)
+    {
+        Ptr<ComponentCarrierBaseStation> c = i.second;
+        ccPhyConfMap.insert(std::make_pair(i.first, c));
+    }
+
+    // ComponentCarrierManager SAP
+    rrc->SetLteCcmRrcSapProvider(ccmEnbManager->GetLteCcmRrcSapProvider());
+    ccmEnbManager->SetLteCcmRrcSapUser(rrc->GetLteCcmRrcSapUser());
+    // Set number of component carriers. Note: eNB CCM would also set the
+    // number of component carriers in eNB RRC
+
+    ccmEnbManager->SetNumberOfComponentCarriers(ccMap.size());
+    rrc->ConfigureCarriers(ccPhyConfMap);
+
+    // nr module currently uses only RRC ideal mode
+    bool useIdealRrc = true;
+
+    if (useIdealRrc)
+    {
+        Ptr<NrGnbRrcProtocolIdeal> rrcProtocol = CreateObject<NrGnbRrcProtocolIdeal>();
+        rrcProtocol->SetLteEnbRrcSapProvider(rrc->GetLteEnbRrcSapProvider());
+        rrc->SetLteEnbRrcSapUser(rrcProtocol->GetLteEnbRrcSapUser());
+        rrc->AggregateObject(rrcProtocol);
+    }
+    else
+    {
+        Ptr<LteEnbRrcProtocolReal> rrcProtocol = CreateObject<LteEnbRrcProtocolReal>();
+        rrcProtocol->SetLteEnbRrcSapProvider(rrc->GetLteEnbRrcSapProvider());
+        rrc->SetLteEnbRrcSapUser(rrcProtocol->GetLteEnbRrcSapUser());
+        rrc->AggregateObject(rrcProtocol);
+    }
+
+    if (m_epcHelper != nullptr)
+    {
+        EnumValue<LteEnbRrc::LteEpsBearerToRlcMapping_t> epsBearerToRlcMapping;
+        rrc->GetAttribute("EpsBearerToRlcMapping", epsBearerToRlcMapping);
+        // it does not make sense to use RLC/SM when also using the EPC
+        if (epsBearerToRlcMapping.Get() == LteEnbRrc::RLC_SM_ALWAYS)
+        {
+            rrc->SetAttribute("EpsBearerToRlcMapping", EnumValue(LteEnbRrc::RLC_UM_ALWAYS));
+        }
+    }
+
+    // This RRC attribute is used to connect each new RLC instance with the MAC layer
+    // (for function such as TransmitPdu, ReportBufferStatusReport).
+    // Since in this new architecture, the component carrier manager acts a proxy, it
+    // will have its own LteMacSapProvider interface, RLC will see it as through original MAC
+    // interface LteMacSapProvider, but the function call will go now through
+    // LteEnbComponentCarrierManager instance that needs to implement functions of this interface,
+    // and its task will be to forward these calls to the specific MAC of some of the instances of
+    // component carriers. This decision will depend on the specific implementation of the component
+    // carrier manager.
+    rrc->SetLteMacSapProvider(ccmEnbManager->GetLteMacSapProvider());
+    rrc->SetForwardUpCallback(MakeCallback(&NrGnbNetDevice::Receive, dev));
+
+    for (auto& it : ccMap)
+    {
+        it.second->GetPhy()->SetEnbCphySapUser(rrc->GetLteEnbCphySapUser(it.first));
+        rrc->SetLteEnbCphySapProvider(it.second->GetPhy()->GetEnbCphySapProvider(), it.first);
+
+        rrc->SetLteEnbCmacSapProvider(it.second->GetMac()->GetEnbCmacSapProvider(), it.first);
+        it.second->GetMac()->SetEnbCmacSapUser(rrc->GetLteEnbCmacSapUser(it.first));
+
+        // PHY <--> MAC SAP
+        it.second->GetPhy()->SetPhySapUser(it.second->GetMac()->GetPhySapUser());
+        it.second->GetMac()->SetPhySapProvider(it.second->GetPhy()->GetPhySapProvider());
+        // PHY <--> MAC SAP END
+
+        // Scheduler SAP
+        it.second->GetMac()->SetNrMacSchedSapProvider(
+            it.second->GetScheduler()->GetMacSchedSapProvider());
+        it.second->GetMac()->SetNrMacCschedSapProvider(
+            it.second->GetScheduler()->GetMacCschedSapProvider());
+
+        it.second->GetScheduler()->SetMacSchedSapUser(it.second->GetMac()->GetNrMacSchedSapUser());
+        it.second->GetScheduler()->SetMacCschedSapUser(
+            it.second->GetMac()->GetNrMacCschedSapUser());
+        // Scheduler SAP END
+
+        it.second->GetMac()->SetLteCcmMacSapUser(ccmEnbManager->GetLteCcmMacSapUser());
+        ccmEnbManager->SetCcmMacSapProviders(it.first,
+                                             it.second->GetMac()->GetLteCcmMacSapProvider());
+
+        // insert the pointer to the LteMacSapProvider interface of the MAC layer of the specific
+        // component carrier
+        ccmEnbManager->SetMacSapProvider(it.first, it.second->GetMac()->GetMacSapProvider());
+    }
+
+    dev->SetAttribute("LteEnbComponentCarrierManager", PointerValue(ccmEnbManager));
+    dev->SetCcMap(ccMap);
+    dev->SetAttribute("LteEnbRrc", PointerValue(rrc));
+    dev->Initialize();
+
+    n->AddDevice(dev);
+
+    if (m_epcHelper != nullptr)
+    {
+        NS_LOG_INFO("adding this eNB to the EPC");
+        m_epcHelper->AddEnb(n, dev, dev->GetCellIds());
+        Ptr<EpcEnbApplication> enbApp = n->GetApplication(0)->GetObject<EpcEnbApplication>();
+        NS_ASSERT_MSG(enbApp != nullptr, "cannot retrieve EpcEnbApplication");
+
+        // S1 SAPs
+        rrc->SetS1SapProvider(enbApp->GetS1SapProvider());
+        enbApp->SetS1SapUser(rrc->GetS1SapUser());
+
+        // X2 SAPs
+        Ptr<EpcX2> x2 = n->GetObject<EpcX2>();
+        x2->SetEpcX2SapUser(rrc->GetEpcX2SapUser());
+        rrc->SetEpcX2SapProvider(x2->GetEpcX2SapProvider());
+    }
+
+    return dev;
 }
 
 void
-MmWaveHelper::SetCcPhyParams ( std::map< uint8_t, MmWaveComponentCarrier> ccMapParams)
+NoriHelper::AttachToClosestEnb(NetDeviceContainer ueDevices, NetDeviceContainer enbDevices)
 {
-  NS_LOG_FUNCTION (this);
-  m_componentCarrierPhyParams = ccMapParams;
-}
+    NS_LOG_FUNCTION(this);
 
-std::map< uint8_t, MmWaveComponentCarrier>
-MmWaveHelper::GetCcPhyParams ()
-{
-  NS_LOG_FUNCTION (this);
-  return m_componentCarrierPhyParams;
+    for (NetDeviceContainer::Iterator i = ueDevices.Begin(); i != ueDevices.End(); i++)
+    {
+        AttachToClosestEnb(*i, enbDevices);
+    }
 }
 
 void
-MmWaveHelper::SetLteCcPhyParams ( std::map< uint8_t, ComponentCarrier> ccMapParams)
+NoriHelper::AttachToClosestEnb(Ptr<NetDevice> ueDevice, NetDeviceContainer enbDevices)
 {
-  NS_LOG_FUNCTION (this);
-  m_lteComponentCarrierPhyParams = ccMapParams;
-}
-
-NetDeviceContainer
-MmWaveHelper::InstallUeDevice (NodeContainer c)
-{
-  NS_LOG_FUNCTION (this);
-  Initialize ();        // Run DoInitialize (), if necessary
-  NetDeviceContainer devices;
-  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+    NS_LOG_FUNCTION(this);
+    NS_ASSERT_MSG(enbDevices.GetN() > 0, "empty enb device container");
+    Vector uepos = ueDevice->GetNode()->GetObject<MobilityModel>()->GetPosition();
+    double minDistance = std::numeric_limits<double>::infinity();
+    Ptr<NetDevice> closestEnbDevice;
+    for (NetDeviceContainer::Iterator i = enbDevices.Begin(); i != enbDevices.End(); ++i)
     {
-      Ptr<Node> node = *i;
-      Ptr<NetDevice> device = InstallSingleUeDevice (node);
-      device->SetAddress (Mac64Address::Allocate ());
-      devices.Add (device);
-    }
-  return devices;
-
-}
-
-NetDeviceContainer
-MmWaveHelper::InstallMcUeDevice (NodeContainer c)
-{
-  NS_LOG_FUNCTION (this);
-  Initialize ();        // Run DoInitialize (), if necessary
-  NetDeviceContainer devices;
-  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
-    {
-      Ptr<Node> node = *i;
-      Ptr<NetDevice> device = InstallSingleMcUeDevice (node);
-      device->SetAddress (Mac64Address::Allocate ());
-      devices.Add (device);
-    }
-  return devices;
-}
-
-NetDeviceContainer
-MmWaveHelper::InstallInterRatHoCapableUeDevice (NodeContainer c)
-{
-  NS_LOG_FUNCTION (this);
-  Initialize ();        // Run DoInitialize (), if necessary
-  NetDeviceContainer devices;
-  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
-    {
-      Ptr<Node> node = *i;
-      Ptr<NetDevice> device = InstallSingleInterRatHoCapableUeDevice (node);
-      device->SetAddress (Mac64Address::Allocate ());
-      devices.Add (device);
-    }
-  return devices;
-}
-
-NetDeviceContainer
-MmWaveHelper::InstallEnbDevice (NodeContainer c)
-{
-  NS_LOG_FUNCTION (this);
-  Initialize ();        // Run DoInitialize (), if necessary
-  NetDeviceContainer devices;
-  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
-    {
-      Ptr<Node> node = *i;
-      Ptr<NetDevice> device = InstallSingleEnbDevice (node);
-      device->SetAddress (Mac64Address::Allocate ());
-      devices.Add (device);
-    }
-  return devices;
-}
-
-NetDeviceContainer
-MmWaveHelper::InstallLteEnbDevice (NodeContainer c)
-{
-  NS_LOG_FUNCTION (this);
-  Initialize ();        // Run DoInitialize (), if necessary
-  NetDeviceContainer devices;
-  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
-    {
-      Ptr<Node> node = *i;
-      Ptr<NetDevice> device = InstallSingleLteEnbDevice (node);
-      device->SetAddress (Mac64Address::Allocate ());
-      devices.Add (device);
-    }
-  return devices;
-}
-
-Ptr<NetDevice>
-MmWaveHelper::InstallSingleMcUeDevice (Ptr<Node> n)
-{
-  NS_LOG_FUNCTION (this);
-
-
-  NS_ABORT_MSG_IF (m_imsiCounter >= 0xFFFFFFFF, "max num UEs exceeded");
-  uint64_t imsi = ++m_imsiCounter;
-
-  Ptr<McUeNetDevice> device = m_mcUeNetDeviceFactory.Create<McUeNetDevice> ();
-  device->SetNode (n);
-
-  // mmWave phy, mac and channel
-  NS_ABORT_MSG_IF (m_componentCarrierPhyParams.size () == 0 && m_useCa, "If CA is enabled, before call this method you need to install Enbs --> InstallEnbDevice()");
-  std::map<uint8_t, Ptr<MmWaveComponentCarrierUe> > mmWaveUeCcMap;
-
-  for (std::map< uint8_t, MmWaveComponentCarrier >::iterator it = m_componentCarrierPhyParams.begin (); it != m_componentCarrierPhyParams.end (); ++it)
-    {
-      Ptr <MmWaveComponentCarrierUe> cc =  CreateObject<MmWaveComponentCarrierUe> ();
-      //cc->SetBandwidth ( it->second.GetBandwidth ());
-      //cc->SetEarfcn ( it->second.GetUlEarfcn ());
-      cc->SetConfigurationParameters (it->second.GetConfigurationParameters ());
-      cc->SetAsPrimary (it->second.IsPrimary ());
-      Ptr<MmWaveUeMac> mac = CreateObject<MmWaveUeMac> ();
-      cc->SetMac (mac);
-      // cc->GetPhy ()->Initialize (); // it is initialized within the LteUeNetDevice::DoInitialize ()
-      mmWaveUeCcMap.insert (std::pair<uint8_t, Ptr<MmWaveComponentCarrierUe> > (it->first, cc));
-    }
-
-  for (std::map<uint8_t, Ptr<MmWaveComponentCarrierUe> >::iterator it = mmWaveUeCcMap.begin (); it != mmWaveUeCcMap.end (); ++it)
-    {
-      Ptr<MmWaveSpectrumPhy> ulPhy = CreateObject<MmWaveSpectrumPhy> ();
-      Ptr<MmWaveSpectrumPhy> dlPhy = CreateObject<MmWaveSpectrumPhy> ();
-
-      Ptr<MmWaveUePhy> phy = CreateObject<MmWaveUePhy> (dlPhy, ulPhy);
-
-      Ptr<MmWaveHarqPhy> harq = Create<MmWaveHarqPhy> ();
-
-      dlPhy->SetHarqPhyModule (harq);
-      //ulPhy->SetHarqPhyModule (harq);
-      phy->SetHarqPhyModule (harq);
-
-      /*
-Ptr<LteChunkProcessor> pRs = Create<LteChunkProcessor> ();
-pRs->AddCallback (MakeCallback (&LteUePhy::ReportRsReceivedPower, phy));
-dlPhy->AddRsPowerChunkProcessor (pRs);
-
-Ptr<LteChunkProcessor> pInterf = Create<LteChunkProcessor> ();
-pInterf->AddCallback (MakeCallback (&LteUePhy::ReportInterference, phy));
-dlPhy->AddInterferenceCtrlChunkProcessor (pInterf);   // for RSRQ evaluation of UE Measurements
-
-Ptr<LteChunkProcessor> pCtrl = Create<LteChunkProcessor> ();
-pCtrl->AddCallback (MakeCallback (&LteSpectrumPhy::UpdateSinrPerceived, dlPhy));
-dlPhy->AddCtrlSinrChunkProcessor (pCtrl);
-      */
-
-      Ptr<mmWaveChunkProcessor> pData = Create<mmWaveChunkProcessor> ();
-      pData->AddCallback (MakeCallback (&MmWaveUePhy::GenerateDlCqiReport, phy));
-      pData->AddCallback (MakeCallback (&MmWaveSpectrumPhy::UpdateSinrPerceived, dlPhy));
-      dlPhy->AddDataSinrChunkProcessor (pData);
-      if (m_harqEnabled)
+        Vector enbpos = (*i)->GetNode()->GetObject<MobilityModel>()->GetPosition();
+        double distance = CalculateDistance(uepos, enbpos);
+        if (distance < minDistance)
         {
-          //In lte-helper this is done in the last for cycle
-          dlPhy->SetPhyDlHarqFeedbackCallback (MakeCallback (&MmWaveUePhy::ReceiveLteDlHarqFeedback, phy));
+            minDistance = distance;
+            closestEnbDevice = *i;
         }
+    }
+    NS_ASSERT(closestEnbDevice);
 
-      /*Check if this is supported in mmwave
-if (m_usePdschForCqiGeneration)
-{
-// CQI calculation based on PDCCH for signal and PDSCH for interference
-pCtrl->AddCallback (MakeCallback (&LteUePhy::GenerateMixedCqiReport, phy));
-Ptr<LteChunkProcessor> pDataInterf = Create<LteChunkProcessor> ();
-pDataInterf->AddCallback (MakeCallback (&LteUePhy::ReportDataInterference, phy));
-dlPhy->AddInterferenceDataChunkProcessor (pDataInterf);
+    AttachToEnb(ueDevice, closestEnbDevice);
 }
-else
+
+void
+NoriHelper::AttachToEnb(const Ptr<NetDevice>& ueDevice, const Ptr<NetDevice>& gnbDevice)
 {
-// CQI calculation based on PDCCH for both signal and interference
-pCtrl->AddCallback (MakeCallback (&LteUePhy::GenerateCtrlCqiReport, phy));
-}*/
+    Ptr<NrGnbNetDevice> enbNetDev = gnbDevice->GetObject<NrGnbNetDevice>();
+    Ptr<NrUeNetDevice> ueNetDev = ueDevice->GetObject<NrUeNetDevice>();
 
-      ulPhy->SetChannel (m_channel.at (it->first));
-      dlPhy->SetChannel (m_channel.at (it->first));
+    NS_ABORT_IF(enbNetDev == nullptr || ueNetDev == nullptr);
 
-      Ptr<MobilityModel> mm = n->GetObject<MobilityModel> ();
-      NS_ASSERT_MSG (mm, "MobilityModel needs to be set on node before calling LteHelper::InstallUeDevice ()");
-      dlPhy->SetMobility (mm);
-      ulPhy->SetMobility (mm);
-
-      Ptr<ThreeGppAntennaArrayModel> antenna = CreateObjectWithAttributes<ThreeGppAntennaArrayModel> ("NumRows", UintegerValue (sqrt (device->GetAntennaNum())), "NumColumns", UintegerValue (sqrt (device->GetAntennaNum())));
-      NS_ASSERT_MSG (antenna, "error in creating the AntennaModel object");
-
-      // initialize the 3GPP channel model
-      Ptr<SpectrumPropagationLossModel> splm = m_channel.at (it->first)->GetSpectrumPropagationLossModel ();
-      Ptr<ThreeGppSpectrumPropagationLossModel> threeGppSplm = DynamicCast<ThreeGppSpectrumPropagationLossModel> (splm);
-      if (threeGppSplm)
-      {
-        threeGppSplm->AddDevice (device, antenna);
-      }
-
-      auto channelModel = threeGppSplm->GetChannelModel();
-      Ptr<MmWaveBeamformingModel> bfModel = m_bfModelFactory.Create<MmWaveBeamformingModel> ();
-      bfModel->SetAttributeFailSafe ("Device", PointerValue (device));
-      bfModel->SetAttributeFailSafe ("Antenna", PointerValue (antenna));
-      bfModel->SetAttributeFailSafe ("ChannelModel", PointerValue (channelModel));
-      dlPhy->SetBeamformingModel (bfModel);
-
-      it->second->SetPhy (phy);
-      it->second->SetAntenna (antenna);
-    }
-
-  // LTE phy, mac and channel
-  NS_ABORT_MSG_IF (m_lteComponentCarrierPhyParams.size () == 0 && m_lteUseCa, "If CA is enabled, before call this method you need to install Enbs --> InstallLteEnbDevice()");
-  std::map<uint8_t, Ptr<ComponentCarrierUe> > lteUeCcMap;
-
-  for (std::map< uint8_t, ComponentCarrier >::iterator it = m_lteComponentCarrierPhyParams.begin (); it != m_lteComponentCarrierPhyParams.end (); ++it)
+    for (uint32_t i = 0; i < enbNetDev->GetCcMapSize(); ++i)
     {
-      Ptr <ComponentCarrierUe> cc =  CreateObject<ComponentCarrierUe> ();
-      cc->SetUlBandwidth ( it->second.GetUlBandwidth ());
-      cc->SetDlBandwidth ( it->second.GetDlBandwidth ());
-      cc->SetDlEarfcn ( it->second.GetDlEarfcn ());
-      cc->SetUlEarfcn ( it->second.GetUlEarfcn ());
-      cc->SetAsPrimary (it->second.IsPrimary ());
-      Ptr<LteUeMac> mac = CreateObject<LteUeMac> ();
-      cc->SetMac (mac);
-      // cc->GetPhy ()->Initialize (); // it is initialized within the LteUeNetDevice::DoInitialize ()
-      lteUeCcMap.insert (std::pair<uint8_t, Ptr<ComponentCarrierUe> > (it->first, cc));
-    }
+        enbNetDev->GetPhy(i)->RegisterUe(ueNetDev->GetImsi(), ueNetDev);
+        ueNetDev->GetPhy(i)->RegisterToEnb(enbNetDev->GetBwpId(i));
+        ueNetDev->GetPhy(i)->SetDlAmc(
+            DynamicCast<NrMacSchedulerNs3>(enbNetDev->GetScheduler(i))->GetDlAmc());
+        ueNetDev->GetPhy(i)->SetDlCtrlSyms(enbNetDev->GetMac(i)->GetDlCtrlSyms());
+        ueNetDev->GetPhy(i)->SetUlCtrlSyms(enbNetDev->GetMac(i)->GetUlCtrlSyms());
+        ueNetDev->GetPhy(i)->SetNumRbPerRbg(enbNetDev->GetMac(i)->GetNumRbPerRbg());
+        ueNetDev->GetPhy(i)->SetRbOverhead(enbNetDev->GetPhy(i)->GetRbOverhead());
+        ueNetDev->GetPhy(i)->SetSymbolsPerSlot(enbNetDev->GetPhy(i)->GetSymbolsPerSlot());
+        ueNetDev->GetPhy(i)->SetNumerology(enbNetDev->GetPhy(i)->GetNumerology());
+        ueNetDev->GetPhy(i)->SetPattern(enbNetDev->GetPhy(i)->GetPattern());
+        Ptr<EpcUeNas> ueNas = ueNetDev->GetNas();
+        ueNas->Connect(enbNetDev->GetBwpId(i), enbNetDev->GetEarfcn(i));
 
-  for (std::map<uint8_t, Ptr<ComponentCarrierUe> >::iterator it = lteUeCcMap.begin (); it != lteUeCcMap.end (); ++it)
-    {
-      Ptr<LteSpectrumPhy> dlPhy = CreateObject<LteSpectrumPhy> ();
-      Ptr<LteSpectrumPhy> ulPhy = CreateObject<LteSpectrumPhy> ();
-
-      Ptr<LteUePhy> phy = CreateObject<LteUePhy> (dlPhy, ulPhy);
-
-      Ptr<LteHarqPhy> harq = Create<LteHarqPhy> ();
-      dlPhy->SetHarqPhyModule (harq);
-      ulPhy->SetHarqPhyModule (harq);
-      phy->SetHarqPhyModule (harq);
-
-      Ptr<LteChunkProcessor> pRs = Create<LteChunkProcessor> ();
-      pRs->AddCallback (MakeCallback (&LteUePhy::ReportRsReceivedPower, phy));
-      dlPhy->AddRsPowerChunkProcessor (pRs);
-
-      Ptr<LteChunkProcessor> pInterf = Create<LteChunkProcessor> ();
-      pInterf->AddCallback (MakeCallback (&LteUePhy::ReportInterference, phy));
-      dlPhy->AddInterferenceCtrlChunkProcessor (pInterf);                     // for RSRQ evaluation of UE Measurements
-
-      Ptr<LteChunkProcessor> pCtrl = Create<LteChunkProcessor> ();
-      pCtrl->AddCallback (MakeCallback (&LteSpectrumPhy::UpdateSinrPerceived, dlPhy));
-      dlPhy->AddCtrlSinrChunkProcessor (pCtrl);
-
-      Ptr<LteChunkProcessor> pData = Create<LteChunkProcessor> ();
-      pData->AddCallback (MakeCallback (&LteSpectrumPhy::UpdateSinrPerceived, dlPhy));
-      dlPhy->AddDataSinrChunkProcessor (pData);
-
-      if (m_usePdschForCqiGeneration)
+        if (m_enableMimoFeedback)
         {
-          // CQI calculation based on PDCCH for signal and PDSCH for interference
-          pCtrl->AddCallback (MakeCallback (&LteUePhy::GenerateMixedCqiReport, phy));
-          Ptr<LteChunkProcessor> pDataInterf = Create<LteChunkProcessor> ();
-          pDataInterf->AddCallback (MakeCallback (&LteUePhy::ReportDataInterference, phy));
-          dlPhy->AddInterferenceDataChunkProcessor (pDataInterf);
-        }
-      else
-        {
-          // CQI calculation based on PDCCH for both signal and interference
-          pCtrl->AddCallback (MakeCallback (&LteUePhy::GenerateCtrlCqiReport, phy));
-        }
-
-      dlPhy->SetChannel (m_downlinkChannel);
-      ulPhy->SetChannel (m_uplinkChannel);
-
-      Ptr<MobilityModel> mm = n->GetObject<MobilityModel> ();
-      NS_ASSERT_MSG (mm, "MobilityModel needs to be set on node before calling LteHelper::InstallUeDevice ()");
-      dlPhy->SetMobility (mm);
-      ulPhy->SetMobility (mm);
-
-      Ptr<AntennaModel> antenna = (m_lteUeAntennaModelFactory.Create ())->GetObject<AntennaModel> ();
-      NS_ASSERT_MSG (antenna, "error in creating the AntennaModel object");
-      dlPhy->SetAntenna (antenna);
-      ulPhy->SetAntenna (antenna);
-
-      it->second->SetPhy (phy);
-    }
-
-  // mmWave CCM and RRC
-  Ptr<LteUeComponentCarrierManager> mmWaveCcmUe = m_ueComponentCarrierManagerFactory.Create<LteUeComponentCarrierManager> ();
-
-  Ptr<LteUeRrc> mmWaveRrc = CreateObject<LteUeRrc> ();
-  mmWaveRrc->SetAttribute ("SecondaryRRC", BooleanValue (true));
-
-  mmWaveRrc->SetLteMacSapProvider (mmWaveCcmUe->GetLteMacSapProvider ());
-  // setting ComponentCarrierManager SAP
-  mmWaveRrc->SetLteCcmRrcSapProvider (mmWaveCcmUe->GetLteCcmRrcSapProvider ());
-  mmWaveCcmUe->SetLteCcmRrcSapUser (mmWaveRrc->GetLteCcmRrcSapUser ());
-  // Set number of component carriers. Note: UE CCM would also set the
-  // number of component carriers in UE RRC
-  mmWaveCcmUe->SetNumberOfComponentCarriers (m_noOfCcs);
-
-  // run intializeSap to create the proper number of sap provider/users
-  mmWaveRrc->InitializeSap ();
-
-  if (m_useIdealRrc)
-    {
-      Ptr<MmWaveUeRrcProtocolIdeal> rrcProtocol = CreateObject<MmWaveUeRrcProtocolIdeal> ();
-      rrcProtocol->SetUeRrc (mmWaveRrc);
-      mmWaveRrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetLteUeRrcSapProvider (mmWaveRrc->GetLteUeRrcSapProvider ());
-      mmWaveRrc->SetLteUeRrcSapUser (rrcProtocol->GetLteUeRrcSapUser ());
-    }
-  else
-    {
-      Ptr<MmWaveLteUeRrcProtocolReal> rrcProtocol = CreateObject<MmWaveLteUeRrcProtocolReal> ();
-      rrcProtocol->SetUeRrc (mmWaveRrc);
-      mmWaveRrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetLteUeRrcSapProvider (mmWaveRrc->GetLteUeRrcSapProvider ());
-      mmWaveRrc->SetLteUeRrcSapUser (rrcProtocol->GetLteUeRrcSapUser ());
-    }
-
-  if (m_epcHelper != 0)
-    {
-      mmWaveRrc->SetUseRlcSm (false);
-    }
-  else
-    {
-      mmWaveRrc->SetUseRlcSm (true);
-    }
-
-  // mmWave SAPs
-  for (std::map<uint8_t, Ptr<MmWaveComponentCarrierUe> >::iterator it = mmWaveUeCcMap.begin (); it != mmWaveUeCcMap.end (); ++it)
-    {
-      mmWaveRrc->SetLteUeCmacSapProvider (it->second->GetMac ()->GetUeCmacSapProvider (), it->first);
-      it->second->GetMac ()->SetUeCmacSapUser (mmWaveRrc->GetLteUeCmacSapUser (it->first));
-      it->second->GetMac ()->SetComponentCarrierId (it->first);
-
-      it->second->GetPhy ()->SetUeCphySapUser (mmWaveRrc->GetLteUeCphySapUser (it->first));
-      mmWaveRrc->SetLteUeCphySapProvider (it->second->GetPhy ()->GetUeCphySapProvider (), it->first);
-      it->second->GetPhy ()->SetComponentCarrierId (it->first);
-
-      it->second->GetPhy ()->SetPhySapUser (it->second->GetMac ()->GetPhySapUser ());
-      it->second->GetMac ()->SetPhySapProvider (it->second->GetPhy ()->GetPhySapProvider ());
-
-      it->second->GetPhy ()->SetConfigurationParameters (it->second->GetConfigurationParameters ());
-      it->second->GetMac ()->SetConfigurationParameters (it->second->GetConfigurationParameters ());
-
-      bool ccmTest = mmWaveCcmUe->SetComponentCarrierMacSapProviders (it->first, it->second->GetMac ()->GetUeMacSapProvider ());
-
-      if (ccmTest == false)
-        {
-          NS_FATAL_ERROR ("Error in SetComponentCarrierMacSapProviders");
+            // Initialize parameters for MIMO precoding matrix search (PMI feedback)
+            auto pmSearch = m_pmSearchFactory.Create<NrPmSearch>();
+            ueNetDev->GetPhy(i)->SetPmSearch(pmSearch);
+            auto gnbAnt =
+                enbNetDev->GetPhy(i)->GetSpectrumPhy()->GetAntenna()->GetObject<PhasedArrayModel>();
+            auto ueAnt =
+                ueNetDev->GetPhy(i)->GetSpectrumPhy()->GetAntenna()->GetObject<PhasedArrayModel>();
+            pmSearch->SetGnbParams(gnbAnt->IsDualPol(),
+                                   gnbAnt->GetNumHorizontalPorts(),
+                                   gnbAnt->GetNumVerticalPorts());
+            pmSearch->SetUeParams(ueAnt->GetNumPorts());
+            pmSearch->InitCodebooks();
         }
     }
 
-  device->SetAttribute ("Imsi", UintegerValue (imsi));
-  //device->SetAttribute ("MmWaveUePhy", PointerValue(phy));
-  //device->SetAttribute ("MmWaveUeMac", PointerValue(mac));
-  device->SetMmWaveCcMap (mmWaveUeCcMap);
-  device->SetAttribute ("MmWaveUeRrc", PointerValue (mmWaveRrc));
-  device->SetAttribute ("MmWaveUeComponentCarrierManager", PointerValue (mmWaveCcmUe));
-
-  for (std::map<uint8_t, Ptr<MmWaveComponentCarrierUe> >::iterator it = mmWaveUeCcMap.begin (); it != mmWaveUeCcMap.end (); ++it)
+    if (m_epcHelper)
     {
-      Ptr<MmWaveUePhy> ccPhy = it->second->GetPhy ();
-      ccPhy->SetDevice (device);
-      ccPhy->SetImsi (imsi);
-      ccPhy->GetUlSpectrumPhy ()->SetDevice (device);
-      ccPhy->GetDlSpectrumPhy ()->SetDevice (device);
-      ccPhy->GetDlSpectrumPhy ()->SetPhyRxDataEndOkCallback (MakeCallback (&MmWaveUePhy::PhyDataPacketReceived, ccPhy));
-      ccPhy->GetDlSpectrumPhy ()->SetPhyRxCtrlEndOkCallback (MakeCallback (&MmWaveUePhy::ReceiveControlMessageList, ccPhy));
-      //ccPhy->GetDlSpectrumPhy ()->SetLtePhyRxPssCallback (MakeCallback (&LteUePhy::ReceivePss, ccPhy));
-      //ccPhy->GetDlSpectrumPhy ()->SetLtePhyDlHarqFeedbackCallback (MakeCallback (&LteUePhy::ReceiveLteDlHarqFeedback, ccPhy)); this is done before
+        // activate default EPS bearer
+        m_epcHelper->ActivateEpsBearer(ueDevice,
+                                       ueNetDev->GetImsi(),
+                                       EpcTft::Default(),
+                                       EpsBearer(EpsBearer::NGBR_VIDEO_TCP_DEFAULT));
     }
 
+    // tricks needed for the simplified LTE-only simulations
+    // if (m_epcHelper == 0)
+    //{
+    ueNetDev->SetTargetEnb(enbNetDev);
+    //}
 
-  // LTE CCM and RRC
-  Ptr<LteUeComponentCarrierManager> lteCcmUe = m_ueComponentCarrierManagerFactory.Create<LteUeComponentCarrierManager> ();
-
-  Ptr<LteUeRrc> lteRrc = CreateObject<LteUeRrc> ();
-  lteRrc->m_numberOfMmWaveComponentCarriers = m_noOfCcs;
-
-  lteRrc->SetLteMacSapProvider (lteCcmUe->GetLteMacSapProvider ());
-  lteRrc->SetMmWaveMacSapProvider (mmWaveCcmUe->GetLteMacSapProvider ());
-  // setting ComponentCarrierManager SAP
-  lteRrc->SetLteCcmRrcSapProvider (lteCcmUe->GetLteCcmRrcSapProvider ());
-  lteCcmUe->SetLteCcmRrcSapUser (lteRrc->GetLteCcmRrcSapUser ());
-  // Set number of component carriers. Note: UE CCM would also set the
-  // number of component carriers in UE RRC
-  lteCcmUe->SetNumberOfComponentCarriers (m_noOfLteCcs);
-
-  // run intializeSap to create the proper number of sap provider/users
-  lteRrc->InitializeSap ();
-
-  if (m_useIdealRrc)
+    if (m_beamformingHelper)
     {
-      Ptr<MmWaveUeRrcProtocolIdeal> rrcProtocol = CreateObject<MmWaveUeRrcProtocolIdeal> ();
-      rrcProtocol->SetUeRrc (lteRrc);
-      lteRrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetLteUeRrcSapProvider (lteRrc->GetLteUeRrcSapProvider ());
-      lteRrc->SetLteUeRrcSapUser (rrcProtocol->GetLteUeRrcSapUser ());
+        m_beamformingHelper->AddBeamformingTask(enbNetDev, ueNetDev);
     }
-  else
-    {
-      Ptr<MmWaveLteUeRrcProtocolReal> rrcProtocol = CreateObject<MmWaveLteUeRrcProtocolReal> ();
-      rrcProtocol->SetUeRrc (lteRrc);
-      lteRrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetLteUeRrcSapProvider (lteRrc->GetLteUeRrcSapProvider ());
-      lteRrc->SetLteUeRrcSapUser (rrcProtocol->GetLteUeRrcSapUser ());
-    }
-
-  if (m_epcHelper != 0)
-    {
-      lteRrc->SetUseRlcSm (false);
-    }
-
-  Ptr<EpcUeNas> lteNas = CreateObject<EpcUeNas> ();
-
-  lteNas->SetAsSapProvider (lteRrc->GetAsSapProvider ());
-  lteRrc->SetAsSapUser (lteNas->GetAsSapUser ());
-  lteNas->SetMmWaveAsSapProvider (mmWaveRrc->GetAsSapProvider ());
-  mmWaveRrc->SetAsSapUser (lteNas->GetAsSapUser ());
-
-  for (std::map<uint8_t, Ptr<ComponentCarrierUe> >::iterator it = lteUeCcMap.begin (); it != lteUeCcMap.end (); ++it)
-    {
-      lteRrc->SetLteUeCmacSapProvider (it->second->GetMac ()->GetLteUeCmacSapProvider (), it->first);
-      it->second->GetMac ()->SetLteUeCmacSapUser (lteRrc->GetLteUeCmacSapUser (it->first));
-      it->second->GetMac ()->SetComponentCarrierId (it->first);
-
-      it->second->GetPhy ()->SetLteUeCphySapUser (lteRrc->GetLteUeCphySapUser (it->first));
-      lteRrc->SetLteUeCphySapProvider (it->second->GetPhy ()->GetLteUeCphySapProvider (), it->first);
-      it->second->GetPhy ()->SetComponentCarrierId (it->first);
-
-      it->second->GetPhy ()->SetLteUePhySapUser (it->second->GetMac ()->GetLteUePhySapUser ());
-      it->second->GetMac ()->SetLteUePhySapProvider (it->second->GetPhy ()->GetLteUePhySapProvider ());
-
-      bool ccmTest = lteCcmUe->SetComponentCarrierMacSapProviders (it->first, it->second->GetMac ()->GetLteMacSapProvider ());
-
-      if (ccmTest == false)
-        {
-          NS_FATAL_ERROR ("Error in SetComponentCarrierMacSapProviders");
-        }
-    }
-
-  for (std::map<uint8_t, Ptr<MmWaveComponentCarrierUe> >::iterator it = mmWaveUeCcMap.begin (); it != mmWaveUeCcMap.end (); ++it)
-    {
-      lteRrc->SetMmWaveUeCmacSapProvider (it->second->GetMac ()->GetUeCmacSapProvider (), it->first);
-    }
-
-  device->SetLteCcMap (lteUeCcMap);
-  device->SetAttribute ("LteUeRrc", PointerValue (lteRrc));
-  device->SetAttribute ("EpcUeNas", PointerValue (lteNas));
-  device->SetAttribute ("LteUeComponentCarrierManager", PointerValue (lteCcmUe));
-  device->SetAttribute ("Imsi", UintegerValue (imsi));
-
-  for (std::map<uint8_t, Ptr<ComponentCarrierUe> >::iterator it = lteUeCcMap.begin (); it != lteUeCcMap.end (); ++it)
-    {
-      Ptr<LteUePhy> ccPhy = it->second->GetPhy ();
-      ccPhy->SetDevice (device);
-      ccPhy->GetUlSpectrumPhy ()->SetDevice (device);
-      ccPhy->GetDlSpectrumPhy ()->SetDevice (device);
-      ccPhy->GetDlSpectrumPhy ()->SetLtePhyRxDataEndOkCallback (MakeCallback (&LteUePhy::PhyPduReceived, ccPhy));
-      ccPhy->GetDlSpectrumPhy ()->SetLtePhyRxCtrlEndOkCallback (MakeCallback (&LteUePhy::ReceiveLteControlMessageList, ccPhy));
-      ccPhy->GetDlSpectrumPhy ()->SetLtePhyRxPssCallback (MakeCallback (&LteUePhy::ReceivePss, ccPhy));
-      ccPhy->GetDlSpectrumPhy ()->SetLtePhyDlHarqFeedbackCallback (MakeCallback (&LteUePhy::ReceiveLteDlHarqFeedback, ccPhy));
-    }
-
-  lteNas->SetDevice (device);
-
-  n->AddDevice (device);
-
-  lteNas->SetForwardUpCallback (MakeCallback (&McUeNetDevice::Receive, device));
-
-  if (m_epcHelper != 0)
-    {
-      m_epcHelper->AddUe (device, device->GetImsi ());
-    }
-
-  device->Initialize ();
-  return device;
 }
 
-Ptr<NetDevice>
-MmWaveHelper::InstallSingleInterRatHoCapableUeDevice (Ptr<Node> n)
+uint8_t
+NoriHelper::ActivateDedicatedEpsBearer(NetDeviceContainer ueDevices,
+                                     EpsBearer bearer,
+                                     Ptr<EpcTft> tft)
 {
-  NS_LOG_FUNCTION (this);
-
-  // Use a McUeNetDevice but install a single RRC
-  Ptr<McUeNetDevice> device = m_mcUeNetDeviceFactory.Create<McUeNetDevice> ();
-  NS_ABORT_MSG_IF (m_imsiCounter >= 0xFFFFFFFF, "max num UEs exceeded");
-  /*
-  uint64_t imsi = ++m_imsiCounter;
-
-  // Phy part of MmWave
-  Ptr<MmWaveSpectrumPhy> mmWaveUlPhy = CreateObject<MmWaveSpectrumPhy> ();
-  Ptr<MmWaveSpectrumPhy> mmWaveDlPhy = CreateObject<MmWaveSpectrumPhy> ();
-
-  Ptr<MmWaveUePhy> mmWavePhy = CreateObject<MmWaveUePhy> (mmWaveDlPhy, mmWaveUlPhy);
-
-  Ptr<MmWaveHarqPhy> mmWaveHarq = Create<MmWaveHarqPhy> (m_phyMacCommon->GetNumHarqProcess ());
-
-  mmWaveDlPhy->SetHarqPhyModule (mmWaveHarq);
-  mmWavePhy->SetHarqPhyModule (mmWaveHarq);
-
-  Ptr<mmWaveChunkProcessor> mmWavepData = Create<mmWaveChunkProcessor> ();
-  mmWavepData->AddCallback (MakeCallback (&MmWaveUePhy::GenerateDlCqiReport, mmWavePhy));
-  mmWavepData->AddCallback (MakeCallback (&MmWaveSpectrumPhy::UpdateSinrPerceived, mmWaveDlPhy));
-  mmWaveDlPhy->AddDataSinrChunkProcessor (mmWavepData);
-  if(m_harqEnabled)
-  {
-          mmWaveDlPhy->SetPhyDlHarqFeedbackCallback (MakeCallback (&MmWaveUePhy::ReceiveLteDlHarqFeedback, mmWavePhy));
-  }
-
-  // hack to allow periodic computation of SINR at the eNB, without pilots
-  if(m_channelModelType == "ns3::MmWaveBeamforming")
-  {
-          mmWavePhy->AddSpectrumPropagationLossModel(m_beamforming);
-  }
-  else if(m_channelModelType == "ns3::MmWaveChannelMatrix")
-  {
-          mmWavePhy->AddSpectrumPropagationLossModel(m_channelMatrix);
-  }
-  else if(m_channelModelType == "ns3::MmWaveChannelRaytracing")
-  {
-          mmWavePhy->AddSpectrumPropagationLossModel(m_raytracing);
-  }
-  if (!m_pathlossModelType.empty ())
-  {
-          Ptr<PropagationLossModel> splm = m_pathlossModel->GetObject<PropagationLossModel> ();
-          if( splm )
-          {
-                  mmWavePhy->AddPropagationLossModel (splm);
-          }
-  }
-  else
-  {
-          NS_LOG_UNCOND (this << " No PropagationLossModel!");
-  }
-
-  // Phy part of LTE
-  Ptr<LteSpectrumPhy> lteDlPhy = CreateObject<LteSpectrumPhy> ();
-  Ptr<LteSpectrumPhy> lteUlPhy = CreateObject<LteSpectrumPhy> ();
-
-  Ptr<LteUePhy> ltePhy = CreateObject<LteUePhy> (lteDlPhy, lteUlPhy);
-
-  Ptr<LteHarqPhy> lteHarq = Create<LteHarqPhy> ();
-  lteDlPhy->SetHarqPhyModule (lteHarq);
-  lteUlPhy->SetHarqPhyModule (lteHarq);
-  ltePhy->SetHarqPhyModule (lteHarq);
-
-  Ptr<LteChunkProcessor> pRs = Create<LteChunkProcessor> ();
-  pRs->AddCallback (MakeCallback (&LteUePhy::ReportRsReceivedPower, ltePhy));
-  lteDlPhy->AddRsPowerChunkProcessor (pRs);
-
-  Ptr<LteChunkProcessor> pInterf = Create<LteChunkProcessor> ();
-  pInterf->AddCallback (MakeCallback (&LteUePhy::ReportInterference, ltePhy));
-  lteDlPhy->AddInterferenceCtrlChunkProcessor (pInterf); // for RSRQ evaluation of UE Measurements
-
-  Ptr<LteChunkProcessor> pCtrl = Create<LteChunkProcessor> ();
-  pCtrl->AddCallback (MakeCallback (&LteSpectrumPhy::UpdateSinrPerceived, lteDlPhy));
-  lteDlPhy->AddCtrlSinrChunkProcessor (pCtrl);
-
-  Ptr<LteChunkProcessor> pData = Create<LteChunkProcessor> ();
-  pData->AddCallback (MakeCallback (&LteSpectrumPhy::UpdateSinrPerceived, lteDlPhy));
-  lteDlPhy->AddDataSinrChunkProcessor (pData);
-
-  if (m_usePdschForCqiGeneration)
-  {
-          // CQI calculation based on PDCCH for signal and PDSCH for interference
-          pCtrl->AddCallback (MakeCallback (&LteUePhy::GenerateMixedCqiReport, ltePhy));
-          Ptr<LteChunkProcessor> pDataInterf = Create<LteChunkProcessor> ();
-          pDataInterf->AddCallback (MakeCallback (&LteUePhy::ReportDataInterference, ltePhy));
-          lteDlPhy->AddInterferenceDataChunkProcessor (pDataInterf);
-  }
-  else
-  {
-          // CQI calculation based on PDCCH for both signal and interference
-          pCtrl->AddCallback (MakeCallback (&LteUePhy::GenerateCtrlCqiReport, ltePhy));
-  }
-
-  // Set MmWave channel
-  mmWaveUlPhy->SetChannel(m_channel);
-  mmWaveDlPhy->SetChannel(m_channel);
-  // Set LTE channel
-  lteUlPhy->SetChannel(m_uplinkChannel);
-  lteDlPhy->SetChannel(m_downlinkChannel);
-
-  Ptr<MobilityModel> mm = n->GetObject<MobilityModel> ();
-  NS_ASSERT_MSG (mm, "MobilityModel needs to be set on node before calling MmWaveHelper::InstallUeDevice ()");
-  mmWaveUlPhy->SetMobility(mm);
-  mmWaveDlPhy->SetMobility(mm);
-  lteUlPhy->SetMobility(mm);
-  lteDlPhy->SetMobility(mm);
-
-  // Antenna model for mmWave and for LTE
-  Ptr<AntennaModel> antenna = (m_ueAntennaModelFactory.Create ())->GetObject<AntennaModel> ();
-  DynamicCast<AntennaArrayModel> (antenna)->SetPlanesNumber(m_noUePanels);
-  DynamicCast<AntennaArrayModel> (antenna)->SetDeviceType(true);
-  DynamicCast<AntennaArrayModel> (antenna)->SetTotNoArrayElements(m_noRxAntenna);
-  NS_ASSERT_MSG (antenna, "error in creating the AntennaModel object");
-  mmWaveUlPhy->SetAntenna (antenna);
-  mmWaveDlPhy->SetAntenna (antenna);
-  antenna = (m_lteUeAntennaModelFactory.Create ())->GetObject<AntennaModel> ();
-  lteUlPhy->SetAntenna (antenna);
-  lteDlPhy->SetAntenna (antenna);
-
-  // ----------------------- mmWave MAC and connections -------------
-  Ptr<MmWaveUeMac> mmWaveMac = CreateObject<MmWaveUeMac> ();
-
-  mmWavePhy->SetConfigurationParameters (m_phyMacCommon);
-  mmWaveMac->SetConfigurationParameters (m_phyMacCommon);
-  mmWaveMac->SetAttribute("InterRatHoCapable", BooleanValue(true));
-
-  mmWavePhy->SetPhySapUser (mmWaveMac->GetPhySapUser());
-  mmWaveMac->SetPhySapProvider (mmWavePhy->GetPhySapProvider());
-
-  device->SetNode(n);
-  device->SetAttribute ("MmWaveUePhy", PointerValue(mmWavePhy));
-  device->SetAttribute ("MmWaveUeMac", PointerValue(mmWaveMac));
-
-  mmWavePhy->SetDevice (device);
-  mmWavePhy->SetImsi (imsi);
-  //mmWavePhy->SetForwardUpCallback (MakeCallback (&McUeNetDevice::Receive, device));
-  mmWaveDlPhy->SetDevice(device);
-  mmWaveUlPhy->SetDevice(device);
-
-  mmWaveDlPhy->SetPhyRxDataEndOkCallback (MakeCallback (&MmWaveUePhy::PhyDataPacketReceived, mmWavePhy));
-  mmWaveDlPhy->SetPhyRxCtrlEndOkCallback (MakeCallback (&MmWaveUePhy::ReceiveControlMessageList, mmWavePhy));
-
-  // ----------------------- LTE stack ----------------------
-  Ptr<LteUeMac> lteMac = CreateObject<LteUeMac> ();
-  Ptr<LteUeRrc> rrc = CreateObject<LteUeRrc> (); //  single rrc
-
-  if (m_useIdealRrc)
-  {
-          Ptr<MmWaveUeRrcProtocolIdeal> rrcProtocol = CreateObject<MmWaveUeRrcProtocolIdeal> ();
-          rrcProtocol->SetUeRrc (rrc);
-          rrc->AggregateObject (rrcProtocol);
-          rrcProtocol->SetLteUeRrcSapProvider (rrc->GetLteUeRrcSapProvider ());
-          rrc->SetLteUeRrcSapUser (rrcProtocol->GetLteUeRrcSapUser ());
-  }
-  else
-  {
-          Ptr<MmWaveLteUeRrcProtocolReal> rrcProtocol = CreateObject<MmWaveLteUeRrcProtocolReal> ();
-          rrcProtocol->SetUeRrc (rrc);
-          rrc->AggregateObject (rrcProtocol);
-          rrcProtocol->SetLteUeRrcSapProvider (rrc->GetLteUeRrcSapProvider ());
-          rrc->SetLteUeRrcSapUser (rrcProtocol->GetLteUeRrcSapUser ());
-  }
-
-  if (m_epcHelper != 0)
-  {
-          rrc->SetUseRlcSm (false);
-  }
-
-  Ptr<EpcUeNas> lteNas = CreateObject<EpcUeNas> ();
-
-  lteNas->SetAsSapProvider (rrc->GetAsSapProvider ());
-  rrc->SetAsSapUser (lteNas->GetAsSapUser ());
-
-  // CMAC SAP
-  lteMac->SetLteUeCmacSapUser (rrc->GetLteUeCmacSapUser ());
-  mmWaveMac->SetUeCmacSapUser (rrc->GetLteUeCmacSapUser ());
-  rrc->SetLteUeCmacSapProvider (lteMac->GetLteUeCmacSapProvider ());
-  rrc->SetMmWaveUeCmacSapProvider (mmWaveMac->GetUeCmacSapProvider());
-
-  // CPHY SAP
-  ltePhy->SetLteUeCphySapUser (rrc->GetLteUeCphySapUser ());
-  mmWavePhy->SetUeCphySapUser (rrc->GetLteUeCphySapUser ());
-  rrc->SetLteUeCphySapProvider (ltePhy->GetLteUeCphySapProvider ());
-  rrc->SetMmWaveUeCphySapProvider (mmWavePhy->GetUeCphySapProvider());
-
-  // MAC SAP
-  rrc->SetLteMacSapProvider (lteMac->GetLteMacSapProvider ());
-  rrc->SetMmWaveMacSapProvider (mmWaveMac->GetUeMacSapProvider());
-
-  rrc->SetAttribute ("InterRatHoCapable", BooleanValue(true));
-
-  ltePhy->SetLteUePhySapUser (lteMac->GetLteUePhySapUser ());
-  lteMac->SetLteUePhySapProvider (ltePhy->GetLteUePhySapProvider ());
-
-  device->SetAttribute ("LteUePhy", PointerValue (ltePhy));
-  device->SetAttribute ("LteUeMac", PointerValue (lteMac));
-  device->SetAttribute ("LteUeRrc", PointerValue (rrc));
-  device->SetAttribute ("EpcUeNas", PointerValue (lteNas));
-  device->SetAttribute ("Imsi", UintegerValue(imsi));
-
-  ltePhy->SetDevice (device);
-  lteDlPhy->SetDevice (device);
-  lteUlPhy->SetDevice (device);
-  lteNas->SetDevice (device);
-
-  lteDlPhy->SetLtePhyRxDataEndOkCallback (MakeCallback (&LteUePhy::PhyPduReceived, ltePhy));
-  lteDlPhy->SetLtePhyRxCtrlEndOkCallback (MakeCallback (&LteUePhy::ReceiveLteControlMessageList, ltePhy));
-  lteDlPhy->SetLtePhyRxPssCallback (MakeCallback (&LteUePhy::ReceivePss, ltePhy));
-  lteDlPhy->SetLtePhyDlHarqFeedbackCallback (MakeCallback (&LteUePhy::ReceiveLteDlHarqFeedback, ltePhy));
-  lteNas->SetForwardUpCallback (MakeCallback (&McUeNetDevice::Receive, device));
-
-  if (m_epcHelper != 0)
-  {
-          m_epcHelper->AddUe (device, device->GetImsi ());
-  }
-
-  n->AddDevice(device);
-  device->Initialize();
-  */
-
-  return device;
+    NS_LOG_FUNCTION(this);
+    for (NetDeviceContainer::Iterator i = ueDevices.Begin(); i != ueDevices.End(); ++i)
+    {
+        uint8_t bearerId = ActivateDedicatedEpsBearer(*i, bearer, tft);
+        return bearerId;
+    }
+    return 0;
 }
 
-Ptr<NetDevice>
-MmWaveHelper::InstallSingleUeDevice (Ptr<Node> n)
+uint8_t
+NoriHelper::ActivateDedicatedEpsBearer(Ptr<NetDevice> ueDevice, EpsBearer bearer, Ptr<EpcTft> tft)
 {
-  NS_LOG_FUNCTION (this);
+    NS_LOG_FUNCTION(this);
 
-  NS_ABORT_MSG_IF (m_componentCarrierPhyParams.size () == 0, "Before call this method you need to install Enbs --> InstallEnbDevice()");
+    NS_ASSERT_MSG(m_epcHelper, "dedicated EPS bearers cannot be set up when the EPC is not used");
 
-  Ptr<MmWaveUeNetDevice> device = m_ueNetDeviceFactory.Create<MmWaveUeNetDevice> ();
-  device->SetNode (n);
-  
-  std::map<uint8_t, Ptr<MmWaveComponentCarrier> > ueCcMap;
-  for (std::map< uint8_t, MmWaveComponentCarrier >::iterator it = m_componentCarrierPhyParams.begin (); it != m_componentCarrierPhyParams.end (); ++it)
-    {
-      Ptr <MmWaveComponentCarrierUe> cc =  CreateObject<MmWaveComponentCarrierUe> ();
-      //cc->SetBandwidth ( it->second.GetBandwidth ());
-      //cc->SetEarfcn ( it->second.GetUlEarfcn ());
-      cc->SetConfigurationParameters (it->second.GetConfigurationParameters ());
-      cc->SetAsPrimary (it->second.IsPrimary ());
-      Ptr<MmWaveUeMac> mac = CreateObject<MmWaveUeMac> ();
-      cc->SetMac (mac);
-      // cc->GetPhy ()->Initialize (); // it is initialized within the LteUeNetDevice::DoInitialize ()
-      ueCcMap.insert (std::pair<uint8_t, Ptr<MmWaveComponentCarrier> > (it->first, cc));
-    }
-
-  for (auto it = ueCcMap.begin (); it != ueCcMap.end (); ++it)
-    {
-      Ptr<MmWaveSpectrumPhy> ulPhy = CreateObject<MmWaveSpectrumPhy> ();
-      Ptr<MmWaveSpectrumPhy> dlPhy = CreateObject<MmWaveSpectrumPhy> ();
-
-      Ptr<MmWaveUePhy> phy = CreateObject<MmWaveUePhy> (dlPhy, ulPhy);
-
-      Ptr<MmWaveHarqPhy> harq = Create<MmWaveHarqPhy> ();
-
-      dlPhy->SetHarqPhyModule (harq);
-      //ulPhy->SetHarqPhyModule (harq);
-      phy->SetHarqPhyModule (harq);
-
-      /*
-Ptr<LteChunkProcessor> pRs = Create<LteChunkProcessor> ();
-pRs->AddCallback (MakeCallback (&LteUePhy::ReportRsReceivedPower, phy));
-dlPhy->AddRsPowerChunkProcessor (pRs);
-
-Ptr<LteChunkProcessor> pInterf = Create<LteChunkProcessor> ();
-pInterf->AddCallback (MakeCallback (&LteUePhy::ReportInterference, phy));
-dlPhy->AddInterferenceCtrlChunkProcessor (pInterf);   // for RSRQ evaluation of UE Measurements
-
-Ptr<LteChunkProcessor> pCtrl = Create<LteChunkProcessor> ();
-pCtrl->AddCallback (MakeCallback (&LteSpectrumPhy::UpdateSinrPerceived, dlPhy));
-dlPhy->AddCtrlSinrChunkProcessor (pCtrl);
-      */
-
-      Ptr<mmWaveChunkProcessor> pData = Create<mmWaveChunkProcessor> ();
-      pData->AddCallback (MakeCallback (&MmWaveUePhy::GenerateDlCqiReport, phy));
-      pData->AddCallback (MakeCallback (&MmWaveSpectrumPhy::UpdateSinrPerceived, dlPhy));
-      dlPhy->AddDataSinrChunkProcessor (pData);
-      if (m_harqEnabled)
-        {
-          //In lte-helper this is done in the last for cycle
-          dlPhy->SetPhyDlHarqFeedbackCallback (MakeCallback (&MmWaveUePhy::ReceiveLteDlHarqFeedback, phy));
-        }
-
-      /*Check if this is supported in mmwave
-if (m_usePdschForCqiGeneration)
-{
-// CQI calculation based on PDCCH for signal and PDSCH for interference
-pCtrl->AddCallback (MakeCallback (&LteUePhy::GenerateMixedCqiReport, phy));
-Ptr<LteChunkProcessor> pDataInterf = Create<LteChunkProcessor> ();
-pDataInterf->AddCallback (MakeCallback (&LteUePhy::ReportDataInterference, phy));
-dlPhy->AddInterferenceDataChunkProcessor (pDataInterf);
-}
-else
-{
-// CQI calculation based on PDCCH for both signal and interference
-pCtrl->AddCallback (MakeCallback (&LteUePhy::GenerateCtrlCqiReport, phy));
-}*/
-
-      ulPhy->SetChannel (m_channel.at (it->first));
-      dlPhy->SetChannel (m_channel.at (it->first));
-
-      Ptr<MobilityModel> mm = n->GetObject<MobilityModel> ();
-      NS_ASSERT_MSG (mm, "MobilityModel needs to be set on node before calling LteHelper::InstallUeDevice ()");
-      dlPhy->SetMobility (mm);
-      ulPhy->SetMobility (mm);
-
-      Ptr<ThreeGppAntennaArrayModel> antenna = CreateObjectWithAttributes<ThreeGppAntennaArrayModel> ("NumRows", UintegerValue (sqrt (device->GetAntennaNum())), "NumColumns", UintegerValue (sqrt (device->GetAntennaNum())));
-      NS_ASSERT_MSG (antenna, "error in creating the AntennaModel object");
-
-      // initialize the 3GPP channel model
-      Ptr<SpectrumPropagationLossModel> splm = m_channel.at (it->first)->GetSpectrumPropagationLossModel ();
-      Ptr<ThreeGppSpectrumPropagationLossModel> threeGppSplm = DynamicCast<ThreeGppSpectrumPropagationLossModel> (splm);
-      if (threeGppSplm)
-      {
-        threeGppSplm->AddDevice (device, antenna);
-      }
-
-      auto channelModel = threeGppSplm->GetChannelModel();
-      Ptr<MmWaveBeamformingModel> bfModel = m_bfModelFactory.Create<MmWaveBeamformingModel> ();
-      bfModel->SetAttributeFailSafe ("Device", PointerValue (device));
-      bfModel->SetAttributeFailSafe ("Antenna", PointerValue (antenna));
-      bfModel->SetAttributeFailSafe ("ChannelModel", PointerValue (channelModel));
-      dlPhy->SetBeamformingModel (bfModel);
-
-      DynamicCast<MmWaveComponentCarrierUe> (it->second)->SetPhy (phy);
-      it->second->SetAntenna (antenna);
-    }
-
-  Ptr<LteUeComponentCarrierManager> ccmUe = m_ueComponentCarrierManagerFactory.Create<LteUeComponentCarrierManager> ();
-
-  Ptr<LteUeRrc> rrc = CreateObject<LteUeRrc> ();
-  rrc->SetLteMacSapProvider (ccmUe->GetLteMacSapProvider ());
-  // setting ComponentCarrierManager SAP
-  rrc->SetLteCcmRrcSapProvider (ccmUe->GetLteCcmRrcSapProvider ());
-  ccmUe->SetLteCcmRrcSapUser (rrc->GetLteCcmRrcSapUser ());
-  // Set number of component carriers. Note: UE CCM would also set the
-  // number of component carriers in UE RRC
-  ccmUe->SetNumberOfComponentCarriers (m_noOfCcs);
-
-  // run intializeSap to create the proper number of sap provider/users
-  rrc->InitializeSap ();
-
-  if (m_useIdealRrc)
-    {
-      Ptr<MmWaveUeRrcProtocolIdeal> rrcProtocol = CreateObject<MmWaveUeRrcProtocolIdeal> ();
-      rrcProtocol->SetUeRrc (rrc);
-      rrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetLteUeRrcSapProvider (rrc->GetLteUeRrcSapProvider ());
-      rrc->SetLteUeRrcSapUser (rrcProtocol->GetLteUeRrcSapUser ());
-    }
-  else
-    {
-      Ptr<MmWaveLteUeRrcProtocolReal> rrcProtocol = CreateObject<MmWaveLteUeRrcProtocolReal> ();
-      rrcProtocol->SetUeRrc (rrc);
-      rrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetLteUeRrcSapProvider (rrc->GetLteUeRrcSapProvider ());
-      rrc->SetLteUeRrcSapUser (rrcProtocol->GetLteUeRrcSapUser ());
-    }
-
-  if (m_epcHelper != 0)
-    {
-      rrc->SetUseRlcSm (false);
-    }
-  else
-    {
-      rrc->SetUseRlcSm (true);
-    }
-
-  Ptr<EpcUeNas> nas = CreateObject<EpcUeNas> ();
-
-  nas->SetAsSapProvider (rrc->GetAsSapProvider ());
-  rrc->SetAsSapUser (nas->GetAsSapUser ());
-
-  for (auto it = ueCcMap.begin (); it != ueCcMap.end (); ++it)
-    {
-      Ptr<MmWaveComponentCarrierUe> ccUe = DynamicCast<MmWaveComponentCarrierUe> (it->second);
-      rrc->SetLteUeCmacSapProvider (ccUe->GetMac ()->GetUeCmacSapProvider (), it->first);
-      ccUe->GetMac ()->SetUeCmacSapUser (rrc->GetLteUeCmacSapUser (it->first));
-      ccUe->GetMac ()->SetComponentCarrierId (it->first);
-
-      ccUe->GetPhy ()->SetUeCphySapUser (rrc->GetLteUeCphySapUser (it->first));
-      rrc->SetLteUeCphySapProvider (ccUe->GetPhy ()->GetUeCphySapProvider (), it->first);
-      ccUe->GetPhy ()->SetComponentCarrierId (it->first);
-
-      ccUe->GetPhy ()->SetPhySapUser (ccUe->GetMac ()->GetPhySapUser ());
-      ccUe->GetMac ()->SetPhySapProvider (ccUe->GetPhy ()->GetPhySapProvider ());
-
-      ccUe->GetPhy ()->SetConfigurationParameters (ccUe->GetConfigurationParameters ());
-      ccUe->GetMac ()->SetConfigurationParameters (ccUe->GetConfigurationParameters ());
-
-      bool ccmTest = ccmUe->SetComponentCarrierMacSapProviders (it->first, ccUe->GetMac ()->GetUeMacSapProvider ());
-
-      if (ccmTest == false)
-        {
-          NS_FATAL_ERROR ("Error in SetComponentCarrierMacSapProviders");
-        }
-    }
-
-  NS_ABORT_MSG_IF (m_imsiCounter >= 0xFFFFFFFF, "max num UEs exceeded");
-  uint64_t imsi = ++m_imsiCounter;
-
-  device->SetAttribute ("Imsi", UintegerValue (imsi));
-  //device->SetAttribute ("MmWaveUePhy", PointerValue(phy));
-  //device->SetAttribute ("MmWaveUeMac", PointerValue(mac));
-  device->SetCcMap (ueCcMap);
-  device->SetAttribute ("EpcUeNas", PointerValue (nas));
-  device->SetAttribute ("mmWaveUeRrc", PointerValue (rrc));
-  device->SetAttribute ("LteUeComponentCarrierManager", PointerValue (ccmUe));
-
-  for (auto it = ueCcMap.begin (); it != ueCcMap.end (); ++it)
-    {
-      Ptr<MmWaveUePhy> ccPhy = DynamicCast<MmWaveComponentCarrierUe> (it->second)->GetPhy ();
-      ccPhy->SetDevice (device);
-      ccPhy->SetImsi (imsi);
-      ccPhy->GetUlSpectrumPhy ()->SetDevice (device);
-      ccPhy->GetDlSpectrumPhy ()->SetDevice (device);
-      ccPhy->GetDlSpectrumPhy ()->SetPhyRxDataEndOkCallback (MakeCallback (&MmWaveUePhy::PhyDataPacketReceived, ccPhy));
-      ccPhy->GetDlSpectrumPhy ()->SetPhyRxCtrlEndOkCallback (MakeCallback (&MmWaveUePhy::ReceiveControlMessageList, ccPhy));
-      //ccPhy->GetDlSpectrumPhy ()->SetLtePhyRxPssCallback (MakeCallback (&LteUePhy::ReceivePss, ccPhy));
-      //ccPhy->GetDlSpectrumPhy ()->SetLtePhyDlHarqFeedbackCallback (MakeCallback (&LteUePhy::ReceiveLteDlHarqFeedback, ccPhy)); this is done before
-    }
-
-  nas->SetDevice (device);
-
-  n->AddDevice (device);
-
-  nas->SetForwardUpCallback (MakeCallback (&MmWaveUeNetDevice::Receive, device));
-
-  if (m_epcHelper != 0)
-    {
-      m_epcHelper->AddUe (device, device->GetImsi ());
-    }
-
-  device->Initialize ();
-
-  return device;
+    uint64_t imsi = ueDevice->GetObject<NrUeNetDevice>()->GetImsi();
+    uint8_t bearerId = m_epcHelper->ActivateEpsBearer(ueDevice, imsi, tft, bearer);
+    return bearerId;
 }
 
-Ptr<NetDevice>
-MmWaveHelper::InstallSingleEnbDevice (Ptr<Node> n)
+void
+NoriHelper::DeActivateDedicatedEpsBearer(Ptr<NetDevice> ueDevice,
+                                       Ptr<NetDevice> enbDevice,
+                                       uint8_t bearerId)
 {
-  //NS_ABORT_MSG_IF (m_cellIdCounter == 65535, "max num eNBs exceeded");
-  uint16_t cellId = m_cellIdCounter;       //TODO remove, eNB has no cellId
+    NS_LOG_FUNCTION(this << ueDevice << bearerId);
+    NS_ASSERT_MSG(m_epcHelper != nullptr,
+                  "Dedicated EPS bearers cannot be de-activated when the EPC is not used");
+    NS_ASSERT_MSG(bearerId != 1,
+                  "Default bearer cannot be de-activated until and unless and UE is released");
 
-  //Before calling InstallEnbDevice:
-  //1) create a std::map where the key is index of
-  //component carrier starting from 0, where 0 refers to PCC. The value is
-  //an instance of MmWaveComponentCarrier which contains the attribute members for the
-  //configuration of the phy paramenters
-  //2) call SetCcPhyParams
-  NS_ASSERT_MSG (m_componentCarrierPhyParams.size () != 0, "Cannot create enb ccm map. Call SetCcPhyParams first.");
-  Ptr<MmWaveEnbNetDevice> device = m_enbNetDeviceFactory.Create<MmWaveEnbNetDevice> ();
-  device->SetStartTime (m_startTime);
-  device->SetNode (n);
+    DoDeActivateDedicatedEpsBearer(ueDevice, enbDevice, bearerId);
+}
 
-  // create component carrier map for this eNb device
-  std::map<uint8_t,Ptr<MmWaveComponentCarrier> > ccMap;
-  for (auto it = m_componentCarrierPhyParams.begin (); it != m_componentCarrierPhyParams.end (); ++it)
+void
+NoriHelper::SetUeMacAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_ueMacFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbMacAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbMacFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbSpectrumAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbSpectrumFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetUeSpectrumAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_ueSpectrumFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetUeChannelAccessManagerAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_ueChannelAccessManagerFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbChannelAccessManagerAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbChannelAccessManagerFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetSchedulerAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_schedFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetUePhyAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_uePhyFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbPhyAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbPhyFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetUeAntennaAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_ueAntennaFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbAntennaAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbAntennaFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetUeChannelAccessManagerTypeId(const TypeId& typeId)
+{
+    NS_LOG_FUNCTION(this);
+    m_ueChannelAccessManagerFactory.SetTypeId(typeId);
+}
+
+void
+NoriHelper::SetGnbChannelAccessManagerTypeId(const TypeId& typeId)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbChannelAccessManagerFactory.SetTypeId(typeId);
+}
+
+void
+NoriHelper::SetSchedulerTypeId(const TypeId& typeId)
+{
+    NS_LOG_FUNCTION(this);
+    m_schedFactory.SetTypeId(typeId);
+}
+
+void
+NoriHelper::SetUeBwpManagerAlgorithmTypeId(const TypeId& typeId)
+{
+    NS_LOG_FUNCTION(this);
+    m_ueBwpManagerAlgoFactory.SetTypeId(typeId);
+}
+
+void
+NoriHelper::SetPhasedArraySpectrumPropagationLossModelTypeId(const TypeId& typeId)
+{
+    NS_LOG_FUNCTION(this);
+    m_spectrumPropagationFactory.SetTypeId(typeId);
+}
+
+void
+NoriHelper::SetUeBwpManagerAlgorithmAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_ueBwpManagerAlgoFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetPhasedArraySpectrumPropagationLossModelAttribute(const std::string& n,
+                                                              const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_spectrumPropagationFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetChannelConditionModelAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_channelConditionModelFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetPathlossAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_pathlossModelFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbDlAmcAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbDlAmcFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbUlAmcAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbUlAmcFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbBeamManagerAttribute(const std::string& n, const AttributeValue& v)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbBeamManagerFactory.Set(n, v);
+}
+
+void
+NoriHelper::SetGnbBeamManagerTypeId(const TypeId& typeId)
+{
+    NS_LOG_FUNCTION(this);
+    m_gnbBeamManagerFactory.SetTypeId(typeId);
+}
+
+void
+NoriHelper::SetUlErrorModel(const std::string& errorModelTypeId)
+{
+    NS_LOG_FUNCTION(this);
+
+    SetGnbUlAmcAttribute("ErrorModelType", TypeIdValue(TypeId::LookupByName(errorModelTypeId)));
+    SetGnbSpectrumAttribute("ErrorModelType", TypeIdValue(TypeId::LookupByName(errorModelTypeId)));
+}
+
+void
+NoriHelper::SetDlErrorModel(const std::string& errorModelTypeId)
+{
+    NS_LOG_FUNCTION(this);
+
+    SetGnbDlAmcAttribute("ErrorModelType", TypeIdValue(TypeId::LookupByName(errorModelTypeId)));
+    SetUeSpectrumAttribute("ErrorModelType", TypeIdValue(TypeId::LookupByName(errorModelTypeId)));
+}
+
+int64_t
+NoriHelper::AssignStreams(NetDeviceContainer c, int64_t stream)
+{
+    int64_t currentStream = stream;
+    Ptr<NetDevice> netDevice;
+    for (NetDeviceContainer::Iterator i = c.Begin(); i != c.End(); ++i)
     {
-      Ptr<MmWaveComponentCarrierEnb> cc =  CreateObject<MmWaveComponentCarrierEnb> ();
-      cc->SetConfigurationParameters (it->second.GetConfigurationParameters ());
-      cc->SetAsPrimary (it->second.IsPrimary ());
-      NS_ABORT_MSG_IF (m_cellIdCounter == 65535, "max num cells exceeded");
-      cc->SetCellId (m_cellIdCounter++);
-      ccMap [it->first] =  cc;
-    }
-  NS_ABORT_MSG_IF (m_useCa && ccMap.size () < 2, "You have to either specify carriers or disable carrier aggregation");
-  NS_ASSERT (ccMap.size () == m_noOfCcs);
-
-  for (auto it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      NS_LOG_DEBUG (this << "component carrier map size " << (uint16_t) ccMap.size ());
-      Ptr<MmWaveComponentCarrierEnb> ccEnb = DynamicCast<MmWaveComponentCarrierEnb> (it->second);
-
-      Ptr<MmWaveSpectrumPhy> ulPhy = CreateObject<MmWaveSpectrumPhy> ();
-      Ptr<MmWaveSpectrumPhy> dlPhy = CreateObject<MmWaveSpectrumPhy> ();
-
-      Ptr<MmWaveEnbPhy> phy = CreateObject<MmWaveEnbPhy> (dlPhy, ulPhy);
-
-      Ptr<MmWaveHarqPhy> harq = Create<MmWaveHarqPhy> ();
-      dlPhy->SetHarqPhyModule (harq);
-      phy->SetHarqPhyModule (harq);
-
-      Ptr<mmWaveChunkProcessor> pData = Create<mmWaveChunkProcessor> ();
-      if (!m_snrTest)
+        netDevice = (*i);
+        Ptr<NrGnbNetDevice> nrGnb = DynamicCast<NrGnbNetDevice>(netDevice);
+        if (nrGnb)
         {
-          pData->AddCallback (MakeCallback (&MmWaveEnbPhy::GenerateDataCqiReport, phy));
-          pData->AddCallback (MakeCallback (&MmWaveSpectrumPhy::UpdateSinrPerceived, dlPhy));
-        }
-      dlPhy->AddDataSinrChunkProcessor (pData);
-
-      phy->SetConfigurationParameters (ccEnb->GetConfigurationParameters ());
-
-      ulPhy->SetChannel (m_channel.at (it->first));
-      dlPhy->SetChannel (m_channel.at (it->first));
-
-      Ptr<MobilityModel> mm = n->GetObject<MobilityModel> ();
-      NS_ASSERT_MSG (mm, "MobilityModel needs to be set on node before calling MmWaveHelper::InstallEnbDevice ()");
-      ulPhy->SetMobility (mm);
-      dlPhy->SetMobility (mm);
-
-      // hack to allow periodic computation of SINR at the eNB, without pilots
-      phy->AddSpectrumPropagationLossModel (m_channel.at (it->first)->GetSpectrumPropagationLossModel ());
-
-      if (!m_pathlossModelType.empty ())
-        {
-          Ptr<PropagationLossModel> splm = m_pathlossModel.at (it->first)->GetObject<PropagationLossModel> ();
-          phy->AddPropagationLossModel (splm);
-        }
-      else
-        {
-          NS_LOG_WARN (this << " No PropagationLossModel!");
-        }
-
-      NS_LOG_DEBUG ("Create antenna");
-      // TODO how to support other kinds of antennas?
-      Ptr<ThreeGppAntennaArrayModel> antenna = CreateObjectWithAttributes<ThreeGppAntennaArrayModel> ("NumRows", UintegerValue (sqrt (device->GetAntennaNum())), "NumColumns", UintegerValue (sqrt (device->GetAntennaNum())));
-      NS_ASSERT_MSG (antenna, "error in creating the AntennaModel object");
-
-      // initialize the 3GPP channel model
-      Ptr<SpectrumPropagationLossModel> splm = m_channel.at (it->first)->GetSpectrumPropagationLossModel ();
-      Ptr<ThreeGppSpectrumPropagationLossModel> threeGppSplm = DynamicCast<ThreeGppSpectrumPropagationLossModel> (splm);
-      if (threeGppSplm)
-      {
-        NS_LOG_DEBUG ("Initialize the 3GPP channel model");
-        threeGppSplm->AddDevice (device, antenna);
-      }
-      
-      auto channelModel = threeGppSplm->GetChannelModel();
-      Ptr<MmWaveBeamformingModel> bfModel = m_bfModelFactory.Create<MmWaveBeamformingModel> ();
-      bfModel->SetAttributeFailSafe ("Device", PointerValue (device));
-      bfModel->SetAttributeFailSafe ("Antenna", PointerValue (antenna));
-      bfModel->SetAttributeFailSafe ("ChannelModel", PointerValue (channelModel));
-      dlPhy->SetBeamformingModel (bfModel);
-
-      NS_LOG_DEBUG ("Create the mac");
-      Ptr<MmWaveEnbMac> mac = CreateObject<MmWaveEnbMac> ();
-      mac->SetConfigurationParameters (ccEnb->GetConfigurationParameters ());
-      Ptr<MmWaveMacScheduler> sched = m_schedulerFactory.Create<MmWaveMacScheduler> ();
-
-      /*to use the dummy ffrAlgorithm, I changed the bandwidth to 25 in EnbNetDevice
-      m_ffrAlgorithmFactory = ObjectFactory ();
-      m_ffrAlgorithmFactory.SetTypeId ("ns3::LteFrNoOpAlgorithm");
-      Ptr<LteFfrAlgorithm> ffrAlgorithm = m_ffrAlgorithmFactory.Create<LteFfrAlgorithm> ();
-      */
-      sched->ConfigureCommonParameters (ccEnb->GetConfigurationParameters ());
-
-      /**********************************************************
-      //To do later?
-      *mac->SetMmWaveMacSchedSapProvider(sched->GetMacSchedSapProvider());
-      *sched->SetMacSchedSapUser (mac->GetMmWaveMacSchedSapUser());
-      *mac->SetMmWaveMacCschedSapProvider(sched->GetMacCschedSapProvider());
-      *sched->SetMacCschedSapUser (mac->GetMmWaveMacCschedSapUser());
-
-      *phy->SetPhySapUser (mac->GetPhySapUser());
-      *mac->SetPhySapProvider (phy->GetPhySapProvider());
-      *************************************************************/
-
-      ccEnb->SetMac (mac);
-      ccEnb->SetMacScheduler (sched);
-      ccEnb->SetPhy (phy);
-      it->second->SetAntenna (antenna);
-
-      // Check that the error model has been set in a consistent manner
-      TypeIdValue dlPhySpectrumEm, ulPhySpectrumEm, tempAmcEm;
-      dlPhy->GetAttribute ("ErrorModelType", dlPhySpectrumEm);
-      ulPhy->GetAttribute ("ErrorModelType", ulPhySpectrumEm);
-      Ptr<MmWaveAmc> tempAmc = CreateObject <MmWaveAmc> (ccEnb->GetConfigurationParameters ());
-      tempAmc->GetAttribute ("ErrorModelType", tempAmcEm);
-      NS_ASSERT_MSG ((dlPhySpectrumEm.Get () == ulPhySpectrumEm.Get ()) &&
-                     (dlPhySpectrumEm.Get () == tempAmcEm.Get ()),
-                     "The same error model must be set in the MmWaveSpectrumPhy and MmWaveAmc classes!");
-    }
-
-  Ptr<LteEnbRrc> rrc = CreateObject<LteEnbRrc> ();
-  Ptr<LteEnbComponentCarrierManager> ccmEnbManager = m_enbComponentCarrierManagerFactory.Create<LteEnbComponentCarrierManager> ();
-
-  //ComponentCarrierManager SAP
-  rrc->SetLteCcmRrcSapProvider (ccmEnbManager->GetLteCcmRrcSapProvider ());
-  ccmEnbManager->SetLteCcmRrcSapUser (rrc->GetLteCcmRrcSapUser ());
-  // Set number of component carriers. Note: eNB CCM would also set the
-  // number of component carriers in eNB RRC
-  ccmEnbManager->SetNumberOfComponentCarriers (m_noOfCcs);
-
-  // create the MmWaveComponentCarrierConf map used for the RRC setup
-  std::map<uint8_t, LteEnbRrc::MmWaveComponentCarrierConf> ccConfMap;
-  for (auto it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      LteEnbRrc::MmWaveComponentCarrierConf ccConf;
-      Ptr<MmWaveComponentCarrierEnb> ccEnb = DynamicCast<MmWaveComponentCarrierEnb> (it->second);
-
-      ccConf.m_ccId = ccEnb->GetConfigurationParameters ()->GetCcId ();
-      ccConf.m_cellId = ccEnb->GetCellId ();
-      ccConf.m_bandwidth = ccEnb->GetBandwidthInRb ();
-
-      ccConfMap[it->first] = ccConf;
-    }
-  rrc->ConfigureMmWaveCarriers (ccConfMap);
-
-  std::map<uint8_t, double> bandwidthMap;
-  for (auto it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      Ptr<MmWavePhyMacCommon> phyMacConfig = it->second->GetConfigurationParameters ();
-      bandwidthMap[it->first] = phyMacConfig->GetBandwidth ();
-      NS_LOG_DEBUG ("bandwidth " << +it->first << " = " << bandwidthMap[it->first] / 1e6 << " MHz");
-    }
-
-  ccmEnbManager->SetBandwidthMap (bandwidthMap);
-
-  if (m_useIdealRrc)
-    {
-      Ptr<MmWaveEnbRrcProtocolIdeal> rrcProtocol = CreateObject<MmWaveEnbRrcProtocolIdeal> ();
-      rrcProtocol->SetLteEnbRrcSapProvider (rrc->GetLteEnbRrcSapProvider ());
-      rrc->SetLteEnbRrcSapUser (rrcProtocol->GetLteEnbRrcSapUser ());
-      rrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetCellId (cellId);
-    }
-  else
-    {
-      Ptr<MmWaveLteEnbRrcProtocolReal> rrcProtocol = CreateObject<MmWaveLteEnbRrcProtocolReal> ();
-      rrcProtocol->SetLteEnbRrcSapProvider (rrc->GetLteEnbRrcSapProvider ());
-      rrc->SetLteEnbRrcSapUser (rrcProtocol->GetLteEnbRrcSapUser ());
-      rrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetCellId (cellId);
-    }
-
-  if (m_epcHelper != 0)
-    {
-      EnumValue epsBearerToRlcMapping;
-      rrc->GetAttribute ("EpsBearerToRlcMapping", epsBearerToRlcMapping);
-      // it does not make sense to use RLC/SM when also using the EPC
-      if (epsBearerToRlcMapping.Get () == LteEnbRrc::RLC_SM_ALWAYS)
-        {
-          if (m_rlcAmEnabled)
+            for (uint32_t bwp = 0; bwp < nrGnb->GetCcMapSize(); bwp++)
             {
-              rrc->SetAttribute ("EpsBearerToRlcMapping", EnumValue (LteEnbRrc::RLC_AM_ALWAYS));
+                currentStream += nrGnb->GetPhy(bwp)->GetSpectrumPhy()->AssignStreams(currentStream);
+                currentStream += nrGnb->GetScheduler(bwp)->AssignStreams(currentStream);
+                currentStream +=
+                    DoAssignStreamsToChannelObjects(nrGnb->GetPhy(bwp)->GetSpectrumPhy(),
+                                                    currentStream);
             }
-          else
+        }
+
+        Ptr<NrUeNetDevice> nrUe = DynamicCast<NrUeNetDevice>(netDevice);
+        if (nrUe)
+        {
+            for (uint32_t bwp = 0; bwp < nrUe->GetCcMapSize(); bwp++)
             {
-              rrc->SetAttribute ("EpsBearerToRlcMapping", EnumValue (LteEnbRrc::RLC_UM_LOWLAT_ALWAYS));
+                currentStream += nrUe->GetPhy(bwp)->GetSpectrumPhy()->AssignStreams(currentStream);
+                currentStream += nrUe->GetMac(bwp)->AssignStreams(currentStream);
+                currentStream +=
+                    DoAssignStreamsToChannelObjects(nrUe->GetPhy(bwp)->GetSpectrumPhy(),
+                                                    currentStream);
             }
         }
     }
 
-  rrc->SetAttribute ("mmWaveDevice", BooleanValue (true));
-
-  // This RRC attribute is used to connect each new RLC instance with the MAC layer
-  // (for function such as TransmitPdu, ReportBufferStatusReport).
-  // Since in this new architecture, the component carrier manager acts a proxy, it
-  // will have its own LteMacSapProvider interface, RLC will see it as through original MAC
-  // interface LteMacSapProvider, but the function call will go now through LteEnbComponentCarrierManager
-  // instance that needs to implement functions of this interface, and its task will be to
-  // forward these calls to the specific MAC of some of the instances of component carriers. This
-  // decision will depend on the specific implementation of the component carrier manager.
-  rrc->SetLteMacSapProvider (ccmEnbManager->GetLteMacSapProvider ());
-
-  bool ccmTest;
-  for (auto it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      Ptr<MmWaveComponentCarrierEnb> ccEnb = DynamicCast<MmWaveComponentCarrierEnb> (it->second);
-      ccEnb->GetPhy ()->SetMmWaveEnbCphySapUser (rrc->GetLteEnbCphySapUser (it->first));
-      rrc->SetLteEnbCphySapProvider (ccEnb->GetPhy ()->GetMmWaveEnbCphySapProvider (), it->first);
-
-      rrc->SetLteEnbCmacSapProvider (ccEnb->GetMac ()->GetEnbCmacSapProvider (),it->first );
-      ccEnb->GetMac ()->SetEnbCmacSapUser (rrc->GetLteEnbCmacSapUser (it->first));
-
-      ccEnb->GetPhy ()->SetComponentCarrierId (it->first);
-      ccEnb->GetMac ()->SetComponentCarrierId (it->first);
-      //FFR SAP
-      /* not used in mmwave
-it->second->GetFfMacScheduler ()->SetLteFfrSapProvider (it->second->GetFfrAlgorithm ()->GetLteFfrSapProvider ());
-it->second->GetFfrAlgorithm ()->SetLteFfrSapUser (it->second->GetFfMacScheduler ()->GetLteFfrSapUser ());
-rrc->SetLteFfrRrcSapProvider (it->second->GetFfrAlgorithm ()->GetLteFfrRrcSapProvider (), it->first);
-it->second->GetFfrAlgorithm ()->SetLteFfrRrcSapUser (rrc->GetLteFfrRrcSapUser (it->first));
-//FFR SAP END*/
-
-      // PHY <--> MAC SAP
-      ccEnb->GetPhy ()->SetPhySapUser (ccEnb->GetMac ()->GetPhySapUser ());
-      ccEnb->GetMac ()->SetPhySapProvider (ccEnb->GetPhy ()->GetPhySapProvider ());
-      // PHY <--> MAC SAP END
-
-      //Scheduler SAP
-      ccEnb->GetMac ()->SetMmWaveMacSchedSapProvider (ccEnb->GetMacScheduler ()->GetMacSchedSapProvider ());
-      ccEnb->GetMac ()->SetMmWaveMacCschedSapProvider (ccEnb->GetMacScheduler ()->GetMacCschedSapProvider ());
-
-      ccEnb->GetMacScheduler ()->SetMacSchedSapUser (ccEnb->GetMac ()->GetMmWaveMacSchedSapUser ());
-      ccEnb->GetMacScheduler ()->SetMacCschedSapUser (ccEnb->GetMac ()->GetMmWaveMacCschedSapUser ());
-      // Scheduler SAP END
-
-      ccEnb->GetMac ()->SetLteCcmMacSapUser (ccmEnbManager->GetLteCcmMacSapUser ());
-      ccmEnbManager->SetCcmMacSapProviders (it->first, ccEnb->GetMac ()->GetLteCcmMacSapProvider ());
-
-      // insert the pointer to the LteMacSapProvider interface of the MAC layer of the specific component carrier
-      ccmTest = ccmEnbManager->SetMacSapProvider (it->first, ccEnb->GetMac ()->GetUeMacSapProvider ());
-
-      if (ccmTest == false)
-        {
-          NS_FATAL_ERROR ("Error in SetComponentCarrierMacSapProviders");
-        }
-    }
-
-  device->SetAttribute ("CellId", UintegerValue (cellId));
-  device->SetAttribute ("BasicCellId", UintegerValue(m_basicCellId));
-  device->SetAttribute ("LteEnbComponentCarrierManager", PointerValue (ccmEnbManager));
-  device->SetCcMap (ccMap);
-
-  //device->SetAttribute ("MmWaveEnbPhy", PointerValue (phy));
-  //device->SetAttribute ("MmWaveEnbMac", PointerValue (mac));
-  //device->SetAttribute ("mmWaveScheduler", PointerValue(sched));
-  device->SetAttribute ("LteEnbRrc", PointerValue (rrc));
-
-  /*to do for each cc
-        *phy->SetDevice (device);
-        *dlPhy->SetDevice (device);
-        dlPhy->SetCellId (cellId);
-        *ulPhy->SetDevice (device);
-        *n->AddDevice (device);
-
-        mac->SetCellId(cellId);
-        *dlPhy->SetPhyRxDataEndOkCallback (MakeCallback (&MmWaveEnbPhy::PhyDataPacketReceived, phy));
-        *dlPhy->SetPhyRxCtrlEndOkCallback (MakeCallback (&MmWaveEnbPhy::PhyCtrlMessagesReceived, phy));
-  * dlPhy->SetPhyUlHarqFeedbackCallback (MakeCallback (&MmWaveEnbPhy::ReceiveUlHarqFeedback, phy));
-*/
-  for (auto it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      Ptr<MmWaveEnbPhy> ccPhy = DynamicCast<MmWaveComponentCarrierEnb> (it->second)->GetPhy ();
-      ccPhy->SetDevice (device);
-      ccPhy->GetUlSpectrumPhy ()->SetDevice (device);
-      ccPhy->GetDlSpectrumPhy ()->SetDevice (device);
-      ccPhy->GetDlSpectrumPhy ()->SetPhyRxDataEndOkCallback (MakeCallback (&MmWaveEnbPhy::PhyDataPacketReceived, ccPhy));
-      ccPhy->GetDlSpectrumPhy ()->SetPhyRxCtrlEndOkCallback (MakeCallback (&MmWaveEnbPhy::PhyCtrlMessagesReceived, ccPhy));
-      ccPhy->GetDlSpectrumPhy ()->SetPhyUlHarqFeedbackCallback (MakeCallback (&MmWaveEnbPhy::ReceiveUlHarqFeedback, ccPhy));
-      NS_LOG_LOGIC ("set the propagation model frequencies");
-    }              //end for
-
-  //mac->SetForwardUpCallback (MakeCallback (&MmWaveEnbNetDevice::Receive, device));
-  rrc->SetForwardUpCallback (MakeCallback (&MmWaveEnbNetDevice::Receive, device));
-
-  /* to do for each cc (see for above)
-  NS_LOG_LOGIC ("set the propagation model frequencies");
-  double freq = m_phyMacCommon->GetCenterFrequency ();
-  NS_LOG_LOGIC ("Channel Frequency: " << freq);
-  if (!m_pathlossModelType.empty ())
-  {
-          bool freqOk = m_pathlossModel->SetAttributeFailSafe ("Frequency", DoubleValue (freq));
-          if (!freqOk)
-          {
-                  NS_LOG_WARN ("Propagation model does not have a Frequency attribute");
-          }
-  }*/
-
-  if(m_e2mode_nr) {
-    const uint16_t local_port = m_e2localPort + (uint16_t) cellId;
-    const std::string gnb_id{std::to_string (cellId)};
-    
-    std::string plmnId = "111";
-
-    NS_LOG_INFO ("cell_id " << gnb_id);
-    Ptr<E2Termination> e2term =
-        CreateObject<E2Termination> (m_e2ip, m_e2port, local_port, gnb_id, plmnId);
-
-    device->SetAttribute("E2Termination", PointerValue(e2term));
-
-    EnableE2PdcpTraces();
-    EnableE2RlcTraces();
-    device->SetAttribute("E2PdcpCalculator", PointerValue(m_e2PdcpStats));
-    device->SetAttribute("E2RlcCalculator", PointerValue(m_e2RlcStats));
-    device->SetAttribute("E2DuCalculator", PointerValue(m_phyStats));
-  }
-
-  device->Initialize ();
-  n->AddDevice (device);
-
-  for (auto it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      //m_channel->AddRx (dlPhy); substitute
-      m_channel.at (it->first)->AddRx (DynamicCast<MmWaveComponentCarrierEnb> (it->second)->GetPhy ()->GetDlSpectrumPhy ()); //TODO check if Dl and Ul are the same
-    }
-
-
-  if (m_epcHelper != 0)
-    {
-      NS_LOG_INFO ("adding this eNB to the EPC");
-      m_epcHelper->AddEnb (n, device, device->GetCellId ());
-      Ptr<EpcEnbApplication> enbApp = n->GetApplication (0)->GetObject<EpcEnbApplication> ();
-      NS_ASSERT_MSG (enbApp != 0, "cannot retrieve EpcEnbApplication");
-
-      // S1 SAPs
-      rrc->SetS1SapProvider (enbApp->GetS1SapProvider ());
-      enbApp->SetS1SapUser (rrc->GetS1SapUser ());
-
-      // X2 SAPs
-      Ptr<EpcX2> x2 = n->GetObject<EpcX2> ();
-      x2->SetEpcX2SapUser (rrc->GetEpcX2SapUser ());
-      rrc->SetEpcX2SapProvider (x2->GetEpcX2SapProvider ());
-      rrc->SetEpcX2RlcProvider (x2->GetEpcX2RlcProvider ());
-
-    }
-
-  return device;
+    return (currentStream - stream);
 }
 
-
-Ptr<NetDevice>
-MmWaveHelper::InstallSingleLteEnbDevice (Ptr<Node> n)
+int64_t
+NoriHelper::DoAssignStreamsToChannelObjects(Ptr<NrSpectrumPhy> phy, int64_t currentStream)
 {
-  uint16_t cellId = m_cellIdCounter;       // \todo Remove, eNB has no cell ID
+    int64_t initialStream = currentStream;
 
-  Ptr<LteEnbNetDevice> dev = m_lteEnbNetDeviceFactory.Create<LteEnbNetDevice> ();
-  dev->SetStartTime (m_startTime);
-  Ptr<LteHandoverAlgorithm> handoverAlgorithm = m_lteHandoverAlgorithmFactory.Create<LteHandoverAlgorithm> ();
-
-  NS_ASSERT_MSG (m_lteComponentCarrierPhyParams.size () != 0, "Cannot create enb ccm map.");
-  // create component carrier map for this eNb device
-  std::map<uint8_t,Ptr<ComponentCarrierEnb> > ccMap;
-  for (std::map<uint8_t, ComponentCarrier >::iterator it = m_lteComponentCarrierPhyParams.begin (); it != m_lteComponentCarrierPhyParams.end (); ++it)
+    Ptr<ThreeGppPropagationLossModel> propagationLossModel =
+        DynamicCast<ThreeGppPropagationLossModel>(
+            phy->GetSpectrumChannel()->GetPropagationLossModel());
+    if (!propagationLossModel)
     {
-      Ptr <ComponentCarrierEnb> cc =  CreateObject<ComponentCarrierEnb> ();
-      cc->SetUlBandwidth (it->second.GetUlBandwidth ());
-      cc->SetDlBandwidth (it->second.GetDlBandwidth ());
-      cc->SetDlEarfcn (it->second.GetDlEarfcn ());
-      cc->SetUlEarfcn (it->second.GetUlEarfcn ());
-      cc->SetAsPrimary (it->second.IsPrimary ());
-      NS_ABORT_MSG_IF (m_cellIdCounter == 65535, "max num cells exceeded");
-      cc->SetCellId (m_cellIdCounter++);
-      ccMap [it->first] =  cc;
-    }
-  NS_ABORT_MSG_IF (m_lteUseCa && ccMap.size () < 2, "You have to either specify carriers or disable carrier aggregation");
-  NS_ASSERT (ccMap.size () == m_noOfLteCcs);
-
-  for (std::map<uint8_t,Ptr<ComponentCarrierEnb> >::iterator it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      NS_LOG_DEBUG (this << "component carrier map size " << (uint16_t) ccMap.size ());
-      Ptr<LteSpectrumPhy> dlPhy = CreateObject<LteSpectrumPhy> ();
-      Ptr<LteSpectrumPhy> ulPhy = CreateObject<LteSpectrumPhy> ();
-      Ptr<LteEnbPhy> phy = CreateObject<LteEnbPhy> (dlPhy, ulPhy);
-
-      Ptr<LteHarqPhy> harq = Create<LteHarqPhy> ();
-      dlPhy->SetHarqPhyModule (harq);
-      ulPhy->SetHarqPhyModule (harq);
-      phy->SetHarqPhyModule (harq);
-
-      Ptr<LteChunkProcessor> pCtrl = Create<LteChunkProcessor> ();
-      pCtrl->AddCallback (MakeCallback (&LteEnbPhy::GenerateCtrlCqiReport, phy));
-      ulPhy->AddCtrlSinrChunkProcessor (pCtrl);   // for evaluating SRS UL-CQI
-
-      Ptr<LteChunkProcessor> pData = Create<LteChunkProcessor> ();
-      pData->AddCallback (MakeCallback (&LteEnbPhy::GenerateDataCqiReport, phy));
-      pData->AddCallback (MakeCallback (&LteSpectrumPhy::UpdateSinrPerceived, ulPhy));
-      ulPhy->AddDataSinrChunkProcessor (pData);   // for evaluating PUSCH UL-CQI
-
-      Ptr<LteChunkProcessor> pInterf = Create<LteChunkProcessor> ();
-      pInterf->AddCallback (MakeCallback (&LteEnbPhy::ReportInterference, phy));
-      ulPhy->AddInterferenceDataChunkProcessor (pInterf);   // for interference power tracing
-
-      dlPhy->SetChannel (m_downlinkChannel);
-      ulPhy->SetChannel (m_uplinkChannel);
-
-      Ptr<MobilityModel> mm = n->GetObject<MobilityModel> ();
-      NS_ASSERT_MSG (mm, "MobilityModel needs to be set on node before calling LteHelper::InstallEnbDevice ()");
-      dlPhy->SetMobility (mm);
-      ulPhy->SetMobility (mm);
-
-      Ptr<AntennaModel> antenna = (m_lteEnbAntennaModelFactory.Create ())->GetObject<AntennaModel> ();
-      NS_ASSERT_MSG (antenna, "error in creating the AntennaModel object");
-      dlPhy->SetAntenna (antenna);
-      ulPhy->SetAntenna (antenna);
-
-      Ptr<LteEnbMac> mac = CreateObject<LteEnbMac> ();
-      Ptr<FfMacScheduler> sched = m_lteSchedulerFactory.Create<FfMacScheduler> ();
-      Ptr<LteFfrAlgorithm> ffrAlgorithm = m_lteFfrAlgorithmFactory.Create<LteFfrAlgorithm> ();
-      it->second->SetMac (mac);
-      it->second->SetFfMacScheduler (sched);
-      it->second->SetFfrAlgorithm (ffrAlgorithm);
-
-      it->second->SetPhy (phy);
-
+        currentStream +=
+            phy->GetSpectrumChannel()->GetPropagationLossModel()->AssignStreams(currentStream);
+        return currentStream - initialStream;
     }
 
-  Ptr<LteEnbRrc> rrc = CreateObject<LteEnbRrc> ();
-  Ptr<LteEnbComponentCarrierManager> ccmEnbManager = m_lteEnbComponentCarrierManagerFactory.Create<LteEnbComponentCarrierManager> ();
-
-  //ComponentCarrierManager SAP
-  rrc->SetLteCcmRrcSapProvider (ccmEnbManager->GetLteCcmRrcSapProvider ());
-  ccmEnbManager->SetLteCcmRrcSapUser (rrc->GetLteCcmRrcSapUser ());
-  // Set number of component carriers. Note: eNB CCM would also set the
-  // number of component carriers in eNB RRC
-  ccmEnbManager->SetNumberOfComponentCarriers (m_noOfLteCcs);
-
-  rrc->ConfigureCarriers (ccMap);
-
-  if (m_useIdealRrc)
+    if (std::find(m_channelObjectsWithAssignedStreams.begin(),
+                  m_channelObjectsWithAssignedStreams.end(),
+                  propagationLossModel) == m_channelObjectsWithAssignedStreams.end())
     {
-      Ptr<MmWaveEnbRrcProtocolIdeal> rrcProtocol = CreateObject<MmWaveEnbRrcProtocolIdeal> ();
-      rrcProtocol->SetLteEnbRrcSapProvider (rrc->GetLteEnbRrcSapProvider ());
-      rrc->SetLteEnbRrcSapUser (rrcProtocol->GetLteEnbRrcSapUser ());
-      rrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetCellId (cellId);
-    }
-  else
-    {
-      Ptr<MmWaveLteEnbRrcProtocolReal> rrcProtocol = CreateObject<MmWaveLteEnbRrcProtocolReal> ();
-      rrcProtocol->SetLteEnbRrcSapProvider (rrc->GetLteEnbRrcSapProvider ());
-      rrc->SetLteEnbRrcSapUser (rrcProtocol->GetLteEnbRrcSapUser ());
-      rrc->AggregateObject (rrcProtocol);
-      rrcProtocol->SetCellId (cellId);
+        currentStream += propagationLossModel->AssignStreams(currentStream);
+        m_channelObjectsWithAssignedStreams.emplace_back(propagationLossModel);
     }
 
-  if (m_epcHelper != 0)
+    Ptr<ChannelConditionModel> channelConditionModel =
+        propagationLossModel->GetChannelConditionModel();
+
+    if (std::find(m_channelObjectsWithAssignedStreams.begin(),
+                  m_channelObjectsWithAssignedStreams.end(),
+                  channelConditionModel) == m_channelObjectsWithAssignedStreams.end())
     {
-      EnumValue epsBearerToRlcMapping;
-      rrc->GetAttribute ("EpsBearerToRlcMapping", epsBearerToRlcMapping);
-      // it does not make sense to use RLC/SM when also using the EPC
+        currentStream += channelConditionModel->AssignStreams(currentStream);
+        m_channelObjectsWithAssignedStreams.emplace_back(channelConditionModel);
+    }
 
-// ***************** RDF EDIT 6/9/2016 ***************** //
-//    if (epsBearerToRlcMapping.Get () == LteEnbRrc::RLC_SM_ALWAYS)
-//      {
-//        rrc->SetAttribute ("EpsBearerToRlcMapping", EnumValue (LteEnbRrc::RLC_UM_ALWAYS));
-//      }
+    Ptr<ThreeGppSpectrumPropagationLossModel> spectrumLossModel =
+        DynamicCast<ThreeGppSpectrumPropagationLossModel>(
+            phy->GetSpectrumChannel()->GetPhasedArraySpectrumPropagationLossModel());
 
-      if (m_rlcAmEnabled)
+    if (spectrumLossModel)
+    {
+        if (std::find(m_channelObjectsWithAssignedStreams.begin(),
+                      m_channelObjectsWithAssignedStreams.end(),
+                      spectrumLossModel) == m_channelObjectsWithAssignedStreams.end())
         {
-          rrc->SetAttribute ("EpsBearerToRlcMapping", EnumValue (LteEnbRrc::RLC_AM_ALWAYS));
-        }
-      else
-        {
-          rrc->SetAttribute ("EpsBearerToRlcMapping", EnumValue (LteEnbRrc::RLC_UM_LOWLAT_ALWAYS));
+            Ptr<ThreeGppChannelModel> channel =
+                DynamicCast<ThreeGppChannelModel>(spectrumLossModel->GetChannelModel());
+            currentStream += channel->AssignStreams(currentStream);
+            m_channelObjectsWithAssignedStreams.emplace_back(spectrumLossModel);
         }
     }
 
-  rrc->SetLteHandoverManagementSapProvider (handoverAlgorithm->GetLteHandoverManagementSapProvider ());
-  handoverAlgorithm->SetLteHandoverManagementSapUser (rrc->GetLteHandoverManagementSapUser ());
-
-  // This RRC attribute is used to connect each new RLC instance with the MAC layer
-  // (for function such as TransmitPdu, ReportBufferStatusReport).
-  // Since in this new architecture, the component carrier manager acts a proxy, it
-  // will have its own LteMacSapProvider interface, RLC will see it as through original MAC
-  // interface LteMacSapProvider, but the function call will go now through LteEnbComponentCarrierManager
-  // instance that needs to implement functions of this interface, and its task will be to
-  // forward these calls to the specific MAC of some of the instances of component carriers. This
-  // decision will depend on the specific implementation of the component carrier manager.
-  rrc->SetLteMacSapProvider (ccmEnbManager->GetLteMacSapProvider ());
-
-  bool ccmTest;
-  for (std::map<uint8_t,Ptr<ComponentCarrierEnb> >::iterator it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      it->second->GetPhy ()->SetLteEnbCphySapUser (rrc->GetLteEnbCphySapUser (it->first));
-      rrc->SetLteEnbCphySapProvider (it->second->GetPhy ()->GetLteEnbCphySapProvider (), it->first);
-
-      rrc->SetLteEnbCmacSapProvider (it->second->GetMac ()->GetLteEnbCmacSapProvider (),it->first );
-      it->second->GetMac ()->SetLteEnbCmacSapUser (rrc->GetLteEnbCmacSapUser (it->first));
-
-      it->second->GetPhy ()->SetComponentCarrierId (it->first);
-      it->second->GetMac ()->SetComponentCarrierId (it->first);
-      //FFR SAP
-      it->second->GetFfMacScheduler ()->SetLteFfrSapProvider (it->second->GetFfrAlgorithm ()->GetLteFfrSapProvider ());
-      it->second->GetFfrAlgorithm ()->SetLteFfrSapUser (it->second->GetFfMacScheduler ()->GetLteFfrSapUser ());
-      rrc->SetLteFfrRrcSapProvider (it->second->GetFfrAlgorithm ()->GetLteFfrRrcSapProvider (), it->first);
-      it->second->GetFfrAlgorithm ()->SetLteFfrRrcSapUser (rrc->GetLteFfrRrcSapUser (it->first));
-      //FFR SAP END
-
-      // PHY <--> MAC SAP
-      it->second->GetPhy ()->SetLteEnbPhySapUser (it->second->GetMac ()->GetLteEnbPhySapUser ());
-      it->second->GetMac ()->SetLteEnbPhySapProvider (it->second->GetPhy ()->GetLteEnbPhySapProvider ());
-      // PHY <--> MAC SAP END
-
-      //Scheduler SAP
-      it->second->GetMac ()->SetFfMacSchedSapProvider (it->second->GetFfMacScheduler ()->GetFfMacSchedSapProvider ());
-      it->second->GetMac ()->SetFfMacCschedSapProvider (it->second->GetFfMacScheduler ()->GetFfMacCschedSapProvider ());
-
-      it->second->GetFfMacScheduler ()->SetFfMacSchedSapUser (it->second->GetMac ()->GetFfMacSchedSapUser ());
-      it->second->GetFfMacScheduler ()->SetFfMacCschedSapUser (it->second->GetMac ()->GetFfMacCschedSapUser ());
-      // Scheduler SAP END
-
-      it->second->GetMac ()->SetLteCcmMacSapUser (ccmEnbManager->GetLteCcmMacSapUser ());
-      ccmEnbManager->SetCcmMacSapProviders (it->first, it->second->GetMac ()->GetLteCcmMacSapProvider ());
-
-      // insert the pointer to the LteMacSapProvider interface of the MAC layer of the specific component carrier
-      ccmTest = ccmEnbManager->SetMacSapProvider (it->first, it->second->GetMac ()->GetLteMacSapProvider ());
-
-      if (ccmTest == false)
-        {
-          NS_FATAL_ERROR ("Error in SetComponentCarrierMacSapProviders");
-        }
-    }
-
-
-
-  dev->SetNode (n);
-  dev->SetAttribute ("CellId", UintegerValue (cellId));
-  dev->SetAttribute ("LteEnbComponentCarrierManager", PointerValue (ccmEnbManager));
-  dev->SetCcMap (ccMap);
-  std::map<uint8_t,Ptr<ComponentCarrierEnb> >::iterator it = ccMap.begin ();
-  dev->SetAttribute ("LteEnbRrc", PointerValue (rrc));
-  dev->SetAttribute ("LteHandoverAlgorithm", PointerValue (handoverAlgorithm));
-  dev->SetAttribute ("LteFfrAlgorithm", PointerValue (it->second->GetFfrAlgorithm ()));
-
-  if (m_isAnrEnabled)
-    {
-      Ptr<LteAnr> anr = CreateObject<LteAnr> (cellId);
-      rrc->SetLteAnrSapProvider (anr->GetLteAnrSapProvider ());
-      anr->SetLteAnrSapUser (rrc->GetLteAnrSapUser ());
-      dev->SetAttribute ("LteAnr", PointerValue (anr));
-    }
-
-  for (it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      Ptr<LteEnbPhy> ccPhy = it->second->GetPhy ();
-      ccPhy->SetDevice (dev);
-      ccPhy->GetUlSpectrumPhy ()->SetDevice (dev);
-      ccPhy->GetDlSpectrumPhy ()->SetDevice (dev);
-      ccPhy->GetUlSpectrumPhy ()->SetLtePhyRxDataEndOkCallback (MakeCallback (&LteEnbPhy::PhyPduReceived, ccPhy));
-      ccPhy->GetUlSpectrumPhy ()->SetLtePhyRxCtrlEndOkCallback (MakeCallback (&LteEnbPhy::ReceiveLteControlMessageList, ccPhy));
-      ccPhy->GetUlSpectrumPhy ()->SetLtePhyUlHarqFeedbackCallback (MakeCallback (&LteEnbPhy::ReceiveLteUlHarqFeedback, ccPhy));
-      NS_LOG_LOGIC ("set the propagation model frequencies");
-      double dlFreq = LteSpectrumValueHelper::GetCarrierFrequency (it->second->m_dlEarfcn);
-      NS_LOG_LOGIC ("DL freq: " << dlFreq);
-      bool dlFreqOk = m_downlinkPathlossModel->SetAttributeFailSafe ("Frequency", DoubleValue (dlFreq));
-      if (!dlFreqOk)
-        {
-          NS_LOG_WARN ("DL propagation model does not have a Frequency attribute");
-        }
-
-      double ulFreq = LteSpectrumValueHelper::GetCarrierFrequency (it->second->m_ulEarfcn);
-
-      NS_LOG_LOGIC ("UL freq: " << ulFreq);
-      bool ulFreqOk = m_uplinkPathlossModel->SetAttributeFailSafe ("Frequency", DoubleValue (ulFreq));
-      if (!ulFreqOk)
-        {
-          NS_LOG_WARN ("UL propagation model does not have a Frequency attribute");
-        }
-    }  //end for
-  rrc->SetForwardUpCallback (MakeCallback (&LteEnbNetDevice::Receive, dev));
-
-  if(m_e2mode_lte) {
-    const uint16_t local_port = m_e2localPort + (uint16_t)cellId;
-    const std::string enb_id{std::to_string (cellId)};
-    std::string plmnId = "111";
-
-    NS_LOG_INFO("enb_id " << enb_id);
-    Ptr<E2Termination> e2term =
-        CreateObject<E2Termination> (m_e2ip, m_e2port, local_port, enb_id, plmnId);
-
-    dev->SetAttribute("E2Termination", PointerValue(e2term));
-
-    EnableE2PdcpTraces();
-    EnableE2RlcTraces();
-    dev->SetAttribute("E2PdcpCalculator", PointerValue(m_e2PdcpStatsLte));
-    dev->SetAttribute("E2RlcCalculator", PointerValue(m_e2RlcStatsLte));
-  }
-
-  dev->Initialize ();
-  n->AddDevice (dev);
-
-  for (it = ccMap.begin (); it != ccMap.end (); ++it)
-    {
-      m_uplinkChannel->AddRx (it->second->GetPhy ()->GetUlSpectrumPhy ());
-    }
-
-  if (m_epcHelper != 0)
-    {
-      NS_LOG_INFO ("adding this eNB to the EPC");
-      m_epcHelper->AddEnb (n, dev, dev->GetCellId ());
-      Ptr<EpcEnbApplication> enbApp = n->GetApplication (0)->GetObject<EpcEnbApplication> ();
-      NS_ASSERT_MSG (enbApp != 0, "cannot retrieve EpcEnbApplication");
-
-      // S1 SAPs
-      rrc->SetS1SapProvider (enbApp->GetS1SapProvider ());
-      enbApp->SetS1SapUser (rrc->GetS1SapUser ());
-
-      // X2 SAPs
-      Ptr<EpcX2> x2 = n->GetObject<EpcX2> ();
-      x2->SetEpcX2SapUser (rrc->GetEpcX2SapUser ());
-      rrc->SetEpcX2SapProvider (x2->GetEpcX2SapProvider ());
-      rrc->SetEpcX2PdcpProvider (x2->GetEpcX2PdcpProvider ());
-    }
-
-  return dev;
-}
-
-// only for mmWave-only devices
-void
-MmWaveHelper::AttachToClosestEnb (NetDeviceContainer ueDevices, NetDeviceContainer enbDevices)
-{
-  NS_LOG_FUNCTION (this);
-
-  for (NetDeviceContainer::Iterator i = ueDevices.Begin (); i != ueDevices.End (); i++)
-    {
-      AttachToClosestEnb (*i, enbDevices);
-    }
-}
-
-// for MC devices
-void
-MmWaveHelper::AttachToClosestEnb (NetDeviceContainer ueDevices, NetDeviceContainer mmWaveEnbDevices, NetDeviceContainer lteEnbDevices)
-{
-  NS_LOG_FUNCTION (this);
-
-  for (NetDeviceContainer::Iterator i = ueDevices.Begin (); i != ueDevices.End (); i++)
-    {
-      AttachMcToClosestEnb (*i, mmWaveEnbDevices, lteEnbDevices);
-    }
-}
-
-// for InterRatHoCapable devices
-void
-MmWaveHelper::AttachIrToClosestEnb (NetDeviceContainer ueDevices, NetDeviceContainer mmWaveEnbDevices, NetDeviceContainer lteEnbDevices)
-{
-  NS_LOG_FUNCTION (this);
-
-  /*
-  // set initial conditions on beamforming before attaching the UE to the eNBs
-  if(m_channelModelType == "ns3::MmWaveBeamforming")
-  {
-          m_beamforming->Initial(ueDevices,mmWaveEnbDevices);
-  }
-  else if(m_channelModelType == "ns3::MmWaveChannelMatrix")
-  {
-          m_channelMatrix->Initial(ueDevices,mmWaveEnbDevices);
-  }
-  else if(m_channelModelType == "ns3::MmWaveChannelRaytracing")
-  {
-          m_raytracing->Initial(ueDevices,mmWaveEnbDevices);
-  }
-  else if(m_channelModelType == "ns3::MmWave3gppChannel")
-  {
-          m_3gppChannel->Initial(ueDevices,mmWaveEnbDevices);
-  }
-
-  for (NetDeviceContainer::Iterator i = ueDevices.Begin(); i != ueDevices.End(); i++)
-  {
-          AttachIrToClosestEnb(*i, mmWaveEnbDevices, lteEnbDevices);
-  }
-  */
+    return currentStream - initialStream;
 }
 
 void
-MmWaveHelper::AttachToClosestEnb (Ptr<NetDevice> ueDevice, NetDeviceContainer enbDevices)
+NoriHelper::SetGnbBwpManagerAlgorithmTypeId(const TypeId& typeId)
 {
-  NS_LOG_FUNCTION (this << ueDevice << enbDevices.GetN ());
-  NS_ASSERT_MSG (enbDevices.GetN () > 0, "empty enb device container");
-  Vector uePos = ueDevice->GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-
-  // find the closest BS
-  double minDistance = std::numeric_limits<double>::infinity ();
-  int closestEnbIndex = -1;
-  for (uint32_t i = 0; i < enbDevices.GetN (); ++i)
-    {
-      Vector enbPos = enbDevices.Get (i)->GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-      double distance = CalculateDistance (uePos, enbPos);
-
-      if (distance < minDistance)
-        {
-          minDistance = distance;
-          closestEnbIndex = i;
-        }
-    }
-  NS_ASSERT_MSG (closestEnbIndex >= 0, "Closest eNB not found!");
-
-  AttachToEnbWithIndex (ueDevice, enbDevices, closestEnbIndex);
+    NS_LOG_FUNCTION(this);
+    m_gnbBwpManagerAlgoFactory.SetTypeId(typeId);
 }
 
 void
-MmWaveHelper::AttachMcToClosestEnb (Ptr<NetDevice> ueDevice, NetDeviceContainer mmWaveEnbDevices, NetDeviceContainer lteEnbDevices)
+NoriHelper::SetGnbBwpManagerAlgorithmAttribute(const std::string& n, const AttributeValue& v)
 {
-  NS_LOG_FUNCTION (this);
-  Ptr<McUeNetDevice> mcDevice = ueDevice->GetObject<McUeNetDevice> ();
-
-  NS_ASSERT_MSG (mmWaveEnbDevices.GetN () > 0 && lteEnbDevices.GetN () > 0,
-                 "empty lte or mmwave enb device container");
-
-  // Find the closest LTE station
-  Vector uepos = ueDevice->GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-  double minDistance = std::numeric_limits<double>::infinity ();
-  Ptr<NetDevice> lteClosestEnbDevice;
-  for (NetDeviceContainer::Iterator i = lteEnbDevices.Begin (); i != lteEnbDevices.End (); ++i)
-    {
-      Vector enbpos = (*i)->GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-      double distance = CalculateDistance (uepos, enbpos);
-      if (distance < minDistance)
-        {
-          minDistance = distance;
-          lteClosestEnbDevice = *i;
-        }
-    }
-  NS_ASSERT (lteClosestEnbDevice != 0);
-  NS_ASSERT (lteClosestEnbDevice->GetObject<LteEnbNetDevice> () != 0);       // stop if it is not an LTE eNB
-
-  // Necessary operation to connect MmWave UE to eNB at lower layers
-  for (NetDeviceContainer::Iterator i = mmWaveEnbDevices.Begin (); i != mmWaveEnbDevices.End (); ++i)
-    {
-      Ptr<MmWaveEnbNetDevice> mmWaveEnb = (*i)->GetObject<MmWaveEnbNetDevice> ();
-      std::map<uint8_t, Ptr<MmWaveComponentCarrier> > mmWaveEnbCcMap = mmWaveEnb->GetCcMap ();
-
-      for (auto itEnb = mmWaveEnbCcMap.begin (); itEnb != mmWaveEnbCcMap.end (); ++itEnb)
-        {
-          Ptr<MmWaveComponentCarrierEnb> ccEnb = DynamicCast<MmWaveComponentCarrierEnb> (itEnb->second);
-          uint16_t mmWaveCellId = ccEnb->GetCellId ();
-          Ptr<MmWavePhyMacCommon> configParams = ccEnb->GetPhy ()->GetConfigurationParameters ();
-          ccEnb->GetPhy ()->AddUePhy (mcDevice->GetImsi (), ueDevice);
-          // register MmWave eNBs informations in the MmWaveUePhy
-
-          std::map<uint8_t, Ptr<MmWaveComponentCarrierUe> > ueCcMap = mcDevice->GetMmWaveCcMap ();
-          for (auto itUe = ueCcMap.begin (); itUe != ueCcMap.end (); ++itUe)
-            {
-              itUe->second->GetPhy ()->RegisterOtherEnb (mmWaveCellId, configParams, mmWaveEnb);
-            }
-          //closestMmWave->GetMac ()->AssociateUeMAC (mcDevice->GetImsi ()); //TODO this does not do anything
-          NS_LOG_INFO ("mmWaveCellId " << mmWaveCellId);
-        }
-    }
-
-  // Attach the MC device the LTE eNB, the best MmWave eNB will be selected automatically
-  Ptr<LteEnbNetDevice> enbLteDevice = lteClosestEnbDevice->GetObject<LteEnbNetDevice> ();
-  Ptr<EpcUeNas> lteUeNas = mcDevice->GetNas ();
-  lteUeNas->Connect (enbLteDevice->GetCellId (), enbLteDevice->GetDlEarfcn ());       // the MmWaveCell will be automatically selected
-
-  if (m_epcHelper != 0)
-    {
-      // activate default EPS bearer
-      m_epcHelper->ActivateEpsBearer (ueDevice, lteUeNas, mcDevice->GetImsi (), EpcTft::Default (), EpsBearer (EpsBearer::NGBR_VIDEO_TCP_DEFAULT));
-    }
-
-  mcDevice->SetLteTargetEnb (enbLteDevice);
+    NS_LOG_FUNCTION(this);
+    m_gnbBwpManagerAlgoFactory.Set(n, v);
 }
 
 void
-MmWaveHelper::AttachIrToClosestEnb (Ptr<NetDevice> ueDevice, NetDeviceContainer mmWaveEnbDevices, NetDeviceContainer lteEnbDevices)
+NoriHelper::DoDeActivateDedicatedEpsBearer(Ptr<NetDevice> ueDevice,
+                                         Ptr<NetDevice> enbDevice,
+                                         uint8_t bearerId)
 {
-  NS_LOG_FUNCTION (this);
-  Ptr<McUeNetDevice> mcDevice = ueDevice->GetObject<McUeNetDevice> ();
-  Ptr<LteUeRrc> ueRrc = mcDevice->GetLteRrc ();
+    NS_LOG_FUNCTION(this << ueDevice << bearerId);
 
-  NS_ASSERT_MSG (ueRrc != 0, "McUeDevice with undefined rrc");
+    // Extract IMSI and rnti
+    uint64_t imsi = ueDevice->GetObject<NrUeNetDevice>()->GetImsi();
+    uint16_t rnti = ueDevice->GetObject<NrUeNetDevice>()->GetRrc()->GetRnti();
 
-  NS_ASSERT_MSG (mmWaveEnbDevices.GetN () > 0 && lteEnbDevices.GetN () > 0,
-                 "empty lte or mmwave enb device container");
+    Ptr<LteEnbRrc> enbRrc = enbDevice->GetObject<NrGnbNetDevice>()->GetRrc();
 
-  // Find the closest LTE station
-  Vector uepos = ueDevice->GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-  double minDistance = std::numeric_limits<double>::infinity ();
-  Ptr<NetDevice> lteClosestEnbDevice;
-  for (NetDeviceContainer::Iterator i = lteEnbDevices.Begin (); i != lteEnbDevices.End (); ++i)
-    {
-      Ptr<LteEnbNetDevice> lteEnb = (*i)->GetObject<LteEnbNetDevice> ();
-      uint16_t cellId = lteEnb->GetCellId ();
-      ueRrc->AddLteCellId (cellId);
-      // Let the RRC know that the UE in this simulation is InterRatHoCapable
-      Ptr<LteEnbRrc> enbRrc = lteEnb->GetRrc ();
-      enbRrc->SetInterRatHoMode ();
-      Vector enbpos = (*i)->GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-      double distance = CalculateDistance (uepos, enbpos);
-      if (distance < minDistance)
-        {
-          minDistance = distance;
-          lteClosestEnbDevice = *i;
-        }
-    }
-  NS_ASSERT (lteClosestEnbDevice != 0);
-
-  // Necessary operation to connect MmWave UE to eNB at lower layers
-  minDistance = std::numeric_limits<double>::infinity ();
-  Ptr<NetDevice> closestEnbDevice;
-  for (NetDeviceContainer::Iterator i = mmWaveEnbDevices.Begin (); i != mmWaveEnbDevices.End (); ++i)
-    {
-      Ptr<MmWaveEnbNetDevice> mmWaveEnb = (*i)->GetObject<MmWaveEnbNetDevice> ();
-      uint16_t mmWaveCellId = mmWaveEnb->GetCellId ();
-      ueRrc->AddMmWaveCellId (mmWaveCellId);
-      Ptr<MmWavePhyMacCommon> configParams = mmWaveEnb->GetPhy ()->GetConfigurationParameters ();
-      mmWaveEnb->GetPhy ()->AddUePhy (mcDevice->GetImsi (), ueDevice);
-      // register MmWave eNBs informations in the MmWaveUePhy
-      mcDevice->GetMmWavePhy ()->RegisterOtherEnb (mmWaveCellId, configParams, mmWaveEnb);
-      //closestMmWave->GetMac ()->AssociateUeMAC (mcDevice->GetImsi ()); //TODO this does not do anything
-      NS_LOG_INFO ("mmWaveCellId " << mmWaveCellId);
-
-      // Let the RRC know that the UE in this simulation is InterRatHoCapable
-      Ptr<LteEnbRrc> enbRrc = mmWaveEnb->GetRrc ();
-      enbRrc->SetInterRatHoMode ();
-      Vector enbpos = (*i)->GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-      double distance = CalculateDistance (uepos, enbpos);
-      if (distance < minDistance)
-        {
-          minDistance = distance;
-          closestEnbDevice = *i;
-        }
-    }
-
-  // Attach the MC device the Closest LTE eNB
-  Ptr<LteEnbNetDevice> enbLteDevice = lteClosestEnbDevice->GetObject<LteEnbNetDevice> ();
-  Ptr<EpcUeNas> lteUeNas = mcDevice->GetNas ();
-  lteUeNas->Connect (enbLteDevice->GetCellId (), enbLteDevice->GetDlEarfcn ());       // force connection to the LTE eNB
-
-  if (m_epcHelper != 0)
-    {
-      // activate default EPS bearer
-      m_epcHelper->ActivateEpsBearer (ueDevice, lteUeNas, mcDevice->GetImsi (), EpcTft::Default (), EpsBearer (EpsBearer::NGBR_VIDEO_TCP_DEFAULT));
-    }
-
-  // set initial targets
-  Ptr<MmWaveEnbNetDevice> enbDevice = closestEnbDevice->GetObject<MmWaveEnbNetDevice> ();
-  mcDevice->SetLteTargetEnb (enbLteDevice);
-  mcDevice->SetMmWaveTargetEnb (enbDevice);
+    enbRrc->DoSendReleaseDataRadioBearer(imsi, rnti, bearerId);
 }
 
 void
-MmWaveHelper::AttachToEnbWithIndex (Ptr<NetDevice> ueDevice, NetDeviceContainer enbDevices, uint32_t index)
+NoriHelper::SetEpcHelper(Ptr<EpcHelper> epcHelper)
 {
-  NS_LOG_FUNCTION (this << ueDevice << enbDevices.GetN () << index);
-  NS_ASSERT_MSG (enbDevices.GetN () > 0, "empty enb device container");
-
-  // select the eNB with the given index
-  Ptr<NetDevice> targetEnbDevice = enbDevices.Get(index);
-  NS_ASSERT (targetEnbDevice != 0);
-
-  // connect the UE to the target BS
-  Ptr<MmWaveUeNetDevice> mmWaveUe = ueDevice->GetObject<MmWaveUeNetDevice> ();
-
-  // Necessary operation to connect MmWave UE to eNB at lower layers
-  for (NetDeviceContainer::Iterator i = enbDevices.Begin (); i != enbDevices.End (); ++i)
-    {
-      Ptr<MmWaveEnbNetDevice> mmWaveEnb = (*i)->GetObject<MmWaveEnbNetDevice> ();
-
-      std::map<uint8_t, Ptr<MmWaveComponentCarrier> > enbCcMap = mmWaveEnb->GetCcMap ();
-
-      // TODO here I have to pair UE CC and eNB CC with the same CCid, CCs with different
-      // IDs cannot communicate
-      for (const auto& itEnb : enbCcMap)
-        {
-          Ptr<MmWaveComponentCarrierEnb> ccEnb = DynamicCast<MmWaveComponentCarrierEnb> (itEnb.second);
-
-          uint16_t mmWaveCellId = ccEnb->GetCellId ();
-          Ptr<MmWavePhyMacCommon> configParams = ccEnb->GetPhy ()->GetConfigurationParameters ();
-          ccEnb->GetPhy ()->AddUePhy (mmWaveUe->GetImsi (), ueDevice);
-          // register MmWave eNBs informations in the MmWaveUePhy
-
-          std::map<uint8_t, Ptr<MmWaveComponentCarrier> > ueCcMap = mmWaveUe->GetCcMap ();
-          for (const auto& itUe : ueCcMap)
-            {
-              DynamicCast<MmWaveComponentCarrierUe> (itUe.second)->GetPhy ()->RegisterOtherEnb (mmWaveCellId, configParams, mmWaveEnb);
-            }
-          //closestMmWave->GetMac ()->AssociateUeMAC (mcDevice->GetImsi ()); //TODO this does not do anything
-          NS_LOG_INFO ("mmWaveCellId " << mmWaveCellId);
-        }
-    }
-
-  // TODO check: the initial access is performed by the PCC, the method RegisterToEnb
-  // should be called only on the PCC PHY. The configuration of the SCCs will be
-  // performed by UE RRC during the connection setup phase
-  uint16_t cellId = targetEnbDevice->GetObject<MmWaveEnbNetDevice> ()->GetCellId ();
-  Ptr<MmWavePhyMacCommon> configParams = targetEnbDevice->GetObject<MmWaveEnbNetDevice> ()->GetPhy ()->GetConfigurationParameters ();
-
-  // this has alread been called in the for loop above
-  targetEnbDevice->GetObject<MmWaveEnbNetDevice> ()->GetPhy ()->AddUePhy (ueDevice->GetObject<MmWaveUeNetDevice> ()->GetImsi (), ueDevice);
-  ueDevice->GetObject<MmWaveUeNetDevice> ()->GetPhy ()->RegisterToEnb (cellId, configParams);
-  targetEnbDevice->GetObject<MmWaveEnbNetDevice> ()->GetMac ()->AssociateUeMAC (ueDevice->GetObject<MmWaveUeNetDevice> ()->GetImsi ());
-
-  // connect to the target one
-  Ptr<EpcUeNas> ueNas = ueDevice->GetObject<MmWaveUeNetDevice> ()->GetNas ();
-  ueNas->Connect (targetEnbDevice->GetObject<MmWaveEnbNetDevice> ()->GetCellId (),
-                  targetEnbDevice->GetObject<MmWaveEnbNetDevice> ()->GetEarfcn ());
-
-  if (m_epcHelper != 0)
-    {
-      // activate default EPS bearer
-      m_epcHelper->ActivateEpsBearer (ueDevice, ueDevice->GetObject<MmWaveUeNetDevice> ()->GetImsi (), EpcTft::Default (), EpsBearer (EpsBearer::NGBR_VIDEO_TCP_DEFAULT));
-    }
-
-  // tricks needed for the simplified LTE-only simulations
-  //if (m_epcHelper == 0)
-  //{
-  ueDevice->GetObject<MmWaveUeNetDevice> ()->SetTargetEnb (targetEnbDevice->GetObject<MmWaveEnbNetDevice> ());
-  //}
-
+    m_epcHelper = epcHelper;
 }
 
 void
-MmWaveHelper::AddX2Interface (NodeContainer enbNodes)
+NoriHelper::SetBeamformingHelper(Ptr<BeamformingHelperBase> beamformingHelper)
 {
-  NS_LOG_FUNCTION (this);
-
-  NS_ASSERT_MSG (m_epcHelper != 0, "X2 interfaces cannot be set up when the EPC is not used");
-
-  for (NodeContainer::Iterator i = enbNodes.Begin (); i != enbNodes.End (); ++i)
-    {
-      for (NodeContainer::Iterator j = i + 1; j != enbNodes.End (); ++j)
-        {
-          AddX2Interface (*i, *j);
-        }
-    }
-
-  // print stats
-  m_cnStats = CreateObject<CoreNetworkStatsCalculator> ();
-
-  // add traces
-  Config::Connect ("/NodeList/*/$ns3::EpcX2/RxPDU",
-                   MakeCallback (&CoreNetworkStatsCalculator::LogX2Packet, m_cnStats));
+    m_beamformingHelper = beamformingHelper;
+    m_beamformingHelper->Initialize();
 }
 
-void
-MmWaveHelper::AddX2Interface (Ptr<Node> enbNode1, Ptr<Node> enbNode2)
+class NrDrbActivator : public SimpleRefCount<NrDrbActivator>
 {
-  NS_LOG_FUNCTION (this);
-  NS_LOG_INFO ("setting up the X2 interface");
+  public:
+    NrDrbActivator(Ptr<NetDevice> ueDevice, EpsBearer bearer);
+    static void ActivateCallback(Ptr<NrDrbActivator> a,
+                                 std::string context,
+                                 uint64_t imsi,
+                                 uint16_t cellId,
+                                 uint16_t rnti);
+    void ActivateDrb(uint64_t imsi, uint16_t cellId, uint16_t rnti);
 
-  m_epcHelper->AddX2Interface (enbNode1, enbNode2);
-}
-
-void
-MmWaveHelper::AddX2Interface (NodeContainer lteEnbNodes, NodeContainer mmWaveEnbNodes)
-{
-  NS_LOG_FUNCTION (this);
-
-  NS_ASSERT_MSG (m_epcHelper != 0, "X2 interfaces cannot be set up when the EPC is not used");
-
-  for (NodeContainer::Iterator i = mmWaveEnbNodes.Begin (); i != mmWaveEnbNodes.End (); ++i)
-    {
-      for (NodeContainer::Iterator j = i + 1; j != mmWaveEnbNodes.End (); ++j)
-        {
-          AddX2Interface (*i, *j);
-        }
-    }
-  for (NodeContainer::Iterator i = mmWaveEnbNodes.Begin (); i != mmWaveEnbNodes.End (); ++i)
-    {
-      // get the position of the mmWave eNB
-      Vector mmWavePos = (*i)->GetObject<MobilityModel> ()->GetPosition ();
-      double minDistance = std::numeric_limits<double>::infinity ();
-      Ptr<Node> closestLteNode;
-      for (NodeContainer::Iterator j = lteEnbNodes.Begin (); j != lteEnbNodes.End (); ++j)
-        {
-          AddX2Interface (*i, *j);
-          Vector ltePos = (*j)->GetObject<MobilityModel> ()->GetPosition ();
-          double distance = CalculateDistance (mmWavePos, ltePos);
-          if (distance < minDistance)
-            {
-              minDistance = distance;
-              closestLteNode = *j;
-            }
-        }
-
-      // get closestLteNode cellId and store it in the MmWaveEnb RRC
-      Ptr<LteEnbNetDevice> closestEnbDevice = closestLteNode->GetDevice (0)->GetObject <LteEnbNetDevice> ();
-      if (closestEnbDevice != 0)
-        {
-          uint16_t lteCellId = closestEnbDevice->GetRrc ()->GetCellId ();
-          NS_LOG_LOGIC ("ClosestLteCellId " << lteCellId);
-          (*i)->GetDevice (0)->GetObject <MmWaveEnbNetDevice> ()->GetRrc ()->SetClosestLteCellId (lteCellId);
-        }
-      else
-        {
-          NS_FATAL_ERROR ("LteDevice not retrieved");
-        }
-
-    }
-  for (NodeContainer::Iterator i = lteEnbNodes.Begin (); i != lteEnbNodes.End (); ++i)
-    {
-      for (NodeContainer::Iterator j = i + 1; j != lteEnbNodes.End (); ++j)
-        {
-          AddX2Interface (*i, *j);
-        }
-    }
-  // print stats
-  if (m_cnStats == 0)
-    {
-      m_cnStats = CreateObject<CoreNetworkStatsCalculator> ();
-    }
-
-  // add traces
-  Config::Connect ("/NodeList/*/$ns3::EpcX2/RxPDU",
-                   MakeCallback (&CoreNetworkStatsCalculator::LogX2Packet, m_cnStats));
-}
-
-void
-MmWaveHelper::SetEpcHelper (Ptr<EpcHelper> epcHelper)
-{
-  m_epcHelper = epcHelper;
-}
-
-class MmWaveDrbActivator : public SimpleRefCount<MmWaveDrbActivator>
-{
-public:
-  MmWaveDrbActivator (Ptr<NetDevice> ueDevice, EpsBearer bearer);
-  static void ActivateCallback (Ptr<MmWaveDrbActivator> a, std::string context, uint64_t imsi, uint16_t cellId, uint16_t rnti);
-  void ActivateDrb (uint64_t imsi, uint16_t cellId, uint16_t rnti);
-private:
-  bool m_active;
-  Ptr<NetDevice> m_ueDevice;
-  EpsBearer m_bearer;
-  uint64_t m_imsi;
+  private:
+    bool m_active;
+    Ptr<NetDevice> m_ueDevice;
+    EpsBearer m_bearer;
+    uint64_t m_imsi;
 };
 
-MmWaveDrbActivator::MmWaveDrbActivator (Ptr<NetDevice> ueDevice, EpsBearer bearer)
-  : m_active (false),
-    m_ueDevice (ueDevice),
-    m_bearer (bearer)
+NrDrbActivator::NrDrbActivator(Ptr<NetDevice> ueDevice, EpsBearer bearer)
+    : m_active(false),
+      m_ueDevice(ueDevice),
+      m_bearer(bearer),
+      m_imsi(m_ueDevice->GetObject<NrUeNetDevice>()->GetImsi())
 {
-  if (m_ueDevice->GetObject< MmWaveUeNetDevice> ())
-    {           // mmWave
-      m_imsi = m_ueDevice->GetObject< MmWaveUeNetDevice> ()->GetImsi ();
-    }
-  else if (m_ueDevice->GetObject< McUeNetDevice> ())
+}
+
+void
+NrDrbActivator::ActivateCallback(Ptr<NrDrbActivator> a,
+                                 std::string context,
+                                 uint64_t imsi,
+                                 uint16_t cellId,
+                                 uint16_t rnti)
+{
+    NS_LOG_FUNCTION(a << context << imsi << cellId << rnti);
+    a->ActivateDrb(imsi, cellId, rnti);
+}
+
+void
+NrDrbActivator::ActivateDrb(uint64_t imsi, uint16_t cellId, uint16_t rnti)
+{
+    NS_LOG_FUNCTION(this << imsi << cellId << rnti << m_active);
+    if ((!m_active) && (imsi == m_imsi))
     {
-      m_imsi = m_ueDevice->GetObject< McUeNetDevice> ()->GetImsi ();           // TODO support for LTE part
+        Ptr<LteUeRrc> ueRrc = m_ueDevice->GetObject<NrUeNetDevice>()->GetRrc();
+        NS_ASSERT(ueRrc->GetState() == LteUeRrc::CONNECTED_NORMALLY);
+        uint16_t rnti = ueRrc->GetRnti();
+        Ptr<const NrGnbNetDevice> enbLteDevice =
+            m_ueDevice->GetObject<NrUeNetDevice>()->GetTargetEnb();
+        Ptr<LteEnbRrc> enbRrc = enbLteDevice->GetObject<NrGnbNetDevice>()->GetRrc();
+        NS_ASSERT(ueRrc->GetCellId() == enbLteDevice->GetCellId());
+        Ptr<UeManager> ueManager = enbRrc->GetUeManager(rnti);
+        NS_ASSERT(ueManager->GetState() == UeManager::CONNECTED_NORMALLY ||
+                  ueManager->GetState() == UeManager::CONNECTION_RECONFIGURATION);
+        EpcEnbS1SapUser::DataRadioBearerSetupRequestParameters params;
+        params.rnti = rnti;
+        params.bearer = m_bearer;
+        params.bearerId = 0;
+        params.gtpTeid = 0; // don't care
+        enbRrc->GetS1SapUser()->DataRadioBearerSetupRequest(params);
+        m_active = true;
     }
 }
 
 void
-MmWaveDrbActivator::ActivateCallback (Ptr<MmWaveDrbActivator> a, std::string context, uint64_t imsi, uint16_t cellId, uint16_t rnti)
+NoriHelper::ActivateDataRadioBearer(NetDeviceContainer ueDevices, EpsBearer bearer)
 {
-  NS_LOG_FUNCTION (a << context << imsi << cellId << rnti);
-  a->ActivateDrb (imsi, cellId, rnti);
-}
-
-void
-MmWaveDrbActivator::ActivateDrb (uint64_t imsi, uint16_t cellId, uint16_t rnti)
-{
-  NS_LOG_FUNCTION (this << imsi << cellId << rnti << m_active);
-  if ((!m_active) && (imsi == m_imsi))
+    NS_LOG_FUNCTION(this);
+    for (NetDeviceContainer::Iterator i = ueDevices.Begin(); i != ueDevices.End(); ++i)
     {
-      Ptr<LteUeRrc> ueRrc = m_ueDevice->GetObject<MmWaveUeNetDevice> ()->GetRrc ();
-      NS_ASSERT (ueRrc->GetState () == LteUeRrc::CONNECTED_NORMALLY);
-      uint16_t rnti = ueRrc->GetRnti ();
-      Ptr<MmWaveEnbNetDevice> enbLteDevice = m_ueDevice->GetObject<MmWaveUeNetDevice> ()->GetTargetEnb ();
-      Ptr<LteEnbRrc> enbRrc = enbLteDevice->GetObject<MmWaveEnbNetDevice> ()->GetRrc ();
-      NS_ASSERT (ueRrc->GetCellId () == enbLteDevice->GetCellId ());
-      Ptr<UeManager> ueManager = enbRrc->GetUeManager (rnti);
-      NS_ASSERT (ueManager->GetState () == UeManager::CONNECTED_NORMALLY
-                 || ueManager->GetState () == UeManager::CONNECTION_RECONFIGURATION);
-      EpcEnbS1SapUser::DataRadioBearerSetupRequestParameters params;
-      params.rnti = rnti;
-      params.bearer = m_bearer;
-      params.bearerId = 0;
-      params.gtpTeid = 0; // don't care
-      enbRrc->GetS1SapUser ()->DataRadioBearerSetupRequest (params);
-      m_active = true;
+        ActivateDataRadioBearer(*i, bearer);
     }
 }
 
-// TODO this does not support yet Mc devices
 void
-MmWaveHelper::ActivateDataRadioBearer (NetDeviceContainer ueDevices, EpsBearer bearer)
+NoriHelper::ActivateDataRadioBearer(Ptr<NetDevice> ueDevice, EpsBearer bearer)
 {
-  NS_LOG_FUNCTION (this);
-  for (NetDeviceContainer::Iterator i = ueDevices.Begin (); i != ueDevices.End (); ++i)
+    NS_LOG_FUNCTION(this << ueDevice);
+    NS_ASSERT_MSG(!m_epcHelper, "this method must not be used when the EPC is being used");
+
+    // Normally it is the EPC that takes care of activating DRBs
+    // when the UE gets connected. When the EPC is not used, we achieve
+    // the same behavior by hooking a dedicated DRB activation function
+    // to the Enb RRC Connection Established trace source
+
+    Ptr<const NrGnbNetDevice> enbnrDevice = ueDevice->GetObject<NrUeNetDevice>()->GetTargetEnb();
+
+    std::ostringstream path;
+    path << "/NodeList/" << enbnrDevice->GetNode()->GetId() << "/DeviceList/"
+         << enbnrDevice->GetIfIndex() << "/LteEnbRrc/ConnectionEstablished";
+    Ptr<NrDrbActivator> arg = Create<NrDrbActivator>(ueDevice, bearer);
+    Config::Connect(path.str(), MakeBoundCallback(&NrDrbActivator::ActivateCallback, arg));
+}
+
+void
+NoriHelper::EnableTraces()
+{
+    EnableDlDataPhyTraces();
+    EnableDlCtrlPhyTraces();
+    EnableUlPhyTraces();
+    // EnableEnbPacketCountTrace ();
+    // EnableUePacketCountTrace ();
+    // EnableTransportBlockTrace ();
+    EnableRlcSimpleTraces();
+    EnableRlcE2eTraces();
+    EnablePdcpSimpleTraces();
+    EnablePdcpE2eTraces();
+    EnableGnbPhyCtrlMsgsTraces();
+    EnableUePhyCtrlMsgsTraces();
+    EnableGnbMacCtrlMsgsTraces();
+    EnableUeMacCtrlMsgsTraces();
+    EnableDlMacSchedTraces();
+    EnableUlMacSchedTraces();
+    EnablePathlossTraces();
+}
+
+Ptr<NrPhyRxTrace>
+NoriHelper::GetPhyRxTrace()
+{
+    return m_phyStats;
+}
+
+void
+NoriHelper::EnableDlDataPhyTraces()
+{
+    // NS_LOG_FUNCTION_NOARGS ();
+    Config::Connect("/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/DlDataSinr",
+                    MakeBoundCallback(&NrPhyRxTrace::DlDataSinrCallback, m_phyStats));
+
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/SpectrumPhy/RxPacketTraceUe",
+        MakeBoundCallback(&NrPhyRxTrace::RxPacketTraceUeCallback, m_phyStats));
+}
+
+void
+NoriHelper::EnableDlCtrlPhyTraces()
+{
+    // NS_LOG_FUNCTION_NOARGS ();
+    Config::Connect("/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/DlCtrlSinr",
+                    MakeBoundCallback(&NrPhyRxTrace::DlCtrlSinrCallback, m_phyStats));
+}
+
+void
+NoriHelper::EnableGnbPhyCtrlMsgsTraces()
+{
+    Config::Connect("/NodeList/*/DeviceList/*/BandwidthPartMap/*/NrGnbPhy/GnbPhyRxedCtrlMsgsTrace",
+                    MakeBoundCallback(&NrPhyRxTrace::RxedGnbPhyCtrlMsgsCallback, m_phyStats));
+    Config::Connect("/NodeList/*/DeviceList/*/BandwidthPartMap/*/NrGnbPhy/GnbPhyTxedCtrlMsgsTrace",
+                    MakeBoundCallback(&NrPhyRxTrace::TxedGnbPhyCtrlMsgsCallback, m_phyStats));
+}
+
+void
+NoriHelper::EnableGnbMacCtrlMsgsTraces()
+{
+    Config::Connect("/NodeList/*/DeviceList/*/BandwidthPartMap/*/NrGnbMac/GnbMacRxedCtrlMsgsTrace",
+                    MakeBoundCallback(&NrMacRxTrace::RxedGnbMacCtrlMsgsCallback, m_macStats));
+
+    Config::Connect("/NodeList/*/DeviceList/*/BandwidthPartMap/*/NrGnbMac/GnbMacTxedCtrlMsgsTrace",
+                    MakeBoundCallback(&NrMacRxTrace::TxedGnbMacCtrlMsgsCallback, m_macStats));
+}
+
+void
+NoriHelper::EnableUePhyCtrlMsgsTraces()
+{
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/UePhyRxedCtrlMsgsTrace",
+        MakeBoundCallback(&NrPhyRxTrace::RxedUePhyCtrlMsgsCallback, m_phyStats));
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/UePhyTxedCtrlMsgsTrace",
+        MakeBoundCallback(&NrPhyRxTrace::TxedUePhyCtrlMsgsCallback, m_phyStats));
+    Config::Connect("/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/UePhyRxedDlDciTrace",
+                    MakeBoundCallback(&NrPhyRxTrace::RxedUePhyDlDciCallback, m_phyStats));
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/UePhyTxedHarqFeedbackTrace",
+        MakeBoundCallback(&NrPhyRxTrace::TxedUePhyHarqFeedbackCallback, m_phyStats));
+}
+
+void
+NoriHelper::EnableUeMacCtrlMsgsTraces()
+{
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUeMac/UeMacRxedCtrlMsgsTrace",
+        MakeBoundCallback(&NrMacRxTrace::RxedUeMacCtrlMsgsCallback, m_macStats));
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUeMac/UeMacTxedCtrlMsgsTrace",
+        MakeBoundCallback(&NrMacRxTrace::TxedUeMacCtrlMsgsCallback, m_macStats));
+}
+
+void
+NoriHelper::EnableUlPhyTraces()
+{
+    NS_LOG_FUNCTION_NOARGS();
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/BandwidthPartMap/*/NrGnbPhy/SpectrumPhy/RxPacketTraceEnb",
+        MakeBoundCallback(&NrPhyRxTrace::RxPacketTraceEnbCallback, m_phyStats));
+}
+
+void
+NoriHelper::EnableGnbPacketCountTrace()
+{
+    NS_LOG_FUNCTION_NOARGS();
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/BandwidthPartMap/*/NrGnbPhy/SpectrumPhy/ReportEnbTxRxPacketCount",
+        MakeBoundCallback(&NrPhyRxTrace::ReportPacketCountEnbCallback, m_phyStats));
+}
+
+void
+NoriHelper::EnableUePacketCountTrace()
+{
+    NS_LOG_FUNCTION_NOARGS();
+    Config::Connect("/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/SpectrumPhy/"
+                    "ReportUeTxRxPacketCount",
+                    MakeBoundCallback(&NrPhyRxTrace::ReportPacketCountUeCallback, m_phyStats));
+}
+
+void
+NoriHelper::EnableTransportBlockTrace()
+{
+    NS_LOG_FUNCTION_NOARGS();
+    Config::Connect("/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/ReportDownlinkTbSize",
+                    MakeBoundCallback(&NrPhyRxTrace::ReportDownLinkTBSize, m_phyStats));
+}
+
+void
+NoriHelper::EnableRlcSimpleTraces()
+{
+    Ptr<NrBearerStatsSimple> rlcStats = CreateObject<NrBearerStatsSimple>("RLC");
+    m_radioBearerStatsConnectorSimpleTraces.EnableRlcStats(rlcStats);
+}
+
+void
+NoriHelper::EnablePdcpSimpleTraces()
+{
+    Ptr<NrBearerStatsSimple> pdcpStats = CreateObject<NrBearerStatsSimple>("PDCP");
+    m_radioBearerStatsConnectorSimpleTraces.EnablePdcpStats(pdcpStats);
+}
+
+void
+NoriHelper::EnableRlcE2eTraces()
+{
+    Ptr<NrBearerStatsCalculator> rlcStats = CreateObject<NrBearerStatsCalculator>("RLC");
+    m_radioBearerStatsConnectorCalculator.EnableRlcStats(rlcStats);
+}
+
+void
+NoriHelper::EnablePdcpE2eTraces()
+{
+    Ptr<NrBearerStatsCalculator> pdcpStats = CreateObject<NrBearerStatsCalculator>("PDCP");
+    m_radioBearerStatsConnectorCalculator.EnablePdcpStats(pdcpStats);
+}
+
+Ptr<NrBearerStatsCalculator>
+NoriHelper::GetRlcStatsCalculator()
+{
+    return DynamicCast<NrBearerStatsCalculator>(
+        m_radioBearerStatsConnectorCalculator.GetRlcStats());
+}
+
+Ptr<NrBearerStatsCalculator>
+NoriHelper::GetPdcpStatsCalculator()
+{
+    return DynamicCast<NrBearerStatsCalculator>(
+        m_radioBearerStatsConnectorCalculator.GetPdcpStats());
+}
+
+void
+NoriHelper::EnableDlMacSchedTraces()
+{
+    NS_LOG_FUNCTION_NOARGS();
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/BandwidthPartMap/*/NrGnbMac/DlScheduling",
+        MakeBoundCallback(&NrMacSchedulingStats::DlSchedulingCallback, m_macSchedStats));
+}
+
+void
+NoriHelper::EnableUlMacSchedTraces()
+{
+    NS_LOG_FUNCTION_NOARGS();
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/BandwidthPartMap/*/NrGnbMac/UlScheduling",
+        MakeBoundCallback(&NrMacSchedulingStats::UlSchedulingCallback, m_macSchedStats));
+}
+
+void
+NoriHelper::EnablePathlossTraces()
+{
+    NS_LOG_FUNCTION_NOARGS();
+    Config::Connect("/ChannelList/*/$ns3::SpectrumChannel/PathLoss",
+                    MakeBoundCallback(&NrPhyRxTrace::PathlossTraceCallback, m_phyStats));
+}
+
+void
+NoriHelper::EnableDlCtrlPathlossTraces(NetDeviceContainer& ueDevs)
+{
+    NS_LOG_FUNCTION_NOARGS();
+
+    for (uint32_t i = 0; i < ueDevs.GetN(); i++)
     {
-      ActivateDataRadioBearer (*i, bearer);
+        Ptr<NrUeNetDevice> ueDev = DynamicCast<NrUeNetDevice>(ueDevs.Get(i));
+        NS_ASSERT_MSG(ueDev,
+                      "To EnableDlCtrlPathlossTracesfunction is passed device "
+                      "container that contains non UE devices.");
+        for (uint32_t j = 0; j < ueDev->GetCcMapSize(); j++)
+        {
+            Ptr<NrUePhy> nrUePhy = ueDev->GetPhy(j);
+            Ptr<NrSpectrumPhy> nrSpectrumPhy = nrUePhy->GetSpectrumPhy();
+            nrSpectrumPhy->EnableDlCtrlPathlossTrace();
+        }
+    }
+
+    Config::Connect("/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/"
+                    "DlCtrlPathloss",
+                    MakeBoundCallback(&NrPhyRxTrace::ReportDlCtrlPathloss, m_phyStats));
+}
+
+void
+NoriHelper::EnableDlDataPathlossTraces(NetDeviceContainer& ueDevs)
+{
+    NS_LOG_FUNCTION_NOARGS();
+
+    NS_ASSERT_MSG(ueDevs.GetN(),
+                  "Passed an empty UE net device container EnableDlDataPathlossTraces function");
+
+    for (uint32_t i = 0; i < ueDevs.GetN(); i++)
+    {
+        Ptr<NrUeNetDevice> ueDev = DynamicCast<NrUeNetDevice>(ueDevs.Get(i));
+        NS_ASSERT_MSG(ueDev,
+                      "To EnableDlDataPathlossTracesfunction is passed device "
+                      "container that contains non UE devices.");
+        for (uint32_t j = 0; j < ueDev->GetCcMapSize(); j++)
+        {
+            Ptr<NrUePhy> nrUePhy = ueDev->GetPhy(j);
+            Ptr<NrSpectrumPhy> nrSpectrumPhy = nrUePhy->GetSpectrumPhy();
+            nrSpectrumPhy->EnableDlDataPathlossTrace();
+        }
+    }
+
+    Config::Connect("/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/"
+                    "DlDataPathloss",
+                    MakeBoundCallback(&NrPhyRxTrace::ReportDlDataPathloss, m_phyStats));
+}
+
+void
+NoriHelper::SetPmSearchTypeId(const TypeId& typeId)
+{
+    m_pmSearchFactory.SetTypeId(typeId);
+}
+
+void
+NoriHelper::SetPmSearchAttribute(const std::string& name, const AttributeValue& value)
+{
+    NS_LOG_FUNCTION(this);
+    m_pmSearchFactory.Set(name, value);
+}
+
+void
+NoriHelper::SetupGnbAntennas(const NoriHelper::AntennaParams& ap)
+{
+    auto antFactory = ObjectFactory{};
+    antFactory.SetTypeId(ap.antennaElem);
+    SetGnbAntennaAttribute("AntennaElement", PointerValue(antFactory.Create()));
+    SetGnbAntennaAttribute("NumColumns", UintegerValue(ap.nAntCols));
+    SetGnbAntennaAttribute("NumRows", UintegerValue(ap.nAntRows));
+    SetGnbAntennaAttribute("IsDualPolarized", BooleanValue(ap.isDualPolarized));
+    SetGnbAntennaAttribute("NumHorizontalPorts", UintegerValue(ap.nHorizPorts));
+    SetGnbAntennaAttribute("NumVerticalPorts", UintegerValue(ap.nVertPorts));
+    SetGnbAntennaAttribute("BearingAngle", DoubleValue(ap.bearingAngle));
+    SetGnbAntennaAttribute("PolSlantAngle", DoubleValue(ap.polSlantAngle));
+}
+
+void
+NoriHelper::SetupUeAntennas(const NoriHelper::AntennaParams& ap)
+{
+    auto antFactory = ObjectFactory{};
+    antFactory.SetTypeId(ap.antennaElem);
+    SetUeAntennaAttribute("AntennaElement", PointerValue(antFactory.Create()));
+    SetUeAntennaAttribute("NumColumns", UintegerValue(ap.nAntCols));
+    SetUeAntennaAttribute("NumRows", UintegerValue(ap.nAntRows));
+    SetUeAntennaAttribute("IsDualPolarized", BooleanValue(ap.isDualPolarized));
+    SetUeAntennaAttribute("NumHorizontalPorts", UintegerValue(ap.nHorizPorts));
+    SetUeAntennaAttribute("NumVerticalPorts", UintegerValue(ap.nVertPorts));
+    SetUeAntennaAttribute("BearingAngle", DoubleValue(ap.bearingAngle));
+    SetUeAntennaAttribute("PolSlantAngle", DoubleValue(ap.polSlantAngle));
+}
+
+void
+NoriHelper::SetupMimoPmi(const NoriHelper::MimoPmiParams& mp)
+{
+    // Set parameters for MIMO precoding matrix search
+    SetAttribute("EnableMimoFeedback", BooleanValue(true));
+    auto searchTypeId = TypeId::LookupByName(mp.pmSearchMethod);
+    SetPmSearchTypeId(searchTypeId);
+    SetPmSearchAttribute("RankLimit", UintegerValue(mp.rankLimit));
+    if (searchTypeId == NrPmSearchFull::GetTypeId())
+    {
+        SetPmSearchAttribute("NrPmSearchFull::CodebookType",
+                             TypeIdValue(TypeId::LookupByName(mp.fullSearchCb)));
     }
 }
-void
-MmWaveHelper::ActivateDataRadioBearer (Ptr<NetDevice> ueDevice, EpsBearer bearer)
-{
-  NS_LOG_FUNCTION (this << ueDevice);
-  //NS_ASSERT_MSG (m_epcHelper == 0, "this method must not be used when the EPC is being used");
 
-  // Normally it is the EPC that takes care of activating DRBs
-  // when the UE gets connected. When the EPC is not used, we achieve
-  // the same behavior by hooking a dedicated DRB activation function
-  // to the Enb RRC Connection Established trace source
-
-
-  Ptr<MmWaveEnbNetDevice> enbmmWaveDevice = ueDevice->GetObject<MmWaveUeNetDevice> ()->GetTargetEnb ();
-
-  std::ostringstream path;
-  path << "/NodeList/" << enbmmWaveDevice->GetNode ()->GetId ()
-       << "/DeviceList/" << enbmmWaveDevice->GetIfIndex ()
-       << "/LteEnbRrc/ConnectionEstablished";
-  Ptr<MmWaveDrbActivator> arg = Create<MmWaveDrbActivator> (ueDevice, bearer);
-  Config::Connect (path.str (), MakeBoundCallback (&MmWaveDrbActivator::ActivateCallback, arg));
-}
-
-
-void
-MmWaveHelper::EnableTraces (void)
-{
-  EnableDlPhyTrace ();
-  EnableUlPhyTrace ();
-  EnableEnbSchedTrace ();
-  //EnableTransportBlockTrace (); //the callback does nothing
-  EnableRlcTraces ();
-  EnablePdcpTraces ();
-  EnableMcTraces ();
-}
-
-
-void 
-MmWaveHelper::EnableEnbSchedTrace ()
-{
-   Config::ConnectWithoutContextFailSafe ("/NodeList/*/DeviceList/*/ComponentCarrierMap/*/MmWaveEnbMac/SchedulingTraceEnb", 
-                                 MakeBoundCallback (&MmWaveMacTrace::ReportEnbSchedulingInfo, m_enbStats));
-}
-
-// TODO traces for MC
-
-void
-MmWaveHelper::EnableDlPhyTrace (void)
-{
-  //NS_LOG_FUNCTION_NOARGS ();
-  //Config::Connect ("/NodeList/*/DeviceList/*/MmWaveUePhy/ReportCurrentCellRsrpSinr",
-  //		MakeBoundCallback (&MmWavePhyTrace::ReportCurrentCellRsrpSinrCallback, m_phyStats));
-
-  Config::ConnectWithoutContextFailSafe ("/NodeList/*/DeviceList/*/ComponentCarrierMap/*/MmWaveEnbPhy/ReportDlPhyTransmission", 
-                                 MakeBoundCallback (&MmWavePhyTrace::ReportDlPhyTransmissionCallback, m_phyStats));
-
-  // regulare mmWave UE device
-  Config::ConnectFailSafe ("/NodeList/*/DeviceList/*/ComponentCarrierMap/*/MmWaveUePhy/DlSpectrumPhy/RxPacketTraceUe",
-                   MakeBoundCallback (&MmWavePhyTrace::RxPacketTraceUeCallback, m_phyStats));
-
-  // MC ue device
-  Config::ConnectFailSafe ("/NodeList/*/DeviceList/*/MmWaveComponentCarrierMapUe/*/MmWaveUePhy/DlSpectrumPhy/RxPacketTraceUe",
-                     MakeBoundCallback (&MmWavePhyTrace::RxPacketTraceUeCallback, m_phyStats));
-}
-
-void
-MmWaveHelper::EnableUlPhyTrace (void)
-{
-  NS_LOG_FUNCTION_NOARGS ();
-  Config::ConnectWithoutContextFailSafe ("/NodeList/*/DeviceList/*/ComponentCarrierMap/*/MmWaveUePhy/ReportUlPhyTransmission", 
-                                 MakeBoundCallback (&MmWavePhyTrace::ReportUlPhyTransmissionCallback, m_phyStats));
-
-  Config::ConnectFailSafe ("/NodeList/*/DeviceList/*/ComponentCarrierMap/*/MmWaveEnbPhy/DlSpectrumPhy/RxPacketTraceEnb",
-                   MakeBoundCallback (&MmWavePhyTrace::RxPacketTraceEnbCallback, m_phyStats));
-}
-
-void
-MmWaveHelper::EnableTransportBlockTrace ()
-{
-  NS_LOG_FUNCTION_NOARGS ();
-  Config::ConnectFailSafe ("/NodeList/*/DeviceList/*/ComponentCarrierMapUe/*/MmWaveUePhy/ReportDownlinkTbSize",
-                   MakeBoundCallback (&MmWavePhyTrace::ReportDownLinkTBSize, m_phyStats));
-}
-
-
-void
-MmWaveHelper::EnableRlcTraces (void)
-{
-  NS_ASSERT_MSG (m_rlcStats == 0, "please make sure that MmWaveHelper::EnableRlcTraces is called at most once");
-  m_rlcStats = CreateObject<MmWaveBearerStatsCalculator> ("RLC");
-  m_radioBearerStatsConnector->EnableRlcStats (m_rlcStats);
-}
-
-Ptr<MmWaveBearerStatsCalculator>
-MmWaveHelper::GetRlcStats (void)
-{
-  return m_rlcStats;
-}
-
-void
-MmWaveHelper::EnablePdcpTraces (void)
-{
-  NS_ASSERT_MSG (m_pdcpStats == 0, "please make sure that MmWaveHelper::EnablePdcpTraces is called at most once");
-  m_pdcpStats = CreateObject<MmWaveBearerStatsCalculator> ("PDCP");
-  m_radioBearerStatsConnector->EnablePdcpStats (m_pdcpStats);
-}
-
-Ptr<MmWaveBearerStatsCalculator>
-MmWaveHelper::GetPdcpStats (void)
-{
-  return m_pdcpStats;
-}
-
-void
-MmWaveHelper::EnableE2PdcpTraces (void)
-{
-  if (m_e2PdcpStats == 0 && (m_e2mode_nr || m_e2mode_lte))
-  {
-    m_e2PdcpStats = CreateObject<MmWaveBearerStatsCalculator> ("E2PDCP");
-    m_e2PdcpStats->SetAttribute("DlPdcpOutputFilename", StringValue("DlE2PdcpStats.txt"));
-    m_e2PdcpStats->SetAttribute("UlPdcpOutputFilename", StringValue("UlE2PdcpStats.txt"));
-    m_e2PdcpStats->SetAttribute("EpochDuration", TimeValue(Seconds(1)));
-    m_radioBearerStatsConnector->EnableE2PdcpStats (m_e2PdcpStats);
-
-    m_e2PdcpStatsLte = CreateObject<MmWaveBearerStatsCalculator> ("E2PDCPLTE");
-    m_e2PdcpStatsLte->SetAttribute("DlPdcpOutputFilename", StringValue("DlE2PdcpStatsLte.txt"));
-    m_e2PdcpStatsLte->SetAttribute("UlPdcpOutputFilename", StringValue("UlE2PdcpStatsLte.txt"));
-    m_e2PdcpStatsLte->SetAttribute("EpochDuration", TimeValue(Seconds(1)));
-    m_radioBearerStatsConnector->EnableE2PdcpStats (m_e2PdcpStatsLte);
-  }
-  else
-  {
-    NS_LOG_INFO("E2 PDCP stats already created");
-  }
-}
-
-Ptr<MmWaveBearerStatsCalculator>
-MmWaveHelper::GetE2PdcpStats (void)
-{
-  // TODO fix this
-  return m_e2PdcpStats;
-}
-
-void
-MmWaveHelper::EnableE2RlcTraces (void)
-{
-  if (m_e2RlcStats == 0 && (m_e2mode_nr || m_e2mode_lte))
-  {
-    m_e2RlcStats = CreateObject<MmWaveBearerStatsCalculator> ("E2RLC");
-    m_e2RlcStats->SetAttribute("DlPdcpOutputFilename", StringValue("DlE2RlcStats.txt"));
-    m_e2RlcStats->SetAttribute("UlPdcpOutputFilename", StringValue("UlE2RlcStats.txt"));
-    m_e2RlcStats->SetAttribute("EpochDuration", TimeValue(Seconds(1)));
-    m_radioBearerStatsConnector->EnableE2RlcStats (m_e2RlcStats);
-
-    m_e2RlcStatsLte = CreateObject<MmWaveBearerStatsCalculator> ("E2RLCLTE");
-    m_e2RlcStatsLte->SetAttribute("DlPdcpOutputFilename", StringValue("DlE2RlcStatsLte.txt"));
-    m_e2RlcStatsLte->SetAttribute("UlPdcpOutputFilename", StringValue("UlE2RlcStatsLte.txt"));
-    m_e2RlcStatsLte->SetAttribute("EpochDuration", TimeValue(Seconds(1)));
-    m_radioBearerStatsConnector->EnableE2RlcStats (m_e2RlcStatsLte);
-  }
-  else
-  {
-    NS_LOG_INFO("E2 RLC stats already created");
-  }
-}
-
-Ptr<MmWaveBearerStatsCalculator>
-MmWaveHelper::GetE2RlcStats (void)
-{
-  return m_e2RlcStats;
-}
-
-void
-MmWaveHelper::EnableMcTraces (void)
-{
-  NS_ASSERT_MSG (m_mcStats == 0, "please make sure that MmWaveHelper::EnableMcTraces is called at most once");
-  m_mcStats = CreateObject<McStatsCalculator> ();
-  m_radioBearerStatsConnector->EnableMcStats (m_mcStats);
-}
-
-Ptr<McStatsCalculator>
-MmWaveHelper::GetMcStats (void)
-{
-  return m_mcStats;
-}
-
-std::string
-MmWaveHelper::GetEnbComponentCarrierManagerType () const
-{
-  return m_enbComponentCarrierManagerFactory.GetTypeId ().GetName ();
-}
-
-void
-MmWaveHelper::SetEnbComponentCarrierManagerType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_enbComponentCarrierManagerFactory = ObjectFactory ();
-  m_enbComponentCarrierManagerFactory.SetTypeId (type);
-}
-
-std::string
-MmWaveHelper::GetLteEnbComponentCarrierManagerType () const
-{
-  return m_lteEnbComponentCarrierManagerFactory.GetTypeId ().GetName ();
-}
-
-void
-MmWaveHelper::SetLteEnbComponentCarrierManagerType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_lteEnbComponentCarrierManagerFactory = ObjectFactory ();
-  m_lteEnbComponentCarrierManagerFactory.SetTypeId (type);
-}
-
-std::string
-MmWaveHelper::GetUeComponentCarrierManagerType () const
-{
-  return m_ueComponentCarrierManagerFactory.GetTypeId ().GetName ();
-}
-
-void
-MmWaveHelper::SetUeComponentCarrierManagerType (std::string type)
-{
-  NS_LOG_FUNCTION (this << type);
-  m_ueComponentCarrierManagerFactory = ObjectFactory ();
-  m_ueComponentCarrierManagerFactory.SetTypeId (type);
-}
-
-uint64_t
-MmWaveHelper::GetStartTime ()
-{
-  struct timeval time_now{};
-  gettimeofday (&time_now, nullptr);
- 
-  return (time_now.tv_sec * 1000) + (time_now.tv_usec / 1000);
-}
-}
-}
+} // namespace ns3

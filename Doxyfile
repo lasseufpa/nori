@@ -57,6 +57,9 @@ INTERACTIVE_SVG        = YES
 UML_LOOK               = NO
 TEMPLATE_RELATIONS     = YES
 DOT_GRAPH_MAX_NODES    = 50
+CALL_GRAPH = YES
+CALLER_GRAPH = YES
+
 
 # Setup options
 WARN_LOGFILE           = doxygen_warnings.log

@@ -193,18 +193,18 @@ NoriLteRlc::GetLteMacSapUser()
 
 NS_OBJECT_ENSURE_REGISTERED(NoriLteRlcSm);
 
-NoriLteRlc::NoriLteRlc()
+NoriLteRlcSm::NoriLteRlcSm()
 {
     NS_LOG_FUNCTION(this);
 }
 
-NoriLteRlc::~NoriLteRlc()
+NoriLteRlcSm::~NoriLteRlcSm()
 {
     NS_LOG_FUNCTION(this);
 }
 
 TypeId
-NoriLteRlc::GetTypeId()
+NoriLteRlcSm::GetTypeId()
 {
     static TypeId tid =
         TypeId("ns3::LteRlcSm").SetParent<NoriLteRlc>().SetGroupName("Lte").AddConstructor<NoriLteRlcSm>();

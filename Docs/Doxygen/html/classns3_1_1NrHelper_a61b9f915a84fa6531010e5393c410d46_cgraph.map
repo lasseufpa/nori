@@ -1,0 +1,5 @@
+<map id="ns3::NrHelper::SetUlErrorModel" name="ns3::NrHelper::SetUlErrorModel">
+<area shape="rect" id="node1" title="Set the ErrorModel for UL AMC and UE spectrum at the same time." alt="" coords="5,39,191,80"/>
+<area shape="rect" id="node2" href="$classns3_1_1NrHelper.html#aee6e835defa59789f68a0ca153706961" title="Set an attribute for the GNB spectrum, before it is created." alt="" coords="239,5,467,47"/>
+<area shape="rect" id="node3" href="$classns3_1_1NrHelper.html#a7f36ad64bbc61be20ebb8db179ad42cd" title=" " alt="" coords="248,71,457,112"/>
+</map>

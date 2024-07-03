@@ -333,9 +333,9 @@ TypeId
 NoriUeManager::GetTypeId()
 {
     static TypeId tid =
-        TypeId("ns3::UeManager")
+        TypeId("ns3::NoriUeManager")
             .SetParent<Object>()
-            .AddConstructor<UeManager>()
+            .AddConstructor<NoriUeManager>()
             .AddAttribute("DataRadioBearerMap",
                           "List of UE DataRadioBearerInfo by DRBID.",
                           ObjectMapValue(),

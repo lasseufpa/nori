@@ -1,0 +1,4 @@
+<map id="ns3::NrHelper::SetGnbDlAmcAttribute" name="ns3::NrHelper::SetGnbDlAmcAttribute">
+<area shape="rect" id="node1" title=" " alt="" coords="239,5,448,47"/>
+<area shape="rect" id="node2" href="$classns3_1_1NrHelper.html#a9c839515f263f7c9de9b30f75745615f" title="Set the ErrorModel for DL AMC and GNB spectrum at the same time." alt="" coords="5,5,191,47"/>
+</map>

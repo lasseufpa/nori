@@ -1,6 +1,8 @@
 var searchData=
 [
-  ['uemanager_309',['UeManager',['../classns3_1_1LteEnbRrc.html#a033aca790957c4d812831b4f1901de4b',1,'ns3::LteEnbRrc']]],
-  ['updateconfig_310',['UpdateConfig',['../classns3_1_1NoriGnbNetDevice.html#abefaad92f96dff6b3f704114a565e573',1,'ns3::NoriGnbNetDevice']]],
-  ['updatetraces_311',['UpdateTraces',['../classns3_1_1NoriE2Report.html#aae011b67a08b48eea9c2e40adf03a6e0',1,'ns3::NoriE2Report']]]
+  ['takeuehocontrol_398',['TakeUeHoControl',['../classns3_1_1NoriLteEnbRrc.html#aa9b3beb464307ee067eb8b6ef3574cf8',1,'ns3::NoriLteEnbRrc']]],
+  ['targetcellid_399',['targetCellId',['../classns3_1_1NoriRlcBearerInfo.html#ae4fa7644bf85ffba94a3f500f93f5d63',1,'ns3::NoriRlcBearerInfo']]],
+  ['timerexpirytracedcallback_400',['TimerExpiryTracedCallback',['../classns3_1_1NoriLteEnbRrc.html#a15ef091fec6427a7167de9e0c21c6ba8',1,'ns3::NoriLteEnbRrc']]],
+  ['todo_20list_401',['Todo List',['../todo.html',1,'']]],
+  ['tostring_402',['ToString',['../namespacens3.html#a5dc40058a0c7644211c83a65eb270848',1,'ns3']]]
 ];

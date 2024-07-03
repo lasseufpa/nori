@@ -4,7 +4,7 @@
 //#include "ns3/lte-common"
 #include "ns3/lte-rrc-sap.h"
 #include "ns3/lte-enb-cmac-sap.h"
-#include "ns3/lte-rlc.h"
+#include "ns3/nori-lte-rlc.h"
 
 namespace ns3 {
     class NoriRlcBearerInfo : public Object{

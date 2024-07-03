@@ -9,13 +9,13 @@
 #include "nori-lte-rlc-um.h"
 #include "nori-lte-rlc-am.h"
 #include "nori-lte-enb-rrc.h"
-#include "nori-bearer-stats-calculator.h"
+#include "ns3/nori-bearer-stats-calculator.h"
 
 #include <ns3/core-module.h>
 #include <ns3/lte-radio-bearer-info.h>
 #include <ns3/lte-rlc-am.h>
 //#include <ns3/lte-rlc-um.h>
-//#include <ns3/lte-rlc.h>
+#include <ns3/lte-rlc.h>
 #include <ns3/nr-bearer-stats-calculator.h>
 #include <ns3/nr-gnb-net-device.h>
 #include <ns3/nr-phy.h>
@@ -447,7 +447,7 @@ NoriGnbNetDevice::BuildRicIndicationMessageCuUp(std::string plmId)
             /**
             * \todo check if this works as it should, line 446 to 459
             */
-            ns3::Ptr<ns3::NoriLteRlc> baseRlcPtr = DynamicCast<ns3::LteDataRadioBearerInfo>(drb->second)->m_rlc;
+            ns3::Ptr<ns3::LteRlc> baseRlcPtr = DynamicCast<ns3::LteDataRadioBearerInfo>(drb->second)->m_rlc;
 
             // Convertendo `baseRlcPtr` para o tipo personalizado `NoriLteRlc`
             ns3::Ptr<NoriLteRlc> customRlcPtr = DynamicCast<NoriLteRlc>(baseRlcPtr);
@@ -767,7 +767,7 @@ NoriGnbNetDevice::BuildRicIndicationMessageCuCp(std::string plmId)
 }
 
 uint32_t
-NoriGnbNetDevice::GetRlcBufferOccupancy(Ptr<NoriLteRlc> rlc) const
+NoriGnbNetDevice::GetRlcBufferOccupancy(Ptr<LteRlc> rlc) const
 {
     if (DynamicCast<NoriLteRlcAm>(rlc) != nullptr)
     {

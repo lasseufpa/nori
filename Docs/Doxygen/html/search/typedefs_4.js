@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['receivereporttracedcallback_622',['ReceiveReportTracedCallback',['../classns3_1_1LteEnbRrc.html#a417369fcd259badbafe6a98486fdf580',1,'ns3::LteEnbRrc']]],
-  ['receivetracedcallback_623',['ReceiveTracedCallback',['../classns3_1_1NoriLteRlc.html#a118a35f91258388d831301128e5343ae',1,'ns3::NoriLteRlc']]],
-  ['rnticellidpair_5ft_624',['RntiCellIdPair_t',['../namespacens3.html#aca0f105fc2d1d57d728dd130d326cd81',1,'ns3']]]
+  ['imsicellidpair_5ft_812',['ImsiCellIdPair_t',['../namespacens3.html#a4cb0d9c791b902211ccabe482b0ddeca',1,'ns3']]],
+  ['initpathlossfn_813',['InitPathLossFn',['../namespacens3.html#a46788db91116713bff96f0f00c534055',1,'ns3']]]
 ];
