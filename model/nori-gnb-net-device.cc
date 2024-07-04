@@ -22,10 +22,11 @@
 #include <ns3/oran-interface-module.h>
 #include <ns3/radio-bearer-stats-calculator.h>
 
-NS_LOG_COMPONENT_DEFINE("NoriGnbNetDevice");
+
 
 namespace ns3
 {
+NS_LOG_COMPONENT_DEFINE("NoriGnbNetDevice");
 NS_OBJECT_ENSURE_REGISTERED(NoriGnbNetDevice);
 
 NoriGnbNetDevice::NoriGnbNetDevice()

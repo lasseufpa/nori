@@ -7,6 +7,9 @@
 
 namespace ns3 {
 
+NS_LOG_COMPONENT_DEFINE("NoriRlcBearerInfo");
+NS_OBJECT_ENSURE_REGISTERED(NoriRlcBearerInfo);
+
 TypeId 
 NoriRlcBearerInfo::GetTypeId (void)
 {

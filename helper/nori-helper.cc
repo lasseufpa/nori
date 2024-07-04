@@ -58,7 +58,7 @@ NoriHelper::NoriHelper()
 {
     NS_LOG_FUNCTION(this);
     m_channelFactory.SetTypeId(MultiModelSpectrumChannel::GetTypeId());
-    m_gnbNetDeviceFactory.SetTypeId(NrGnbNetDevice::GetTypeId());
+    m_gnbNetDeviceFactory.SetTypeId(NoriGnbNetDevice::GetTypeId());
     m_ueNetDeviceFactory.SetTypeId(NrUeNetDevice::GetTypeId());
     m_ueMacFactory.SetTypeId(NrUeMac::GetTypeId());
     m_gnbMacFactory.SetTypeId(NrGnbMac::GetTypeId());
@@ -357,7 +357,7 @@ uint32_t
 NoriHelper::GetNumberBwp(const Ptr<const NetDevice>& gnbDevice)
 {
     NS_LOG_FUNCTION(gnbDevice);
-    Ptr<const NrGnbNetDevice> netDevice = DynamicCast<const NrGnbNetDevice>(gnbDevice);
+    Ptr<const NoriGnbNetDevice> netDevice = DynamicCast<const NoriGnbNetDevice>(gnbDevice);
     if (netDevice == nullptr)
     {
         return 0;
@@ -370,7 +370,7 @@ NoriHelper::GetGnbPhy(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex)
 {
     NS_LOG_FUNCTION(gnbDevice << bwpIndex);
     NS_ASSERT(bwpIndex < UINT8_MAX);
-    Ptr<NrGnbNetDevice> netDevice = DynamicCast<NrGnbNetDevice>(gnbDevice);
+    Ptr<NoriGnbNetDevice> netDevice = DynamicCast<NoriGnbNetDevice>(gnbDevice);
     if (netDevice == nullptr)
     {
         return nullptr;
@@ -383,7 +383,7 @@ NoriHelper::GetGnbMac(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex)
 {
     NS_LOG_FUNCTION(gnbDevice << bwpIndex);
     NS_ASSERT(bwpIndex < UINT8_MAX);
-    Ptr<NrGnbNetDevice> netDevice = DynamicCast<NrGnbNetDevice>(gnbDevice);
+    Ptr<NoriGnbNetDevice> netDevice = DynamicCast<NoriGnbNetDevice>(gnbDevice);
     if (netDevice == nullptr)
     {
         return nullptr;
@@ -422,7 +422,7 @@ NoriHelper::GetBwpManagerGnb(const Ptr<NetDevice>& gnbDevice)
 {
     NS_LOG_FUNCTION(gnbDevice);
 
-    Ptr<NrGnbNetDevice> netDevice = DynamicCast<NrGnbNetDevice>(gnbDevice);
+    Ptr<NoriGnbNetDevice> netDevice = DynamicCast<NoriGnbNetDevice>(gnbDevice);
     if (netDevice == nullptr)
     {
         return nullptr;
@@ -450,7 +450,7 @@ NoriHelper::GetScheduler(const Ptr<NetDevice>& gnbDevice, uint32_t bwpIndex)
 {
     NS_LOG_FUNCTION(gnbDevice << bwpIndex);
 
-    Ptr<NrGnbNetDevice> netDevice = DynamicCast<NrGnbNetDevice>(gnbDevice);
+    Ptr<NoriGnbNetDevice> netDevice = DynamicCast<NoriGnbNetDevice>(gnbDevice);
     if (netDevice == nullptr)
     {
         return nullptr;
@@ -868,7 +868,7 @@ NoriHelper::InstallSingleGnbDevice(
 {
     NS_ABORT_MSG_IF(m_cellIdCounter == 65535, "max num gNBs exceeded");
 
-    Ptr<NrGnbNetDevice> dev = m_gnbNetDeviceFactory.Create<NrGnbNetDevice>();
+    Ptr<NoriGnbNetDevice> dev = m_gnbNetDeviceFactory.Create<NoriGnbNetDevice>();
 
     NS_LOG_DEBUG("Creating gNB, cellId = " << m_cellIdCounter);
     uint16_t cellId = m_cellIdCounter++;
@@ -897,7 +897,7 @@ NoriHelper::InstallSingleGnbDevice(
             n,
             allBwps[bwpId].get(),
             dev,
-            std::bind(&NrGnbNetDevice::RouteIngoingCtrlMsgs, dev, std::placeholders::_1, bwpId));
+            std::bind(&NoriGnbNetDevice::RouteIngoingCtrlMsgs, dev, std::placeholders::_1, bwpId));
         phy->SetBwpId(bwpId);
         cc->SetPhy(phy);
 
@@ -984,7 +984,7 @@ NoriHelper::InstallSingleGnbDevice(
     // component carriers. This decision will depend on the specific implementation of the component
     // carrier manager.
     rrc->SetLteMacSapProvider(ccmEnbManager->GetLteMacSapProvider());
-    rrc->SetForwardUpCallback(MakeCallback(&NrGnbNetDevice::Receive, dev));
+    rrc->SetForwardUpCallback(MakeCallback(&NoriGnbNetDevice::Receive, dev));
 
     for (auto& it : ccMap)
     {
@@ -1083,7 +1083,7 @@ NoriHelper::AttachToClosestEnb(Ptr<NetDevice> ueDevice, NetDeviceContainer enbDe
 void
 NoriHelper::AttachToEnb(const Ptr<NetDevice>& ueDevice, const Ptr<NetDevice>& gnbDevice)
 {
-    Ptr<NrGnbNetDevice> enbNetDev = gnbDevice->GetObject<NrGnbNetDevice>();
+    Ptr<NoriGnbNetDevice> enbNetDev = gnbDevice->GetObject<NoriGnbNetDevice>();
     Ptr<NrUeNetDevice> ueNetDev = ueDevice->GetObject<NrUeNetDevice>();
 
     NS_ABORT_IF(enbNetDev == nullptr || ueNetDev == nullptr);
@@ -1377,7 +1377,7 @@ NoriHelper::AssignStreams(NetDeviceContainer c, int64_t stream)
     for (NetDeviceContainer::Iterator i = c.Begin(); i != c.End(); ++i)
     {
         netDevice = (*i);
-        Ptr<NrGnbNetDevice> nrGnb = DynamicCast<NrGnbNetDevice>(netDevice);
+        Ptr<NoriGnbNetDevice> nrGnb = DynamicCast<NoriGnbNetDevice>(netDevice);
         if (nrGnb)
         {
             for (uint32_t bwp = 0; bwp < nrGnb->GetCcMapSize(); bwp++)
@@ -1486,7 +1486,7 @@ NoriHelper::DoDeActivateDedicatedEpsBearer(Ptr<NetDevice> ueDevice,
     uint64_t imsi = ueDevice->GetObject<NrUeNetDevice>()->GetImsi();
     uint16_t rnti = ueDevice->GetObject<NrUeNetDevice>()->GetRrc()->GetRnti();
 
-    Ptr<LteEnbRrc> enbRrc = enbDevice->GetObject<NrGnbNetDevice>()->GetRrc();
+    Ptr<LteEnbRrc> enbRrc = enbDevice->GetObject<NoriGnbNetDevice>()->GetRrc();
 
     enbRrc->DoSendReleaseDataRadioBearer(imsi, rnti, bearerId);
 }
@@ -1550,9 +1550,9 @@ NrDrbActivator::ActivateDrb(uint64_t imsi, uint16_t cellId, uint16_t rnti)
         Ptr<LteUeRrc> ueRrc = m_ueDevice->GetObject<NrUeNetDevice>()->GetRrc();
         NS_ASSERT(ueRrc->GetState() == LteUeRrc::CONNECTED_NORMALLY);
         uint16_t rnti = ueRrc->GetRnti();
-        Ptr<const NrGnbNetDevice> enbLteDevice =
-            m_ueDevice->GetObject<NrUeNetDevice>()->GetTargetEnb();
-        Ptr<LteEnbRrc> enbRrc = enbLteDevice->GetObject<NrGnbNetDevice>()->GetRrc();
+        Ptr<const NoriGnbNetDevice> enbLteDevice =
+            StaticCast<const NoriGnbNetDevice>(m_ueDevice->GetObject<NrUeNetDevice>()->GetTargetEnb());
+        Ptr<LteEnbRrc> enbRrc = enbLteDevice->GetObject<NoriGnbNetDevice>()->GetRrc();
         NS_ASSERT(ueRrc->GetCellId() == enbLteDevice->GetCellId());
         Ptr<UeManager> ueManager = enbRrc->GetUeManager(rnti);
         NS_ASSERT(ueManager->GetState() == UeManager::CONNECTED_NORMALLY ||
@@ -1588,7 +1588,7 @@ NoriHelper::ActivateDataRadioBearer(Ptr<NetDevice> ueDevice, EpsBearer bearer)
     // the same behavior by hooking a dedicated DRB activation function
     // to the Enb RRC Connection Established trace source
 
-    Ptr<const NrGnbNetDevice> enbnrDevice = ueDevice->GetObject<NrUeNetDevice>()->GetTargetEnb();
+    Ptr<const NoriGnbNetDevice> enbnrDevice = DynamicCast<const NoriGnbNetDevice>(ueDevice->GetObject<NrUeNetDevice>()->GetTargetEnb());
 
     std::ostringstream path;
     path << "/NodeList/" << enbnrDevice->GetNode()->GetId() << "/DeviceList/"

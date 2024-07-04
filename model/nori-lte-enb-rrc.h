@@ -50,6 +50,7 @@
 #include <set>
 #include <vector>
 
+#include <ns3/lte-enb-rrc.h>
 #include "nori-rlc-bearer-info.h"
 
 namespace ns3
@@ -66,7 +67,7 @@ class Packet;
  * Manages all the radio bearer information possessed by the ENB RRC for a
  * single UE.
  */
-class NoriUeManager : public Object
+class NoriUeManager : public UeManager
 {
     /// allow LtePdcpSpecificLtePdcpSapUser<UeManager> class friend access
     friend class LtePdcpSpecificLtePdcpSapUser<NoriUeManager>;
