@@ -31,7 +31,7 @@
 namespace ns3
 {
 
-NS_LOG_COMPONENT_DEFINE("LteRlc");
+NS_LOG_COMPONENT_DEFINE("NoriLteRlc");
 
 /// LteRlcSpecificLteMacSapUser class
 class LteRlcSpecificLteMacSapUser : public LteMacSapUser

@@ -8,7 +8,7 @@ set(source_files
     model/nori-lte-enb-rrc.cc
     helper/nori-helper.cc
     helper/nori-bearer-stats-calculator.cc
-    examples/nori-example.cc
+    #examples/nori-example.cc
     )
 
 set(E2SIM_LIBRARIES "/usr/local/lib/libe2sim.a")

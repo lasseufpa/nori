@@ -29,7 +29,7 @@
 namespace ns3
 {
 
-NS_LOG_COMPONENT_DEFINE("LteRlcUm");
+NS_LOG_COMPONENT_DEFINE("NoriLteRlcUm");
 
 NS_OBJECT_ENSURE_REGISTERED(NoriLteRlcUm);
 

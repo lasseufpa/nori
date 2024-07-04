@@ -48,7 +48,6 @@ int main(int argc, char *argv[])
 
     // Instalando o NR
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
-    nrHelper->SetNrMacSchedulerTypeId(TypeId::LookupByName("ns3::NrMacSchedulerOfdmTdma"));
 
     // Instalando dispositivos
     NetDeviceContainer gNbNetDev = nrHelper->InstallGnbDevice(gNbNodes);

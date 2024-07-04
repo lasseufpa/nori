@@ -49,8 +49,7 @@
 namespace ns3
 {
 
-NS_LOG_COMPONENT_DEFINE("LteEnbRrc");
-
+NS_LOG_COMPONENT_DEFINE("NoriLteEnbRrc");
 ///////////////////////////////////////////
 // CMAC SAP forwarder
 ///////////////////////////////////////////
@@ -1834,6 +1833,18 @@ NoriUeManager::BuildNonCriticalExtensionConfigurationCa()
     return ncec;
 }
 
+//std::map <uint8_t, Ptr<LteDataRadioBearerInfo> > 
+//NoriUeManager::GetDrbMap () const
+//{
+//  return m_drbMap;
+//}
+//
+//std::map <uint8_t, Ptr<NoriRlcBearerInfo> > 
+//NoriUeManager::GetRlcMap () const
+//{
+//  return m_rlcMap;
+//}
+//
 ///////////////////////////////////////////
 // eNB RRC methods
 ///////////////////////////////////////////

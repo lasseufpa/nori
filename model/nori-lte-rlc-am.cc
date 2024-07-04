@@ -795,7 +795,7 @@ NoriLteRlcAm::DoNotifyTxOpportunity(LteMacSapUser::TxOpportunityParameters txOpP
 }
 
 void
-NoriLteRlc::DoNotifyHarqDeliveryFailure()
+NoriLteRlcAm::DoNotifyHarqDeliveryFailure()
 {
     NS_LOG_FUNCTION(this);
 }
