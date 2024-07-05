@@ -14,7 +14,7 @@ class NoriE2Report : public Object
     /**
      * Constructor
      */
-    NoriE2Report();
+    NoriE2Report(void);
 
     /**
      * TypeId

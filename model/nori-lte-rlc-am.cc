@@ -1808,4 +1808,24 @@ NoriLteRlcAm::ExpireRbsTimer()
     }
 }
 
+uint32_t NoriLteRlcAm::GetTxBufferSize() const
+{
+    return m_txonBufferSize + m_txedBufferSize + m_retxBufferSize;
+}
+
+uint32_t NoriLteRlcAm::GetTxedBufferSize() const
+{
+    return m_txedBufferSize;
+}
+
+uint32_t NoriLteRlcAm::GetRetxBufferSize() const
+{
+    return m_retxBufferSize;
+}
+
+uint32_t NoriLteRlcAm::GetTrnsmittingRlcSduBufferSize() const
+{
+    return m_txonBufferSize;
+}
+
 } // namespace ns3

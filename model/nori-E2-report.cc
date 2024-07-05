@@ -9,6 +9,15 @@ namespace ns3
 {
 NS_OBJECT_ENSURE_REGISTERED(NoriE2Report);
 
+NoriE2Report::NoriE2Report(void)
+{
+}
+
+NoriE2Report::~NoriE2Report(void)
+{
+}
+
+
 TypeId
 NoriE2Report::GetTypeId()
 {
