@@ -1833,18 +1833,28 @@ NoriUeManager::BuildNonCriticalExtensionConfigurationCa()
     return ncec;
 }
 
-//std::map <uint8_t, Ptr<LteDataRadioBearerInfo> > 
-//NoriUeManager::GetDrbMap () const
-//{
-//  return m_drbMap;
-//}
-//
-//std::map <uint8_t, Ptr<NoriRlcBearerInfo> > 
-//NoriUeManager::GetRlcMap () const
-//{
-//  return m_rlcMap;
-//}
-//
+std::map <uint8_t, Ptr<LteDataRadioBearerInfo> > 
+NoriUeManager::GetDrbMap () const
+{
+  return m_drbMap;
+}
+
+/**
+ *  \todo: Implement this method
+ * 
+ * \brief Get the RLC map.
+ *
+ * This function returns a map of RLC bearers associated with their corresponding IDs.
+ *
+ * \return A map of RLC bearers, where the key is the ID of the bearer and the value is a pointer to the NoriRlcBearerInfo object.
+ */
+std::map <uint8_t, Ptr<NoriRlcBearerInfo> > 
+NoriUeManager::GetRlcMap () const
+{
+    std::map <uint8_t, Ptr<NoriRlcBearerInfo> > m_rlcMap; //add para testes
+    return m_rlcMap;
+}
+
 ///////////////////////////////////////////
 // eNB RRC methods
 ///////////////////////////////////////////
