@@ -56,7 +56,7 @@ TypeId
 NoriLteRlcUm::GetTypeId()
 {
     static TypeId tid =
-        TypeId("ns3::LteRlcUm")
+        TypeId("ns3::NoriLteRlcUm")
             .SetParent<NoriLteRlc>()
             .SetGroupName("Lte")
             .AddConstructor<NoriLteRlcUm>()
