@@ -8,7 +8,9 @@ set(source_files
     model/nori-lte-enb-rrc.cc
     helper/nori-helper.cc
     helper/nori-bearer-stats-calculator.cc
+    helper/nori-bearer-stats-connector.cc
     #examples/nori-example.cc
+    examples/senario-zero.cc
     )
 
 set(E2SIM_LIBRARIES "/usr/local/lib/libe2sim.a")
@@ -23,6 +25,7 @@ set(header_files
     model/nori-lte-enb-rrc.h
     helper/nori-helper.h
     helper/nori-bearer-stats-calculator.h
+    helper/nori-bearer-stats-connector.h
     )
     build_lib(
         LIBNAME nori
