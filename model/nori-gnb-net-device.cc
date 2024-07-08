@@ -54,11 +54,6 @@ NoriGnbNetDevice::GetTypeId()
         TypeId("ns3::NoriGnbNetDevice")
             .SetParent<NrGnbNetDevice>()
             .AddConstructor<NoriGnbNetDevice>()
-            .AddAttribute("E2Periodicity",
-                          "Periodicity of E2 reports",
-                          DoubleValue(1.0),
-                          MakeDoubleAccessor(&NoriGnbNetDevice::m_e2Periodicity),
-                          MakeDoubleChecker<double>())
             .AddAttribute("E2Termination",
                           "The E2 termination object associated to this node",
                           PointerValue(),

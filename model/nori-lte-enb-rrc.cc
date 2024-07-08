@@ -1948,7 +1948,7 @@ TypeId
 NoriLteEnbRrc::GetTypeId()
 {
     static TypeId tid =
-        TypeId("ns3::LteEnbRrc")
+        TypeId("ns3::NoriLteEnbRrc")
             .SetParent<Object>()
             .SetGroupName("Lte")
             .AddConstructor<NoriLteEnbRrc>()

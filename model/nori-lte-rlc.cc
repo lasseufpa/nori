@@ -107,7 +107,7 @@ NoriLteRlc::~NoriLteRlc()
 TypeId
 NoriLteRlc::GetTypeId()
 {
-    static TypeId tid = TypeId("ns3::LteRlc")
+    static TypeId tid = TypeId("ns3::NoriLteRlc")
                             .SetParent<Object>()
                             .SetGroupName("Lte")
                             .AddTraceSource("TxPDU",
@@ -207,7 +207,7 @@ TypeId
 NoriLteRlcSm::GetTypeId()
 {
     static TypeId tid =
-        TypeId("ns3::LteRlcSm").SetParent<NoriLteRlc>().SetGroupName("Lte").AddConstructor<NoriLteRlcSm>();
+        TypeId("ns3::NoriLteRlcSm").SetParent<NoriLteRlc>().SetGroupName("Lte").AddConstructor<NoriLteRlcSm>();
     return tid;
 }
 
