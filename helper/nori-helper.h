@@ -76,9 +76,10 @@ class NoriHelper : public NrHelper
     Ptr<NoriBearerStatsCalculator> GetE2PdcpStats (void);
     void EnableE2RlcTraces (void);
     Ptr<NoriBearerStatsCalculator> GetE2RlcStats (void);
-
+    
     void SetBasicCellId (uint16_t basicCellId);
     uint16_t GetBasicCellId () const;
+    
 
     /**
      * \brief Get the RLC stats calculator object
@@ -93,6 +94,9 @@ class NoriHelper : public NrHelper
      * \return The NrBearerStatsCalculator stats calculator object to write PDCP traces
      */
     Ptr<NoriBearerStatsCalculator> GetPdcpStatsCalculator();
+
+    void AttachToClosestEnb(NetDeviceContainer ueDevices, NetDeviceContainer enbDevices);
+
 
   private:
     Ptr<NrGnbPhy> CreateGnbPhy(const Ptr<Node>& n,
@@ -115,8 +119,6 @@ class NoriHelper : public NrHelper
     uint16_t m_e2port;
     uint16_t m_e2localPort;
 
-    uint64_t m_startTime; //!< starting time of the MmWaveHelper life in epoch format
-
     bool m_enableMimoFeedback{false}; ///< Let UE compute MIMO feedback with PMI and RI
     ObjectFactory m_pmSearchFactory;  ///< Factory for precoding matrix search algorithm
 
@@ -136,6 +138,8 @@ class NoriHelper : public NrHelper
      * \return the number of stream indices (possibly zero) that have been assigned
      */
     int64_t DoAssignStreamsToChannelObjects(Ptr<NrSpectrumPhy> phy, int64_t currentStream);
+
+    uint64_t GetStartTime (void);
 
     /**
      *  \brief The actual function to trigger a manual bearer de-activation
@@ -196,8 +200,10 @@ class NoriHelper : public NrHelper
     ObjectFactory m_gnbBeamManagerFactory;          //!< gNb Beam manager factory
     ObjectFactory m_ueBeamManagerFactory;           //!< UE beam manager factory
 
+    uint16_t m_basicCellId;
     uint64_t m_imsiCounter{0};   //!< Imsi counter
     uint16_t m_cellIdCounter{1}; //!< CellId Counter
+    uint64_t m_startTime; //!< starting time of the NoriHelper life in epoch format
 
     Ptr<EpcHelper> m_epcHelper{nullptr};                     //!< Ptr to the EPC helper (optional)
     Ptr<BeamformingHelperBase> m_beamformingHelper{nullptr}; //!< Ptr to the beamforming helper
@@ -224,7 +230,6 @@ class NoriHelper : public NrHelper
     //!< assignments
     Ptr<NrMacSchedulingStats> m_macSchedStats; //!<< Pointer to NrMacStatsCalculator
 
-    uint16_t m_basicCellId;
 
 };
 
