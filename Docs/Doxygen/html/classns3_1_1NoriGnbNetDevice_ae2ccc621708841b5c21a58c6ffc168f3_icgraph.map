@@ -1,4 +1,0 @@
-<map id="ns3::NoriGnbNetDevice::GetE2Termination" name="ns3::NoriGnbNetDevice::GetE2Termination">
-<area shape="rect" id="node1" title="Get the E2 termination associated with this NoriGnbNetDevice." alt="" coords="228,5,403,47"/>
-<area shape="rect" id="node2" href="$classns3_1_1NoriGnbNetDevice.html#a4ec6cded175a53f91ab11db9b0e7bd5d" title="Get the TypeId of the NoriGnbNetDevice class." alt="" coords="5,5,180,47"/>
-</map>

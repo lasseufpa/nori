@@ -1,4 +1,0 @@
-<map id="ns3::NoriUeManager::SendRrcConnectionRelease" name="ns3::NoriUeManager::SendRrcConnectionRelease">
-<area shape="rect" id="node1" title="This function acts as an interface to trigger the connection release towards eNB, EPC and UE." alt="" coords="296,5,504,47"/>
-<area shape="rect" id="node2" href="$classns3_1_1NoriUeManager.html#ac1e622f60515bf6e2979629e9278624c" title=" " alt="" coords="5,5,248,47"/>
-</map>

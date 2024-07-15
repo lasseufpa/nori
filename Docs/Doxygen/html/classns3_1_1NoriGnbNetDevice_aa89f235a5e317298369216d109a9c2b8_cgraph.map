@@ -1,5 +1,0 @@
-<map id="ns3::NoriGnbNetDevice::SetE2Termination" name="ns3::NoriGnbNetDevice::SetE2Termination">
-<area shape="rect" id="node1" title="Sets the E2 termination for the NoriGnbNetDevice." alt="" coords="5,5,180,47"/>
-<area shape="rect" id="node2" href="$classns3_1_1NoriGnbNetDevice.html#af3a550356cf6255a7b46b74758cbe898" title="Callback function for handling RIC subscription requests." alt="" coords="228,5,424,47"/>
-<area shape="rect" id="node3" href="$classns3_1_1NoriGnbNetDevice.html#a4f0cd54fcd6fc0482e21860854987d31" title=" " alt="" coords="472,5,693,47"/>
-</map>

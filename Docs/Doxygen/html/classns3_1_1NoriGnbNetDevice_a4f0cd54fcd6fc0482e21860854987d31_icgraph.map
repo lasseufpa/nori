@@ -1,7 +1,0 @@
-<map id="ns3::NoriGnbNetDevice::BuildAndSendReportMessage" name="ns3::NoriGnbNetDevice::BuildAndSendReportMessage">
-<area shape="rect" id="node1" title=" " alt="" coords="695,39,916,80"/>
-<area shape="rect" id="node2" href="$classns3_1_1NoriGnbNetDevice.html#af3a550356cf6255a7b46b74758cbe898" title="Callback function for handling RIC subscription requests." alt="" coords="451,5,647,47"/>
-<area shape="rect" id="node5" href="$classns3_1_1NoriGnbNetDevice.html#abefaad92f96dff6b3f704114a565e573" title="Updates the configuration of the NoriGnbNetDevice." alt="" coords="461,71,636,112"/>
-<area shape="rect" id="node3" href="$classns3_1_1NoriGnbNetDevice.html#aa89f235a5e317298369216d109a9c2b8" title="Sets the E2 termination for the NoriGnbNetDevice." alt="" coords="228,5,403,47"/>
-<area shape="rect" id="node4" href="$classns3_1_1NoriGnbNetDevice.html#a4ec6cded175a53f91ab11db9b0e7bd5d" title="Get the TypeId of the NoriGnbNetDevice class." alt="" coords="5,5,180,47"/>
-</map>

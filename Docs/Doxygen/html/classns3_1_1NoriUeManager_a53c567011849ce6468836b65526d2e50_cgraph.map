@@ -1,7 +1,0 @@
-<map id="ns3::NoriUeManager::SetupDataRadioBearer" name="ns3::NoriUeManager::SetupDataRadioBearer">
-<area shape="rect" id="node1" title=" " alt="" coords="5,39,184,80"/>
-<area shape="rect" id="node2" href="$classns3_1_1NoriLteRlcAm.html#ae5194ab69070a829e38e9f3fb5e1fb3b" title="Get the type ID." alt="" coords="299,5,450,47"/>
-<area shape="rect" id="node3" href="$classns3_1_1NoriUeManager.html#a849eb8a42cbebee9a2b6b3c0888b2e5d" title=" " alt="" coords="232,71,517,112"/>
-<area shape="rect" id="node4" href="$classns3_1_1NoriUeManager.html#aa8dc4f2bb256612d6b02a8071dcd0696" title=" " alt="" coords="565,30,772,86"/>
-<area shape="rect" id="node5" href="$namespacens3.html#a5dc40058a0c7644211c83a65eb270848" title=" " alt="" coords="616,110,721,137"/>
-</map>
