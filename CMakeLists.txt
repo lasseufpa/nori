@@ -12,7 +12,7 @@ set(header_files
     helper/E2-term-helper.h
     )
     build_lib(
-        LIBNAME E2
+        LIBNAME nori
         SOURCE_FILES ${source_files}
         HEADER_FILES ${header_files}
         LIBRARIES_TO_LINK
