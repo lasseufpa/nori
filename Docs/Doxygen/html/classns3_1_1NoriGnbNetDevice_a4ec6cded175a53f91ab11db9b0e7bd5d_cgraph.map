@@ -1,7 +1,0 @@
-<map id="ns3::NoriGnbNetDevice::GetTypeId" name="ns3::NoriGnbNetDevice::GetTypeId">
-<area shape="rect" id="node1" title="Get the TypeId of the NoriGnbNetDevice class." alt="" coords="5,39,180,80"/>
-<area shape="rect" id="node2" href="$classns3_1_1NoriGnbNetDevice.html#ae2ccc621708841b5c21a58c6ffc168f3" title="Get the E2 termination associated with this NoriGnbNetDevice." alt="" coords="228,5,403,47"/>
-<area shape="rect" id="node3" href="$classns3_1_1NoriGnbNetDevice.html#aa89f235a5e317298369216d109a9c2b8" title="Sets the E2 termination for the NoriGnbNetDevice." alt="" coords="228,71,403,112"/>
-<area shape="rect" id="node4" href="$classns3_1_1NoriGnbNetDevice.html#af3a550356cf6255a7b46b74758cbe898" title="Callback function for handling RIC subscription requests." alt="" coords="451,71,647,112"/>
-<area shape="rect" id="node5" href="$classns3_1_1NoriGnbNetDevice.html#a4f0cd54fcd6fc0482e21860854987d31" title=" " alt="" coords="695,71,916,112"/>
-</map>

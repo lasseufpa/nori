@@ -1,4 +1,0 @@
-<map id="ns3::NrHelper::SetPmSearchAttribute" name="ns3::NrHelper::SetPmSearchAttribute">
-<area shape="rect" id="node1" title="Set attribute of the precoding matrix search algorithm." alt="" coords="272,5,477,47"/>
-<area shape="rect" id="node2" href="$classns3_1_1NrHelper.html#ad1cfdc05a16d99327ae40ad9bfde16e2" title="Set parameters for PMI search in MIMO operation." alt="" coords="5,13,224,39"/>
-</map>

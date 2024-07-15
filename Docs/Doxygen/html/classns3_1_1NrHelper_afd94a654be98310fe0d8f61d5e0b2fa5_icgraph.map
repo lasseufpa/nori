@@ -1,5 +1,0 @@
-<map id="ns3::NrHelper::SetPmSearchTypeId" name="ns3::NrHelper::SetPmSearchTypeId">
-<area shape="rect" id="node1" title="Set TypeId of the precoding matrix search algorithm." alt="" coords="272,23,477,65"/>
-<area shape="rect" id="node2" href="$classns3_1_1NrHelper.html#adafca4da4037e56dd0c795c397af00fe" title="GetTypeId." alt="" coords="23,5,207,32"/>
-<area shape="rect" id="node3" href="$classns3_1_1NrHelper.html#ad1cfdc05a16d99327ae40ad9bfde16e2" title="Set parameters for PMI search in MIMO operation." alt="" coords="5,56,224,83"/>
-</map>
