@@ -40,6 +40,7 @@ NS_OBJECT_ENSURE_REGISTERED(E2TermHelper);
 E2TermHelper::E2TermHelper()
 {
     NS_LOG_FUNCTION(this);
+    m_e2ForceLog = false;
 }
 
 E2TermHelper::~E2TermHelper()
