@@ -62,7 +62,7 @@ E2TermHelper::GetTypeId()
                                           MakePointerChecker<E2Termination>())
                             .AddAttribute("E2TermIp",
                                           "The IP address of the RIC E2 termination",
-                                          StringValue("10.0.2.10"),
+                                          StringValue("10.107.233.133"),
                                           MakeStringAccessor(&E2TermHelper::m_e2ip),
                                           MakeStringChecker())
                             .AddAttribute("E2Port",

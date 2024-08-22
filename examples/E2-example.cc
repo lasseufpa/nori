@@ -48,7 +48,7 @@ $ ./ns3 run "cttc-nr-demo --PrintHelp"
  * do that by including the name of the module you need with the suffix "-module.h".
  */
 
-#include "ns3/E2-module.h"
+#include "ns3/nori-module.h"
 #include "ns3/antenna-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/buildings-module.h"
@@ -181,8 +181,8 @@ main(int argc, char* argv[])
      * Usually, the environment variable way is preferred, as it is more customizable,
      * and more expressive.
      */
-    LogComponentEnable("E2Interface", LOG_LEVEL_DEBUG);
-    LogComponentEnable("NoriE2Report", LOG_LEVEL_DEBUG);
+    //LogComponentEnable("E2Interface", LOG_LEVEL_DEBUG);
+    //LogComponentEnable("NoriE2Report", LOG_LEVEL_DEBUG);
     if (logging)
     {
         LogComponentEnable("UdpClient", LOG_LEVEL_INFO);
