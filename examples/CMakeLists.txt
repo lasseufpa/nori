@@ -16,9 +16,8 @@ foreach(
 build_lib_example(
     NAME ${example}
     SOURCE_FILES ${example}.cc
-    LIBRARIES_TO_LINK ${libE2}
+    LIBRARIES_TO_LINK ${libnori}
                       ${libnr}
                       ${liblte}
-                      ${liboran-interface}
   )
 endforeach()
