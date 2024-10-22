@@ -1,4 +1,5 @@
 set(base_examples
+    nori-sample
     E2-example
     e2sim-integration-example
     l3-rrc-example
