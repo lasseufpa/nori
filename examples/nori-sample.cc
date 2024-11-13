@@ -31,6 +31,9 @@
 #include "ns3/nr-module.h"
 #include "ns3/nr-point-to-point-epc-helper.h"
 #include "ns3/nori-module.h"
+#include "ns3/point-to-point-helper.h"
+#include "ns3/pcap-file-wrapper.h"
+
 
 using namespace ns3;
 
@@ -136,6 +139,7 @@ main(int argc, char* argv[])
     uint16_t gNbNum = 1;
     uint16_t ueNumPergNb = 1;
     bool enableUl = false;
+    std::string ipE2termRic = "10.244.0.108";
 
     Time sendPacketTime = Seconds(0.4);
 
@@ -150,6 +154,7 @@ main(int argc, char* argv[])
     cmd.AddValue("bandwidthBand1", "The system bandwidth to be used in band 1", bandwidthBand1);
     cmd.AddValue("packetSize", "packet size in bytes", udpPacketSize);
     cmd.AddValue("enableUl", "Enable Uplink", enableUl);
+    cmd.AddValue("IpE2termRIC","Ip address of the E2 termination",ipE2termRic);
     cmd.Parse(argc, argv);
 
     int64_t randomStream = 1;
@@ -223,7 +228,9 @@ main(int argc, char* argv[])
 
     randomStream += nrHelper->AssignStreams(enbNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueNetDev, randomStream);
+    
     auto e2 = CreateObject<E2TermHelper>();
+    e2->SetAttribute("E2TermIp", StringValue(ipE2termRic));
     e2->InstallE2Term(enbNetDev.Get(0));
 
     // Set the attribute of the netdevice (enbNetDev.Get (0)) and bandwidth part (0)
@@ -264,7 +271,7 @@ main(int argc, char* argv[])
 
     // attach UEs to the closest eNB
     nrHelper->AttachToClosestEnb(ueNetDev, enbNetDev);
-
+    
     if (enableUl)
     {
         std::cout << "\n Sending data in uplink." << std::endl;
@@ -277,7 +284,7 @@ main(int argc, char* argv[])
     }
 
     nrHelper->EnableTraces();
-
+    
     //Simulator::Stop(Seconds(1));
     Simulator::Run();
     Simulator::Destroy();
