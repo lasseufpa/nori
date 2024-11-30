@@ -47,15 +47,8 @@ NS_LOG_COMPONENT_DEFINE("Cttc3gppChannelSimpleRan");
 static bool g_rxPdcpCallbackCalled = false;
 static bool g_rxRxRlcPDUCallbackCalled = false;
 
-/**
- * Function creates a single packet and directly calls the function send
- * of a device to send the packet to the destination address.
- * @param device Device that will send the packet to the destination address.
- * @param addr Destination address for a packet.
- * @param packetSize The packet size.
- */
 static void
-SendPacket(Ptr<NetDevice> device, Address& addr, uint32_t packetSize)
+SendContinuousPacket(Ptr<NetDevice> device, Address addr, uint32_t packetSize, Time interval)
 {
     Ptr<Packet> pkt = Create<Packet>(packetSize);
     Ipv4Header ipv4Header;
@@ -64,6 +57,9 @@ SendPacket(Ptr<NetDevice> device, Address& addr, uint32_t packetSize)
     EpsBearerTag tag(1, 1);
     pkt->AddPacketTag(tag);
     device->Send(pkt, addr, Ipv4L3Protocol::PROT_NUMBER);
+
+    // Agendar próximo envio
+    Simulator::Schedule(interval, &SendContinuousPacket, device, addr, packetSize, interval);
 }
 
 /**
@@ -132,16 +128,20 @@ ConnectUlPdcpRlcTraces()
 int
 main(int argc, char* argv[])
 {
+
+    LogComponentEnable("E2Interface", LOG_LEVEL_INFO);
+    //LogComponentEnable("NoriE2Report", LOG_LEVEL_DEBUG);
+    
     uint16_t numerologyBwp1 = 0;
-    uint32_t udpPacketSize = 1000;
+    uint32_t udpPacketSize = 2048;
     double centralFrequencyBand1 = 28e9;
     double bandwidthBand1 = 400e6;
     uint16_t gNbNum = 1;
     uint16_t ueNumPergNb = 1;
     bool enableUl = false;
-    std::string ipE2termRic = "10.244.0.108";
+    std::string ipE2termRic = "10.244.0.169";
 
-    Time sendPacketTime = Seconds(0.4);
+    Time sendPacketTime = Seconds(1);
 
     GlobalValue::Bind("SimulatorImplementationType",
                   StringValue("ns3::RealtimeSimulatorImpl"));
@@ -195,9 +195,9 @@ main(int argc, char* argv[])
     // By using the configuration created, it is time to make the operation band
     OperationBandInfo band1 = ccBwpCreator.CreateOperationBandContiguousCc(bandConf1);
 
-    Config::SetDefault("ns3::ThreeGppChannelModel::UpdatePeriod", TimeValue(MilliSeconds(0)));
-    nrHelper->SetSchedulerAttribute("FixedMcsDl", BooleanValue(true));
-    nrHelper->SetSchedulerAttribute("StartingMcsDl", UintegerValue(28));
+    Config::SetDefault("ns3::ThreeGppChannelModel::UpdatePeriod", TimeValue(MilliSeconds(5)));
+    nrHelper->SetSchedulerAttribute("FixedMcsDl", BooleanValue(false));
+    //nrHelper->SetSchedulerAttribute("StartingMcsDl", UintegerValue(28));
     nrHelper->SetChannelConditionModelAttribute("UpdatePeriod", TimeValue(MilliSeconds(0)));
     nrHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
 
@@ -252,40 +252,38 @@ main(int argc, char* argv[])
     Ipv4InterfaceContainer ueIpIface;
     ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
+    Time interval = MilliSeconds(2.0); // Intervalo entre pacotes
+
     if (enableUl)
     {
-        Simulator::Schedule(sendPacketTime,
-                            &SendPacket,
-                            ueNetDev.Get(0),
-                            enbNetDev.Get(0)->GetAddress(),
-                            udpPacketSize);
+        std::cout << "\n Sending continuous data in uplink." << std::endl;
+        Simulator::Schedule(sendPacketTime, &SendContinuousPacket, ueNetDev.Get(0), enbNetDev.Get(0)->GetAddress(), udpPacketSize, interval);
     }
     else
     {
-        Simulator::Schedule(sendPacketTime,
-                            &SendPacket,
-                            enbNetDev.Get(0),
-                            ueNetDev.Get(0)->GetAddress(),
-                            udpPacketSize);
+        std::cout << "\n Sending continuous data in downlink." << std::endl;
+        Simulator::Schedule(sendPacketTime, &SendContinuousPacket, enbNetDev.Get(0), ueNetDev.Get(0)->GetAddress(), udpPacketSize, interval);
     }
+
 
     // attach UEs to the closest eNB
     nrHelper->AttachToClosestEnb(ueNetDev, enbNetDev);
     
-    if (enableUl)
-    {
-        std::cout << "\n Sending data in uplink." << std::endl;
-        Simulator::Schedule(Seconds(0.2), &ConnectUlPdcpRlcTraces);
-    }
-    else
-    {
-        std::cout << "\n Sending data in downlink." << std::endl;
-        Simulator::Schedule(Seconds(0.2), &ConnectPdcpRlcTraces);
-    }
+    //if (enableUl)
+    //{
+    //    std::cout << "\n Sending data in uplink." << std::endl;
+    //    Simulator::Schedule(Seconds(0.2), &ConnectUlPdcpRlcTraces);
+    //}
+    //else
+    //{
+    //    std::cout << "\n Sending data in downlink." << std::endl;
+    //    Simulator::Schedule(Seconds(0.2), &ConnectPdcpRlcTraces);
+    //}
 
     nrHelper->EnableTraces();
     
     //Simulator::Stop(Seconds(1));
+    //ShowProgress progress(Seconds(1), std::cerr);
     Simulator::Run();
     Simulator::Destroy();
 
