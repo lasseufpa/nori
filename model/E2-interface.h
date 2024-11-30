@@ -7,6 +7,7 @@
 #include <ns3/nr-gnb-net-device.h>
 #include <ns3/nr-phy-rx-trace.h>
 #include <ns3/oran-interface.h>
+#include <ns3/E2-report.h>
 
 namespace ns3
 {
@@ -99,6 +100,7 @@ class E2Interface : public Object
     void SetE2RlcStatsCalculator(Ptr<NrBearerStatsCalculator> e2RlcStatsCalculator);
 
     bool m_useSinrTraces; //<! Flag to enable SINR traces
+    Ptr<NoriE2Report> GetE2DuCalculator();
 
   private:
     /**

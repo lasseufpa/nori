@@ -110,6 +110,8 @@ main(int argc, char* argv[])
     double centralFrequencyBand2 = 28.2e9;
     double bandwidthBand2 = 50e6;
     double totalTxPower = 35;
+    std::string ipE2termRic = "10.244.0.135";
+
 
     // Where we will store the output files.
     std::string simTag = "default";
@@ -422,6 +424,7 @@ main(int argc, char* argv[])
     randomStream += nrHelper->AssignStreams(ueLowLatNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueVoiceNetDev, randomStream);
     auto e2 = CreateObject<E2TermHelper>();
+    e2->SetAttribute("E2TermIp", StringValue(ipE2termRic));
     e2->InstallE2Term(enbNetDev.Get(0));
 
     /*

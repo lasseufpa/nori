@@ -85,9 +85,8 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
 
     // Create E2 messages scheduling
     auto e2Messages = CreateObject<E2Interface>(NetDevice);
-
-    // Create E2 report
-    m_e2Report = CreateObject<NoriE2Report>();
+    
+    m_e2Report = e2Messages->GetE2DuCalculator();
 
     // NetDevice is a gNB or eNB
     auto nrGnbNetDev = DynamicCast<NrGnbNetDevice>(NetDevice);

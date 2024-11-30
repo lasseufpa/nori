@@ -164,7 +164,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     // node cell ID
     if (gnbNode)
     {
-        m_cellId = gnbNode->GetCellIds()[0];
+        m_cellId = gnbNode->GetCellId();
     }
     else
     {
@@ -174,8 +174,8 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     NS_ASSERT(plmId == "111" && m_cellId != 0);
     std::string gnbId = std::to_string(m_cellId);
     NS_LOG_DEBUG("PLMN ID: " << plmId << " gNB cell ID: " << gnbId);
-    bool cuUp = false;
-
+    bool cuUp = true;
+    
     if (cuUp)
     {
         // Create CU-UP
@@ -203,7 +203,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
         }
     }
 
-    bool m_sendCuCp = false;
+    bool m_sendCuCp = true;
     if (m_sendCuCp)
     {
         // Create and send CU-CP
@@ -750,6 +750,8 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
 
     uint32_t macPrbsCellSpecific = 0;
 
+    m_cellId = nrCellId;
+
     std::unordered_map<uint64_t, std::string> uePmStringDu{};
 
     for (auto ueMap = ueManager.Begin(); ueMap != ueManager.End(); ueMap++)
@@ -862,7 +864,16 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
             auto dataRadio = dr->second;
             dataRadio->GetAttribute("LtePdcp", ltePtr);
             [[maybe_unused]] auto lte = ltePtr.Get<LteRlc>();
-            // DynamicCast<LteRlcAm>(lte)->get
+            Ptr<LteRlcAm> rlcAm = DynamicCast<LteRlcAm>(lte);
+            if (rlcAm)
+            {   
+                /**
+                rlcAm->TraceConnectWithoutContext("TxBufferState",
+                    MakeCallback([](uint32_t size) {
+                        NS_LOG_UNCOND("Buffer size (bytes): " << size);
+                    }));
+                */
+            }         
         }
 
         /**
@@ -1152,6 +1163,11 @@ E2Interface ::BuildRicIndicationHeader(std::string plmId,
         return nullptr;
     }
      */
+}
+
+Ptr<NoriE2Report> E2Interface::GetE2DuCalculator()
+{
+    return m_e2DuCalculator;
 }
 
 } // namespace ns3
