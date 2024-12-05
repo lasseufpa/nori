@@ -139,7 +139,7 @@ main(int argc, char* argv[])
     uint16_t gNbNum = 1;
     uint16_t ueNumPergNb = 1;
     bool enableUl = false;
-    std::string ipE2termRic = "10.244.0.169";
+    std::string ipE2TermRic = "10.244.0.246";
 
     Time sendPacketTime = Seconds(1);
 
@@ -154,7 +154,7 @@ main(int argc, char* argv[])
     cmd.AddValue("bandwidthBand1", "The system bandwidth to be used in band 1", bandwidthBand1);
     cmd.AddValue("packetSize", "packet size in bytes", udpPacketSize);
     cmd.AddValue("enableUl", "Enable Uplink", enableUl);
-    cmd.AddValue("IpE2termRIC","Ip address of the E2 termination",ipE2termRic);
+    cmd.AddValue("ipE2TermRic","Ip address of the E2 termination",ipE2TermRic);
     cmd.Parse(argc, argv);
 
     int64_t randomStream = 1;
@@ -230,7 +230,7 @@ main(int argc, char* argv[])
     randomStream += nrHelper->AssignStreams(ueNetDev, randomStream);
     
     auto e2 = CreateObject<E2TermHelper>();
-    e2->SetAttribute("E2TermIp", StringValue(ipE2termRic));
+    e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
     e2->InstallE2Term(enbNetDev.Get(0));
 
     // Set the attribute of the netdevice (enbNetDev.Get (0)) and bandwidth part (0)
