@@ -1,6 +1,6 @@
 # Quick Start
 
-NORI(NEW OPEN RAN INTERFACE) é um modulo NS-3 que conecta o modulo NR a um interface e2 de um Near-RT RIC
+NORI(NEW OPEN RAN INTERFACE) é um modulo NS-3 que conecta o modulo NR por meio da interface e2 a um Near-RT RIC Release I da ORAN-SC
 
 # Requisitos
 
@@ -45,7 +45,7 @@ sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 20
 # Instalar e2sim (Atualmente usando o E2sim do Lacava com o ASN1c modificado)
 
 ```jsx
-git clone http://gitlab.lasse.ufpa.br/openran/e2sim.git
+git clone https://github.com/lasseufpa/e2sim.git
 ```
 
 ```jsx
@@ -75,7 +75,7 @@ git checkout -b ns-3.42 ns-3.42
 # Instalar NORI
 
 ```jsx
-git clone http://gitlab.lasse.ufpa.br/openran/nori.git
+git clone https://github.com/lasseufpa/nori.git
 ```
 
 # Build ns-3
@@ -90,9 +90,13 @@ git clone http://gitlab.lasse.ufpa.br/openran/nori.git
 
 # Executando o exemplo
 
+Existem dois exemplos que podem ser executados para demonstrar as funionalidade do modulo, são ele o nori-sample e nori-mimo-demo, ambos os exemplos são codigos de exemplo existentes do modulo NR com modificações para funcionar com o nori e se conectar ao Near-RT RIC. 
+
+O primeiro exemplo consiste em uma GNB e um UE
 ```jsx
-./ns3 run E2-example
+./ns3 run nori-sample -- --IpE2TermRic="10.244.0.108"
 ```
+Atenção: o ip passado deve pertencer ao pod do e2term, isso pode ser verificado com `kubectl get pods -A -o wide`.
 
 O log do e2term pode der obsevado com:
 

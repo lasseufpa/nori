@@ -7,6 +7,7 @@ set(base_examples
     ric-control-function-desc
     ric-indication-messages
     test-wrappers
+    nori-mimo-demo
 )
 
 foreach(

@@ -110,7 +110,7 @@ main(int argc, char* argv[])
     double centralFrequencyBand2 = 28.2e9;
     double bandwidthBand2 = 50e6;
     double totalTxPower = 35;
-    std::string ipE2termRic = "10.244.0.135";
+    std::string ipE2TermRic = "10.244.0.135";
 
 
     // Where we will store the output files.
@@ -162,6 +162,7 @@ main(int argc, char* argv[])
                  "tag to be appended to output filenames to distinguish simulation campaigns",
                  simTag);
     cmd.AddValue("outputDir", "directory where to store simulation results", outputDir);
+    cmd.AddValue("ipE2TermRic", "Ip address of the E2 termination", ipE2TermRic);
 
     // Parse the command line
     cmd.Parse(argc, argv);
@@ -424,7 +425,7 @@ main(int argc, char* argv[])
     randomStream += nrHelper->AssignStreams(ueLowLatNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueVoiceNetDev, randomStream);
     auto e2 = CreateObject<E2TermHelper>();
-    e2->SetAttribute("E2TermIp", StringValue(ipE2termRic));
+    e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
     e2->InstallE2Term(enbNetDev.Get(0));
 
     /*
