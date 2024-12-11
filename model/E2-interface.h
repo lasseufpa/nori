@@ -171,6 +171,7 @@ class E2Interface : public Object
     std::map<uint64_t, uint32_t>
         m_drbThrDlPdcpBasedComputationUeid;      //<! DRB throughput DL PDCP in UE IMSI
     std::map<uint64_t, uint32_t> m_drbThrDlUeid; //<! DRB throughput DL in UE ID
+    std::string m_duFileName;                    //<! DU file name
 };
 } // namespace ns3
 
