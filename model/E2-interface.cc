@@ -1038,89 +1038,84 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
         indicationMessageHelper->AddDuCellResRepPmItem(cellResRep);
         indicationMessageHelper->FillDuValues(plmId + std::to_string(nrCellId));
     }
-    // if (m_forceE2FileLogging)
-    //{
-    //     std::ofstream csv{};
-    //     csv.open(m_duFileName.c_str(), std::ios_base::app);
-    //     if (!csv.is_open())
-    //     {
-    //         NS_FATAL_ERROR("Can't open file " << m_duFileName.c_str());
-    //     }
-    //
-    //    uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
-    //
-    //    // the string is timestamp, ueImsiComplete, plmId, nrCellId, dlAvailablePrbs,
-    //    // ulAvailablePrbs, qci , dlPrbUsage, ulPrbUsage, /*CellSpecificValues*/, /*
-    //    // UESpecificValues */
-    //
-    //    /*
-    //      CellSpecificValues:
-    //        TB.TotNbrDl.1, TB.TotNbrDlInitial, TB.TotNbrDlInitial.Qpsk, TB.TotNbrDlInitial.16Qam,
-    //      TB.TotNbrDlInitial.64Qam, RRU.PrbUsedDl, TB.ErrTotalNbrDl.1,
-    //      QosFlow.PdcpPduVolumeDL_Filter, CARR.PDSCHMCSDist.Bin1, CARR.PDSCHMCSDist.Bin2,
-    //      CARR.PDSCHMCSDist.Bin3, CARR.PDSCHMCSDist.Bin4, CARR.PDSCHMCSDist.Bin5,
-    //      CARR.PDSCHMCSDist.Bin6, L1M.RS-SINR.Bin34, L1M.RS-SINR.Bin46, L1M.RS-SINR.Bin58,
-    //        L1M.RS-SINR.Bin70, L1M.RS-SINR.Bin82, L1M.RS-SINR.Bin94, L1M.RS-SINR.Bin127,
-    //      DRB.BufferSize.Qos, DRB.MeanActiveUeDl
-    //    */
-    //
-    //    std::string to_print_cell =
-    //        plmId + "," + std::to_string(nrCellId) + "," + std::to_string(dlAvailablePrbs) + "," +
-    //        std::to_string(ulAvailablePrbs) + "," + std::to_string(qci) + "," +
-    //        std::to_string(dlPrbUsage) + "," + std::to_string(ulPrbUsage) + "," +
-    //        std::to_string(macPduCellSpecific) + "," + std::to_string(macPduInitialCellSpecific) +
-    //        "," + std::to_string(macQpskCellSpecific) + "," + std::to_string(mac16QamCellSpecific)
-    //        +
-    //        "," + std::to_string(mac64QamCellSpecific) + "," +
-    //        std::to_string((long)std::ceil(prbUtilizationDl)) + "," +
-    //        std::to_string(macRetxCellSpecific) + "," + std::to_string(macVolumeCellSpecific) +
-    //        "," + std::to_string(macMac04CellSpecific) + "," +
-    //        std::to_string(macMac59CellSpecific) + "," + std::to_string(macMac1014CellSpecific) +
-    //        "," + std::to_string(macMac1519CellSpecific) + "," +
-    //        std::to_string(macMac2024CellSpecific) + "," + std::to_string(macMac2529CellSpecific)
-    //        +
-    //        "," + std::to_string(macSinrBin1CellSpecific) + "," +
-    //        std::to_string(macSinrBin2CellSpecific) + "," +
-    //        std::to_string(macSinrBin3CellSpecific) + "," +
-    //        std::to_string(macSinrBin4CellSpecific) + "," +
-    //        std::to_string(macSinrBin5CellSpecific) + "," +
-    //        std::to_string(macSinrBin6CellSpecific) + "," +
-    //        std::to_string(macSinrBin7CellSpecific) + "," +
-    //        std::to_string(rlcBufferOccupCellSpecific) + "," + std::to_string(ueMap.size());
-    //
-    //    /*
-    //      UESpecificValues:
-    //
-    //          TB.TotNbrDl.1.UEID, TB.TotNbrDlInitial.UEID, TB.TotNbrDlInitial.Qpsk.UEID,
-    //      TB.TotNbrDlInitial.16Qam.UEID,TB.TotNbrDlInitial.64Qam.UEID, TB.ErrTotalNbrDl.1.UEID,
-    //      QosFlow.PdcpPduVolumeDL_Filter.UEID, RRU.PrbUsedDl.UEID, CARR.PDSCHMCSDist.Bin1.UEID,
-    //      CARR.PDSCHMCSDist.Bin2.UEID, CARR.PDSCHMCSDist.Bin3.UEID, CARR.PDSCHMCSDist.Bin5.UEID,
-    //      CARR.PDSCHMCSDist.Bin6.UEID, L1M.RS-SINR.Bin34.UEID, L1M.RS-SINR.Bin46.UEID,
-    //      L1M.RS-SINR.Bin58.UEID, L1M.RS-SINR.Bin70.UEID, L1M.RS-SINR.Bin82.UEID,
-    //      L1M.RS-SINR.Bin94.UEID, L1M.RS-SINR.Bin127.UEID, DRB.BufferSize.Qos.UEID,
-    //      DRB.UEThpDl.UEID, DRB.UEThpDlPdcpBased.UEID
-    //    */
-    //
-    //    for (auto ue : ueMap)
-    //    {
-    //        uint64_t imsi = ue.second->GetImsi();
-    //        std::string ueImsiComplete = GetImsiString(imsi);
-    //
-    //        auto uePms = uePmStringDu.find(imsi)->second;
-    //
-    //        std::string to_print = std::to_string(timestamp) + "," + ueImsiComplete + "," +
-    //                               to_print_cell + "," + uePms + "\n";
-    //
-    //        csv << to_print;
-    //    }
-    //    csv.close();
-    //
-    //    return nullptr;
-    //}
-    // else
-    //{
+
+    bool generateData = true;
+    m_duFileName = "metrics_du.csv";
+
+    if (generateData)
+    {
+        std::ofstream csv{};
+        csv.open(m_duFileName.c_str(), std::ios_base::app);
+        if (!csv.is_open())
+        {
+            NS_FATAL_ERROR("Can't open file " << m_duFileName.c_str());
+        }
+
+        uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
+
+        // the string is timestamp, ueImsiComplete, plmId, nrCellId, dlAvailablePrbs,
+        // ulAvailablePrbs, qci , dlPrbUsage, ulPrbUsage, /*CellSpecificValues*/, /*
+        // UESpecificValues */
+
+        /*
+          CellSpecificValues:
+            TB.TotNbrDl.1, TB.TotNbrDlInitial, TB.TotNbrDlInitial.Qpsk, TB.TotNbrDlInitial.16Qam,
+          TB.TotNbrDlInitial.64Qam, RRU.PrbUsedDl, TB.ErrTotalNbrDl.1,
+          QosFlow.PdcpPduVolumeDL_Filter, CARR.PDSCHMCSDist.Bin1, CARR.PDSCHMCSDist.Bin2,
+          CARR.PDSCHMCSDist.Bin3, CARR.PDSCHMCSDist.Bin4, CARR.PDSCHMCSDist.Bin5,
+          CARR.PDSCHMCSDist.Bin6, L1M.RS-SINR.Bin34, L1M.RS-SINR.Bin46, L1M.RS-SINR.Bin58,
+            L1M.RS-SINR.Bin70, L1M.RS-SINR.Bin82, L1M.RS-SINR.Bin94, L1M.RS-SINR.Bin127,
+          DRB.BufferSize.Qos, DRB.MeanActiveUeDl
+        */
+
+        std::string to_print_cell =
+            std::to_string(timestamp) + "," + plmId + "," + std::to_string(nrCellId) + "," +
+            std::to_string(dlAvailablePrbs) + "," + std::to_string(ulAvailablePrbs) + "," +
+            std::to_string(qci) + "," + std::to_string(dlPrbUsage) + "," +
+            std::to_string(ulPrbUsage) + "," + std::to_string(macPduCellSpecific) + "," +
+            std::to_string(macPduInitialCellSpecific) + "," + std::to_string(macQpskCellSpecific) +
+            "," + std::to_string(mac16QamCellSpecific) + "," + std::to_string(mac64QamCellSpecific) +
+            "," + std::to_string((long)std::ceil(prbUtilizationDl)) + "," +
+            std::to_string(macRetxCellSpecific) + "," + std::to_string(macVolumeCellSpecific) + "," +
+            std::to_string(macMac04CellSpecific) + "," + std::to_string(macMac59CellSpecific) + "," +
+            std::to_string(macMac1014CellSpecific) + "," + std::to_string(macMac1519CellSpecific) +
+            "," + std::to_string(macMac2024CellSpecific) + "," + std::to_string(macMac2529CellSpecific) +
+            "," + std::to_string(macSinrBin1CellSpecific) + "," + std::to_string(macSinrBin2CellSpecific) +
+            "," + std::to_string(macSinrBin3CellSpecific) + "," + std::to_string(macSinrBin4CellSpecific) +
+            "," + std::to_string(macSinrBin5CellSpecific) + "," + std::to_string(macSinrBin6CellSpecific) +
+            "," + std::to_string(macSinrBin7CellSpecific) + "," + std::to_string(rlcBufferOccupCellSpecific) +
+            "," + std::to_string(ueManager.GetN());
+
+        /*
+          UESpecificValues:
+
+              TB.TotNbrDl.1.UEID, TB.TotNbrDlInitial.UEID, TB.TotNbrDlInitial.Qpsk.UEID,
+          TB.TotNbrDlInitial.16Qam.UEID,TB.TotNbrDlInitial.64Qam.UEID, TB.ErrTotalNbrDl.1.UEID,
+          QosFlow.PdcpPduVolumeDL_Filter.UEID, RRU.PrbUsedDl.UEID, CARR.PDSCHMCSDist.Bin1.UEID,
+          CARR.PDSCHMCSDist.Bin2.UEID, CARR.PDSCHMCSDist.Bin3.UEID, CARR.PDSCHMCSDist.Bin5.UEID,
+          CARR.PDSCHMCSDist.Bin6.UEID, L1M.RS-SINR.Bin34.UEID, L1M.RS-SINR.Bin46.UEID,
+          L1M.RS-SINR.Bin58.UEID, L1M.RS-SINR.Bin70.UEID, L1M.RS-SINR.Bin82.UEID,
+          L1M.RS-SINR.Bin94.UEID, L1M.RS-SINR.Bin127.UEID, DRB.BufferSize.Qos.UEID,
+          DRB.UEThpDl.UEID, DRB.UEThpDlPdcpBased.UEID
+        */
+
+        m_rrc->GetAttribute("UeMap", ueManager);
+
+        for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
+        {
+            auto ue = DynamicCast<UeManager>(ueObject->second);
+            uint64_t imsi = ue->GetImsi();
+            std::string ueImsiComplete = GetImsiString(imsi);
+
+            auto uePms = uePmStringDu.find(imsi)->second;
+
+            std::string to_print = to_print_cell + "," + ueImsiComplete + "," + uePms + "\n";
+
+            csv << to_print;
+        }
+        csv.close();
+    }
     return indicationMessageHelper->CreateIndicationMessage();
-    //}
 }
 
 std::multimap<long double, uint16_t>
