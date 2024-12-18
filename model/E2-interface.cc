@@ -1051,22 +1051,23 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
             NS_FATAL_ERROR("Can't open file " << m_duFileName.c_str());
         }
 
+        // Check if the file is empty to write the header
+        csv.seekp(0, std::ios::end);
+        if (csv.tellp() == 0)
+        {
+            csv << "timestamp,plmId,nrCellId,dlAvailablePrbs,ulAvailablePrbs,qci,dlPrbUsage,ulPrbUsage,"
+                   "macPduCellSpecific,macPduInitialCellSpecific,macQpskCellSpecific,mac16QamCellSpecific,"
+                   "mac64QamCellSpecific,prbUtilizationDl,macRetxCellSpecific,macVolumeCellSpecific,"
+                   "macMac04CellSpecific,macMac59CellSpecific,macMac1014CellSpecific,macMac1519CellSpecific,"
+                   "macMac2024CellSpecific,macMac2529CellSpecific,macSinrBin1CellSpecific,macSinrBin2CellSpecific,"
+                   "macSinrBin3CellSpecific,macSinrBin4CellSpecific,macSinrBin5CellSpecific,macSinrBin6CellSpecific,"
+                   "macSinrBin7CellSpecific,rlcBufferOccupCellSpecific,numActiveUes,ueImsiComplete,"
+                   "macPduUe,macPduInitialUe,macQpsk,mac16Qam,mac64Qam,macRetx,macVolume,macPrb,macMac04,"
+                   "macMac59,macMac1014,macMac1519,macMac2024,macMac2529,macSinrBin1,macSinrBin2,macSinrBin3,"
+                   "macSinrBin4,macSinrBin5,macSinrBin6,macSinrBin7,rlcBufferOccup,drbThrDlUeid,drbThrDlPdcpBasedUeid\n";
+        }
+
         uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
-
-        // the string is timestamp, ueImsiComplete, plmId, nrCellId, dlAvailablePrbs,
-        // ulAvailablePrbs, qci , dlPrbUsage, ulPrbUsage, /*CellSpecificValues*/, /*
-        // UESpecificValues */
-
-        /*
-          CellSpecificValues:
-            TB.TotNbrDl.1, TB.TotNbrDlInitial, TB.TotNbrDlInitial.Qpsk, TB.TotNbrDlInitial.16Qam,
-          TB.TotNbrDlInitial.64Qam, RRU.PrbUsedDl, TB.ErrTotalNbrDl.1,
-          QosFlow.PdcpPduVolumeDL_Filter, CARR.PDSCHMCSDist.Bin1, CARR.PDSCHMCSDist.Bin2,
-          CARR.PDSCHMCSDist.Bin3, CARR.PDSCHMCSDist.Bin4, CARR.PDSCHMCSDist.Bin5,
-          CARR.PDSCHMCSDist.Bin6, L1M.RS-SINR.Bin34, L1M.RS-SINR.Bin46, L1M.RS-SINR.Bin58,
-            L1M.RS-SINR.Bin70, L1M.RS-SINR.Bin82, L1M.RS-SINR.Bin94, L1M.RS-SINR.Bin127,
-          DRB.BufferSize.Qos, DRB.MeanActiveUeDl
-        */
 
         std::string to_print_cell =
             std::to_string(timestamp) + "," + plmId + "," + std::to_string(nrCellId) + "," +
@@ -1085,19 +1086,6 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
             "," + std::to_string(macSinrBin5CellSpecific) + "," + std::to_string(macSinrBin6CellSpecific) +
             "," + std::to_string(macSinrBin7CellSpecific) + "," + std::to_string(rlcBufferOccupCellSpecific) +
             "," + std::to_string(ueManager.GetN());
-
-        /*
-          UESpecificValues:
-
-              TB.TotNbrDl.1.UEID, TB.TotNbrDlInitial.UEID, TB.TotNbrDlInitial.Qpsk.UEID,
-          TB.TotNbrDlInitial.16Qam.UEID,TB.TotNbrDlInitial.64Qam.UEID, TB.ErrTotalNbrDl.1.UEID,
-          QosFlow.PdcpPduVolumeDL_Filter.UEID, RRU.PrbUsedDl.UEID, CARR.PDSCHMCSDist.Bin1.UEID,
-          CARR.PDSCHMCSDist.Bin2.UEID, CARR.PDSCHMCSDist.Bin3.UEID, CARR.PDSCHMCSDist.Bin5.UEID,
-          CARR.PDSCHMCSDist.Bin6.UEID, L1M.RS-SINR.Bin34.UEID, L1M.RS-SINR.Bin46.UEID,
-          L1M.RS-SINR.Bin58.UEID, L1M.RS-SINR.Bin70.UEID, L1M.RS-SINR.Bin82.UEID,
-          L1M.RS-SINR.Bin94.UEID, L1M.RS-SINR.Bin127.UEID, DRB.BufferSize.Qos.UEID,
-          DRB.UEThpDl.UEID, DRB.UEThpDlPdcpBased.UEID
-        */
 
         m_rrc->GetAttribute("UeMap", ueManager);
 
