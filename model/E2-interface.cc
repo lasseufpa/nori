@@ -953,9 +953,12 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
                 std::to_string(macSinrBin7) + "," + std::to_string(rlcBufferOccup) + ',' +
                 std::to_string(drbThrDlUeid) + ',' + std::to_string(drbThrDlPdcpBasedUeid)));
 
+        // ML Slice Interface 
+        MLSliceInterface(macPrb, imsi);
         // reset UE
         m_e2DuCalculator->ResetPhyTracesForRntiCellId(rnti, m_cellId);
     }
+
     m_drbThrDlPdcpBasedComputationUeid.clear();
     m_drbThrDlUeid.clear();
 
@@ -1039,7 +1042,7 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
         indicationMessageHelper->FillDuValues(plmId + std::to_string(nrCellId));
     }
 
-    bool generateData = true;
+    bool generateData = false;
     m_duFileName = "metrics_du.csv";
 
     if (generateData)
@@ -1146,6 +1149,49 @@ E2Interface ::BuildRicIndicationHeader(std::string plmId,
         return nullptr;
     }
      */
+}
+
+void E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
+{
+    NS_LOG_FUNCTION(this);
+
+    std::ofstream csv;
+    std::string fileName = "ml_slice_interface.csv";
+    csv.open(fileName, std::ios_base::app);
+    if (!csv.is_open())
+    {
+        NS_FATAL_ERROR("Can't open file " << fileName);
+    }
+
+    // Check if the file is empty to write the header
+    csv.seekp(0, std::ios::end);
+    if (csv.tellp() == 0)
+    {
+        csv << "timestamp,imsi,dlThroughput,ulThroughput,spectralEfficiency\n";
+    }
+        
+    double currentTime = Simulator::Now().GetMilliSeconds();
+    double deltatime = currentTime - m_previousTime[imsi];
+    
+    double currentDlTxData = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 3);
+    double dlThroughput = (currentDlTxData - m_previousDlTxData[imsi]) * 8 / deltatime;
+    m_previousDlTxData[imsi] = currentDlTxData;
+    double currentUlTxData = m_e2PdcpStatsCalculator->GetUlTxData(imsi, 3);
+    double ulThroughput = (currentUlTxData - m_previousUlTxData[imsi]) * 8 / deltatime;
+    m_previousUlTxData[imsi] = currentUlTxData;
+    m_previousTime[imsi] = currentTime;
+    double spectralEfficiency = 0.0;
+    if (m_e2DuCalculator)
+    {
+        if (macPrb > 0)
+        {
+            spectralEfficiency = dlThroughput / (macPrb * 720000.0);
+        }
+    }
+    uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
+    csv << timestamp << "," << imsi << "," << dlThroughput << "," << ulThroughput << "," << spectralEfficiency << "\n";
+
+    csv.close();
 }
 
 Ptr<NoriE2Report> E2Interface::GetE2DuCalculator()
