@@ -101,6 +101,7 @@ class E2Interface : public Object
 
     bool m_useSinrTraces; //<! Flag to enable SINR traces
     Ptr<NoriE2Report> GetE2DuCalculator();
+    void MLSliceInterface(double macPrb, uint64_t imsi);
 
   private:
     /**
@@ -172,6 +173,10 @@ class E2Interface : public Object
         m_drbThrDlPdcpBasedComputationUeid;      //<! DRB throughput DL PDCP in UE IMSI
     std::map<uint64_t, uint32_t> m_drbThrDlUeid; //<! DRB throughput DL in UE ID
     std::string m_duFileName;                    //<! DU file name
+    double macPrb;
+    std::map<uint64_t, double> m_previousDlTxData;
+    std::map<uint64_t, double> m_previousUlTxData;
+    std::map<uint64_t, double> m_previousTime;
 };
 } // namespace ns3
 
