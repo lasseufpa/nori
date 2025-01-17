@@ -85,7 +85,7 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
 
     // Create E2 messages scheduling
     auto e2Messages = CreateObject<E2Interface>(NetDevice);
-    
+
     m_e2Report = e2Messages->GetE2DuCalculator();
 
     // NetDevice is a gNB or eNB
@@ -253,7 +253,7 @@ E2TermHelper::ConnectPDUReports([[maybe_unused]] Ptr<NetDevice> NetDevice,
     NS_LOG_FUNCTION(this << "Connecting PDU reports in E2 interface");
 
     Config::ConnectWithoutContext(
-        "/NodeList/*/DeviceList/*/LteEnbRrc/UeMap/*/DataRadioBearerMap/*/LteRlc/TxPDU",
+        "/NodeList/*/DeviceList/*/NrGnbRrc/UeMap/*/DataRadioBearerMap/*/NrRlc/TxPDU",
         MakeCallback(&E2Interface::ReportTxPDU, e2Message));
 }
 

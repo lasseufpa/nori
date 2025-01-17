@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /**
- * \ingroup examples
- * \file cttc-nr-mimo-demo.cc
- * \brief An example that shows how to setup and use MIMO
+ * @ingroup examples
+ * @file cttc-nr-mimo-demo.cc
+ * @brief An example that shows how to setup and use MIMO
  *
  * This example describes how to setup a simulation using MIMO. The scenario
  * consists of a simple topology, in which there
@@ -37,9 +37,9 @@ $  ./ns3 run cttc-nr-mimo-demo -- --enableMimoFeedback=0
 #include "ns3/internet-apps-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/mobility-module.h"
+#include "ns3/nori-module.h"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-module.h"
-#include "ns3/nori-module.h"
 
 using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("CttcNrMimoDemo");
@@ -99,14 +99,7 @@ main(int argc, char* argv[])
     std::string errorModel = "ns3::NrEesmIrT2";
     std::string scheduler = "ns3::NrMacSchedulerTdmaRR";
     std::string beamformingMethod = "ns3::DirectPathBeamforming";
-    /**
-     *   UMi_StreetCanyon,      //!< UMi_StreetCanyon
-     *   UMi_StreetCanyon_LoS,  //!< UMi_StreetCanyon where all the nodes will be in Line-of-Sight
-     *   UMi_StreetCanyon_nLoS, //!< UMi_StreetCanyon where all the nodes will not be in
-     *
-     */
-
-    uint16_t losCondition = 0;
+    std::string losCondition = "Default";
 
     std::string ipE2TermRic = "10.244.0.246"; // The IP address of the E2 termination
 
@@ -117,8 +110,7 @@ main(int argc, char* argv[])
 
     CommandLine cmd(__FILE__);
 
-    GlobalValue::Bind("SimulatorImplementationType",
-                  StringValue("ns3::RealtimeSimulatorImpl"));
+    GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
     /**
      * The main parameters for testing MIMO
      */
@@ -170,6 +162,7 @@ main(int argc, char* argv[])
 
     /**
      * Other simulation parameters
+
      */
     cmd.AddValue("packetSize",
                  "packet size in bytes to be used by best effort traffic",
@@ -207,17 +200,15 @@ main(int argc, char* argv[])
                  "ns3::QuasiOmniDirectPathBeamforming,"
                  "ns3::DirectPathQuasiOmniBeamforming",
                  beamformingMethod);
-    cmd.AddValue("losCondition",
-                 "0 - for 3GPP channel condition model,"
-                 "1 - for always LOS channel condition model,"
-                 "2 - for always NLOS channel condition model",
-                 losCondition);
+    cmd.AddValue("losCondition", losCondition);
     cmd.AddValue("simTag",
                  "tag to be appended to output filenames to distinguish simulation campaigns",
                  simTag);
     cmd.AddValue("outputDir", "directory where to store simulation results", outputDir);
     cmd.AddValue("logging", "Enable logging", logging);
-    cmd.AddValue("ipE2TermRic","Ip address of the E2 termination",ipE2TermRic); // The IP address of the E2 termination
+    cmd.AddValue("ipE2TermRic",
+                 "Ip address of the E2 termination",
+                 ipE2TermRic); // The IP address of the E2 termination
     // Parse the command line
     cmd.Parse(argc, argv);
 
@@ -228,7 +219,6 @@ main(int argc, char* argv[])
     apGnb.polSlantAngle = polSlantAngleGnb * (M_PI / 180);
 
     NS_ABORT_IF(centralFrequency < 0.5e9 && centralFrequency > 100e9);
-    NS_ABORT_UNLESS(losCondition < 3);
 
     if (logging)
     {
@@ -290,6 +280,7 @@ main(int argc, char* argv[])
     Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
+    Ptr<NrChannelHelper> channelHelper = CreateObject<NrChannelHelper>();
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
     nrHelper->SetEpcHelper(epcHelper);
     /**
@@ -304,23 +295,18 @@ main(int argc, char* argv[])
      * ------------BWP1---------------
      */
 
-    BandwidthPartInfo::Scenario scenario =
-        BandwidthPartInfo::Scenario(BandwidthPartInfo::UMi_StreetCanyon + losCondition);
-
     CcBwpCreator ccBwpCreator;
     const uint8_t numCcPerBand = 1;
-    CcBwpCreator::SimpleOperationBandConf bandConf(centralFrequency,
-                                                   bandwidth,
-                                                   numCcPerBand,
-                                                   scenario);
+    CcBwpCreator::SimpleOperationBandConf bandConf(centralFrequency, bandwidth, numCcPerBand);
+    channelHelper->ConfigureFactories("UMi", losCondition);
     OperationBandInfo band = ccBwpCreator.CreateOperationBandContiguousCc(bandConf);
 
     /**
      * Configure NrHelper, prepare most of the parameters that will be used in the simulation.
      */
-    nrHelper->SetChannelConditionModelAttribute("UpdatePeriod",
-                                                TimeValue(MilliSeconds(updatePeriodMs)));
-    nrHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
+    channelHelper->SetChannelConditionModelAttribute("UpdatePeriod",
+                                                     TimeValue(MilliSeconds(updatePeriodMs)));
+    channelHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
     nrHelper->SetDlErrorModel(errorModel);
     nrHelper->SetUlErrorModel(errorModel);
     nrHelper->SetGnbDlAmcAttribute("AmcModel", EnumValue(NrAmc::ErrorModel));
@@ -352,7 +338,7 @@ main(int argc, char* argv[])
     /**
      * Initialize channel and pathloss, plus other things inside band.
      */
-    nrHelper->InitializeOperationBand(&band);
+    channelHelper->AssignChannelsToBands({band});
     BandwidthPartInfoPtrVector allBwps;
     allBwps = CcBwpCreator::GetAllBwps({band});
 
@@ -390,19 +376,6 @@ main(int argc, char* argv[])
     e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
     e2->InstallE2Term(enbNetDev.Get(0));
 
-    // When all the configuration is done, explicitly call UpdateConfig ()
-    // TODO: Check if this is necessary to call when we do not reconfigure anything after devices
-    // have been created
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
-    {
-        DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
-    }
-
-    for (auto it = ueNetDev.Begin(); it != ueNetDev.End(); ++it)
-    {
-        DynamicCast<NrUeNetDevice>(*it)->UpdateConfig();
-    }
-
     // create the Internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
     Ptr<Node> pgw = epcHelper->GetPgwNode();
@@ -433,10 +406,10 @@ main(int argc, char* argv[])
     ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
 
     // attach each UE to its gNB according to desired scenario
-    nrHelper->AttachToEnb(ueNetDev.Get(0), enbNetDev.Get(0));
+    nrHelper->AttachToGnb(ueNetDev.Get(0), enbNetDev.Get(0));
     if (enableInterfNode)
     {
-        nrHelper->AttachToEnb(ueNetDev.Get(1), enbNetDev.Get(1));
+        nrHelper->AttachToGnb(ueNetDev.Get(1), enbNetDev.Get(1));
     }
 
     /**
@@ -459,11 +432,11 @@ main(int argc, char* argv[])
     dlClient.SetAttribute("Interval", TimeValue(packetInterval));
 
     // The bearer that will carry the traffic
-    EpsBearer epsBearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+    NrEpsBearer epsBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
 
     // The filter for the traffic
-    Ptr<EpcTft> dlTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlPktFilter;
+    Ptr<NrEpcTft> dlTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlPktFilter;
     dlPktFilter.localPortStart = dlPort;
     dlPktFilter.localPortEnd = dlPort;
     dlTft->Add(dlPktFilter);

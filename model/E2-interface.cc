@@ -1,12 +1,13 @@
 #include "E2-interface.h"
 
 #include "E2-report.h"
+#include "kpm-indication.h"
+#include "oran-interface.h"
 
 #include <ns3/attribute.h>
 #include <ns3/bandwidth-part-gnb.h>
 #include <ns3/config.h>
 #include <ns3/double.h>
-#include <ns3/kpm-indication.h>
 #include <ns3/log.h>
 #include <ns3/lte-enb-net-device.h>
 #include <ns3/lte-enb-rrc.h>
@@ -15,11 +16,11 @@
 #include <ns3/mmwave-indication-message-helper.h>
 #include <ns3/nr-gnb-mac.h>
 #include <ns3/nr-gnb-net-device.h>
+#include <ns3/nr-gnb-rrc.h>
 #include <ns3/nr-mac-sched-sap.h>
 #include <ns3/nstime.h>
 #include <ns3/object-map.h>
 #include <ns3/object.h>
-#include <ns3/oran-interface.h>
 #include <ns3/pointer.h>
 #include <ns3/string.h>
 #include <ns3/type-id.h>
@@ -104,14 +105,16 @@ E2Interface::RegisterNewSinrReadingCallback([[maybe_unused]] std::string path,
                 m_cellId = id;
                 // Get the current gNB RRC instance
                 PointerValue rrc;
-                gnbNode->GetAttribute("LteEnbRrc", rrc);
-                auto rrcPtr = rrc.Get<LteEnbRrc>();
+                gnbNode->GetAttribute("NrGnbRrc", rrc);
+                auto rrcPtr = rrc.Get<NrGnbRrc>();
+                NS_ASSERT(rrcPtr);
                 // Using the current RRC, get the UE map
                 ObjectMapValue ueMap;
                 rrcPtr->GetAttribute("UeMap", ueMap);
                 // Get the ue based on the c-rnti
                 NS_LOG_DEBUG("ue C-RNTI:" << rnti);
-                auto ue = DynamicCast<UeManager>(ueMap.Get(rnti));
+                auto ueMapObjct = ueMap.Get(rnti);
+                auto ue = DynamicCast<NrUeManager>(ueMapObjct);
                 auto ueRnti = ue->GetRnti();
                 NS_ASSERT(ueRnti == rnti);
                 // Use in dB
@@ -175,7 +178,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     std::string gnbId = std::to_string(m_cellId);
     NS_LOG_DEBUG("PLMN ID: " << plmId << " gNB cell ID: " << gnbId);
     bool cuUp = true;
-    
+
     if (cuUp)
     {
         // Create CU-UP
@@ -861,19 +864,20 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
         for (auto dr = drbMap.Begin(); dr != drbMap.End(); dr++)
         {
             PointerValue ltePtr;
+            NS_ABORT_MSG_IF(dr->second == nullptr, "DRB is null");
             auto dataRadio = dr->second;
             dataRadio->GetAttribute("LtePdcp", ltePtr);
             [[maybe_unused]] auto lte = ltePtr.Get<LteRlc>();
             Ptr<LteRlcAm> rlcAm = DynamicCast<LteRlcAm>(lte);
             if (rlcAm)
-            {   
+            {
                 /**
                 rlcAm->TraceConnectWithoutContext("TxBufferState",
                     MakeCallback([](uint32_t size) {
                         NS_LOG_UNCOND("Buffer size (bytes): " << size);
                     }));
                 */
-            }         
+            }
         }
 
         /**
@@ -953,7 +957,7 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
                 std::to_string(macSinrBin7) + "," + std::to_string(rlcBufferOccup) + ',' +
                 std::to_string(drbThrDlUeid) + ',' + std::to_string(drbThrDlPdcpBasedUeid)));
 
-        // ML Slice Interface 
+        // ML Slice Interface
         MLSliceInterface(macPrb, imsi);
         // reset UE
         m_e2DuCalculator->ResetPhyTracesForRntiCellId(rnti, m_cellId);
@@ -1058,16 +1062,25 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
         csv.seekp(0, std::ios::end);
         if (csv.tellp() == 0)
         {
-            csv << "timestamp,plmId,nrCellId,dlAvailablePrbs,ulAvailablePrbs,qci,dlPrbUsage,ulPrbUsage,"
-                   "macPduCellSpecific,macPduInitialCellSpecific,macQpskCellSpecific,mac16QamCellSpecific,"
-                   "mac64QamCellSpecific,prbUtilizationDl,macRetxCellSpecific,macVolumeCellSpecific,"
-                   "macMac04CellSpecific,macMac59CellSpecific,macMac1014CellSpecific,macMac1519CellSpecific,"
-                   "macMac2024CellSpecific,macMac2529CellSpecific,macSinrBin1CellSpecific,macSinrBin2CellSpecific,"
-                   "macSinrBin3CellSpecific,macSinrBin4CellSpecific,macSinrBin5CellSpecific,macSinrBin6CellSpecific,"
+            csv << "timestamp,plmId,nrCellId,dlAvailablePrbs,ulAvailablePrbs,qci,dlPrbUsage,"
+                   "ulPrbUsage,"
+                   "macPduCellSpecific,macPduInitialCellSpecific,macQpskCellSpecific,"
+                   "mac16QamCellSpecific,"
+                   "mac64QamCellSpecific,prbUtilizationDl,macRetxCellSpecific,"
+                   "macVolumeCellSpecific,"
+                   "macMac04CellSpecific,macMac59CellSpecific,macMac1014CellSpecific,"
+                   "macMac1519CellSpecific,"
+                   "macMac2024CellSpecific,macMac2529CellSpecific,macSinrBin1CellSpecific,"
+                   "macSinrBin2CellSpecific,"
+                   "macSinrBin3CellSpecific,macSinrBin4CellSpecific,macSinrBin5CellSpecific,"
+                   "macSinrBin6CellSpecific,"
                    "macSinrBin7CellSpecific,rlcBufferOccupCellSpecific,numActiveUes,ueImsiComplete,"
-                   "macPduUe,macPduInitialUe,macQpsk,mac16Qam,mac64Qam,macRetx,macVolume,macPrb,macMac04,"
-                   "macMac59,macMac1014,macMac1519,macMac2024,macMac2529,macSinrBin1,macSinrBin2,macSinrBin3,"
-                   "macSinrBin4,macSinrBin5,macSinrBin6,macSinrBin7,rlcBufferOccup,drbThrDlUeid,drbThrDlPdcpBasedUeid\n";
+                   "macPduUe,macPduInitialUe,macQpsk,mac16Qam,mac64Qam,macRetx,macVolume,macPrb,"
+                   "macMac04,"
+                   "macMac59,macMac1014,macMac1519,macMac2024,macMac2529,macSinrBin1,macSinrBin2,"
+                   "macSinrBin3,"
+                   "macSinrBin4,macSinrBin5,macSinrBin6,macSinrBin7,rlcBufferOccup,drbThrDlUeid,"
+                   "drbThrDlPdcpBasedUeid\n";
         }
 
         uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
@@ -1078,17 +1091,22 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
             std::to_string(qci) + "," + std::to_string(dlPrbUsage) + "," +
             std::to_string(ulPrbUsage) + "," + std::to_string(macPduCellSpecific) + "," +
             std::to_string(macPduInitialCellSpecific) + "," + std::to_string(macQpskCellSpecific) +
-            "," + std::to_string(mac16QamCellSpecific) + "," + std::to_string(mac64QamCellSpecific) +
-            "," + std::to_string((long)std::ceil(prbUtilizationDl)) + "," +
-            std::to_string(macRetxCellSpecific) + "," + std::to_string(macVolumeCellSpecific) + "," +
-            std::to_string(macMac04CellSpecific) + "," + std::to_string(macMac59CellSpecific) + "," +
-            std::to_string(macMac1014CellSpecific) + "," + std::to_string(macMac1519CellSpecific) +
-            "," + std::to_string(macMac2024CellSpecific) + "," + std::to_string(macMac2529CellSpecific) +
-            "," + std::to_string(macSinrBin1CellSpecific) + "," + std::to_string(macSinrBin2CellSpecific) +
-            "," + std::to_string(macSinrBin3CellSpecific) + "," + std::to_string(macSinrBin4CellSpecific) +
-            "," + std::to_string(macSinrBin5CellSpecific) + "," + std::to_string(macSinrBin6CellSpecific) +
-            "," + std::to_string(macSinrBin7CellSpecific) + "," + std::to_string(rlcBufferOccupCellSpecific) +
-            "," + std::to_string(ueManager.GetN());
+            "," + std::to_string(mac16QamCellSpecific) + "," +
+            std::to_string(mac64QamCellSpecific) + "," +
+            std::to_string((long)std::ceil(prbUtilizationDl)) + "," +
+            std::to_string(macRetxCellSpecific) + "," + std::to_string(macVolumeCellSpecific) +
+            "," + std::to_string(macMac04CellSpecific) + "," +
+            std::to_string(macMac59CellSpecific) + "," + std::to_string(macMac1014CellSpecific) +
+            "," + std::to_string(macMac1519CellSpecific) + "," +
+            std::to_string(macMac2024CellSpecific) + "," + std::to_string(macMac2529CellSpecific) +
+            "," + std::to_string(macSinrBin1CellSpecific) + "," +
+            std::to_string(macSinrBin2CellSpecific) + "," +
+            std::to_string(macSinrBin3CellSpecific) + "," +
+            std::to_string(macSinrBin4CellSpecific) + "," +
+            std::to_string(macSinrBin5CellSpecific) + "," +
+            std::to_string(macSinrBin6CellSpecific) + "," +
+            std::to_string(macSinrBin7CellSpecific) + "," +
+            std::to_string(rlcBufferOccupCellSpecific) + "," + std::to_string(ueManager.GetN());
 
         m_rrc->GetAttribute("UeMap", ueManager);
 
@@ -1151,7 +1169,8 @@ E2Interface ::BuildRicIndicationHeader(std::string plmId,
      */
 }
 
-void E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
+void
+E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
 {
     NS_LOG_FUNCTION(this);
 
@@ -1169,10 +1188,10 @@ void E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
     {
         csv << "timestamp,imsi,dlThroughput,ulThroughput,spectralEfficiency\n";
     }
-        
+
     double currentTime = Simulator::Now().GetMilliSeconds();
     double deltatime = currentTime - m_previousTime[imsi];
-    
+
     double currentDlTxData = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 3);
     double dlThroughput = (currentDlTxData - m_previousDlTxData[imsi]) * 8 / deltatime;
     m_previousDlTxData[imsi] = currentDlTxData;
@@ -1189,12 +1208,14 @@ void E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
         }
     }
     uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
-    csv << timestamp << "," << imsi << "," << dlThroughput << "," << ulThroughput << "," << spectralEfficiency << "\n";
+    csv << timestamp << "," << imsi << "," << dlThroughput << "," << ulThroughput << ","
+        << spectralEfficiency << "\n";
 
     csv.close();
 }
 
-Ptr<NoriE2Report> E2Interface::GetE2DuCalculator()
+Ptr<NoriE2Report>
+E2Interface::GetE2DuCalculator()
 {
     return m_e2DuCalculator;
 }
