@@ -4,26 +4,16 @@
  * Copyright (c) 2022 Sapienza, University of Rome
  * Copyright (c) 2022 University of Padova
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * SPDX-License-Identifier: GPL-2.0-only
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
  *         Michele Polese <michele.polese@gmail.com>
  */
 
-#ifndef KPM_INDICATION_H
-#define KPM_INDICATION_H
+#pragma once
 
 #include "ns3/object.h"
 
@@ -112,8 +102,8 @@ class KpmIndicationHeader : public SimpleRefCount<KpmIndicationHeader>
      * This function fills the RIC Indication Header with the provided
      * values
      *
-     * \param descriptor object representing the KPM INDICATION Header
-     * \param values struct holding the values to be used to fill the header
+     * @param descriptor object representing the KPM INDICATION Header
+     * @param values struct holding the values to be used to fill the header
      */
     void FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHeader_t* descriptor,
                                              KpmRicIndicationHeaderValues values);
@@ -265,5 +255,3 @@ class KpmIndicationMessage : public SimpleRefCount<KpmIndicationMessage>
     void Encode(E2SM_KPM_IndicationMessage_t* descriptor);
 };
 } // namespace ns3
-
-#endif /* KPM_INDICATION_H */

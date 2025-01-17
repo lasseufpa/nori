@@ -4,18 +4,9 @@
  * Copyright (c) 2022 Sapienza, University of Rome
  * Copyright (c) 2022 University of Padova
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * SPDX-License-Identifier: GPL-2.0-only
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
@@ -40,7 +31,7 @@ const std::string gnb = std::to_string(cellId);
 /**
  * Creates an empty RIC Report message and send it to the RIC
  *
- * \param params the RIC Subscription Request parameters
+ * @param params the RIC Subscription Request parameters
  */
 static void
 BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rval_s params)
@@ -103,7 +94,7 @@ BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rval_s params)
  * This function is triggered whenever a RIC Subscription Request for
  * the KPM RAN Function is received.
  *
- * \param pdu request message
+ * @param pdu request message
  */
 static void
 KpmSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
@@ -123,7 +114,7 @@ KpmSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
  * RIC Control Message callback.
  * This function is triggered whenever a RIC Control Message is received.
  *
- * \param pdu request message
+ * @param pdu request message
  */
 static void
 RicControlMessageCallback(E2AP_PDU_t* ric_ctrl_pdu)

@@ -4,26 +4,16 @@
  * Copyright (c) 2022 Sapienza, University of Rome
  * Copyright (c) 2022 University of Padova
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * SPDX-License-Identifier: GPL-2.0-only
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
  *         Michele Polese <michele.polese@gmail.com>
  */
 
-#ifndef ORAN_INTERFACE_H
-#define ORAN_INTERFACE_H
+#pragma once
 
 #include "e2sim.hpp"
 #include "kpm-function-description.h"
@@ -43,11 +33,11 @@ class E2Termination : public Object
 
     /**
      *
-     * \param ricAddress RIC IP address
-     * \param ricPort RIC port
-     * \param clientPort the local port to which the client will bind
-     * \param gnbId the GNB ID
-     * \param plmnId the PLMN ID
+     * @param ricAddress RIC IP address
+     * @param ricPort RIC port
+     * @param clientPort the local port to which the client will bind
+     * @param gnbId the GNB ID
+     * @param plmnId the PLMN ID
      */
     E2Termination(const std::string ricAddress,
                   const uint16_t ricPort,
@@ -78,9 +68,9 @@ class E2Termination : public Object
      * Whenever a RIC Subscription Request to this RAN Function is received,
      * the callback is triggered.
      *
-     * \param ranFunctionId ID used to identify the KPM RAN Function
-     * \param ranFunctionDescription
-     * \param cb callback that will be triggered if the RIC subscribes to
+     * @param ranFunctionId ID used to identify the KPM RAN Function
+     * @param ranFunctionDescription
+     * @param cb callback that will be triggered if the RIC subscribes to
      *        this function
      */
     void RegisterKpmCallbackToE2Sm(long ranFunctionId,
@@ -95,9 +85,9 @@ class E2Termination : public Object
      * Whenever a Sm message to this RAN Function is received,
      * the callback is triggered.
      *
-     * \param ranFunctionId ID used to identify the KPM RAN Function
-     * \param ranFunctionDescription
-     * \param cb callback that will be triggered if the RIC subscribes to
+     * @param ranFunctionId ID used to identify the KPM RAN Function
+     * @param ranFunctionDescription
+     * @param cb callback that will be triggered if the RIC subscribes to
      *        this function
      */
     void RegisterSmCallbackToE2Sm(long ranFunctionId,
@@ -120,8 +110,8 @@ class E2Termination : public Object
      * This function processes the RIC Subscription Request and sends the
      * RIC Subscription Response.
      *
-     * \param sub_req_pdu request message
-     * \return RIC subscription request parameters
+     * @param sub_req_pdu request message
+     * @return RIC subscription request parameters
      */
     RicSubscriptionRequest_rval_s ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu);
 
@@ -129,7 +119,7 @@ class E2Termination : public Object
      * Sends an E2 message to the RIC
      * This function encodes and sends an E2 message to the RIC
      *
-     * \param pdu the PDU of the message
+     * @param pdu the PDU of the message
      */
     void SendE2Message(E2AP_PDU* pdu);
 
@@ -142,11 +132,11 @@ class E2Termination : public Object
     void DoStart();
 
     /**
-     * \brief Accessory function to populate to the registration of the ran function description to
+     * @brief Accessory function to populate to the registration of the ran function description to
      * e2sim
      *
-     * \param ranFunctionId
-     * \param ranFunctionDescription
+     * @param ranFunctionId
+     * @param ranFunctionDescription
      */
     void RegisterFunctionDescToE2Sm(long ranFunctionId,
                                     Ptr<FunctionDescription> ranFunctionDescription);
@@ -159,5 +149,3 @@ class E2Termination : public Object
     std::string m_plmnId;     //!< PLMN Id
 };
 } // namespace ns3
-
-#endif /* ORAN_INTERFACE_H */

@@ -1,5 +1,5 @@
-#ifndef NORI_E2_REPORT_H_
-#define NORI_E2_REPORT_H_
+#pragma once
+
 #include <ns3/nr-bearer-stats-calculator.h>
 #include <ns3/nr-bearer-stats-connector.h>
 #include <ns3/nr-phy-mac-common.h>
@@ -211,10 +211,10 @@ class NoriE2Report : public Object
     Time GetLastResetTime(uint16_t rnti, uint16_t cellId);
 
     /**
-     * \brief Update PHY traces
-     * \param phyStats The object to the class
-     * \param path The path
-     * \param params The parameters
+     * @brief Update PHY traces
+     * @param phyStats The object to the class
+     * @param path The path
+     * @param params The parameters
      */
     void UpdateTraces(/**[[maybe_unused]] Ptr<NoriE2Report> phyStats,*/
                       [[maybe_unused]] std::string path,
@@ -307,4 +307,3 @@ class NoriE2Report : public Object
 };
 
 } // namespace ns3
-#endif /* NORI_E2_REPORT_H_ */
