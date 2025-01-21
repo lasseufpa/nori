@@ -4,27 +4,25 @@
 #include "kpm-indication.h"
 #include "oran-interface.h"
 
-#include <ns3/attribute.h>
-#include <ns3/bandwidth-part-gnb.h>
-#include <ns3/config.h>
-#include <ns3/double.h>
-#include <ns3/log.h>
-#include <ns3/lte-enb-net-device.h>
-#include <ns3/lte-enb-rrc.h>
-#include <ns3/lte-rlc-am.h>
-#include <ns3/lte-rlc.h>
-#include <ns3/mmwave-indication-message-helper.h>
-#include <ns3/nr-gnb-mac.h>
-#include <ns3/nr-gnb-net-device.h>
-#include <ns3/nr-gnb-rrc.h>
-#include <ns3/nr-mac-sched-sap.h>
-#include <ns3/nstime.h>
-#include <ns3/object-map.h>
-#include <ns3/object.h>
-#include <ns3/pointer.h>
-#include <ns3/string.h>
-#include <ns3/type-id.h>
-#include <ns3/uinteger.h>
+#include "ns3/attribute.h"
+#include "ns3/bandwidth-part-gnb.h"
+#include "ns3/config.h"
+#include "ns3/double.h"
+#include "ns3/log.h"
+#include "ns3/mmwave-indication-message-helper.h"
+#include "ns3/nr-gnb-mac.h"
+#include "ns3/nr-gnb-net-device.h"
+#include "ns3/nr-gnb-rrc.h"
+#include "ns3/nr-mac-sched-sap.h"
+#include "ns3/nr-rlc-am.h"
+#include "ns3/nr-rlc.h"
+#include "ns3/nstime.h"
+#include "ns3/object-map.h"
+#include "ns3/object.h"
+#include "ns3/pointer.h"
+#include "ns3/string.h"
+#include "ns3/type-id.h"
+#include "ns3/uinteger.h"
 
 #include <encode_e2apv1.hpp>
 
@@ -36,7 +34,6 @@ NS_OBJECT_ENSURE_REGISTERED(E2Interface);
 
 E2Interface::E2Interface()
 {
-    NS_LOG_FUNCTION(this);
     NS_FATAL_ERROR("E2Interface must be created with a net device");
 }
 
@@ -46,11 +43,6 @@ E2Interface::E2Interface(Ptr<NetDevice> netDev)
     m_netDev = netDev;
     m_rrc = m_netDev->GetObject<NrGnbNetDevice>()->GetRrc();
     m_e2DuCalculator = CreateObject<NoriE2Report>();
-}
-
-E2Interface::~E2Interface()
-{
-    NS_LOG_FUNCTION(this);
 }
 
 TypeId
@@ -94,7 +86,6 @@ E2Interface::RegisterNewSinrReadingCallback([[maybe_unused]] std::string path,
     NS_LOG_DEBUG("Registering new SINR reading for cellId: " << cellId << " RNTI: " << rnti
                                                              << " avgSinr: " << sinrDb);
     auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
-    auto enbNode = DynamicCast<LteEnbNetDevice>(m_netDev);
     for (auto id : gnbNode->GetCellIds())
     {
         NS_LOG_DEBUG("CellId: " << cellId << " gNB cellId: " << id);
@@ -123,27 +114,9 @@ E2Interface::RegisterNewSinrReadingCallback([[maybe_unused]] std::string path,
                                       << " dB");
             }
         }
-        // else if (enbNode)
-        //{
-        //     if (enbNode->GetCellId() == cellId)
-        //     {
-        //         // Using the current RRC, get the UE map
-        //         ObjectMapValue ueMap;
-        //         m_rrc->GetAttribute("UeMap", ueMap);
-        //         auto ue = DynamicCast<UeManager>(ueMap.Get(cellId));
-        //         auto ueImsi = ue->GetImsi();
-        //         if (ueImsi == imsi)
-        //         {
-        //             // Use in dB
-        //             m_l3sinrMap[imsi][cellId] = sinrDb;
-        //             NS_LOG_DEBUG("IMSI: " << imsi << " CellID: " << cellId << " SINR: " << sinrDb
-        //             << " dB");
-        //         }
-        //     }
-        // }
         else
         {
-            NS_FATAL_ERROR("NetDevice is not a gNB or eNB");
+            NS_FATAL_ERROR("NetDevice is not a gNB");
         }
     }
 }
@@ -162,18 +135,9 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
 
     // Check if the nodeB is a gNB or eNB
     auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
-    auto enbNode = DynamicCast<LteEnbNetDevice>(m_netDev);
-
+    NS_ASSERT(gnbNode);
     // node cell ID
-    if (gnbNode)
-    {
-        m_cellId = gnbNode->GetCellId();
-    }
-    else
-    {
-        m_cellId = enbNode->GetCellIds()[0];
-    }
-
+    m_cellId = gnbNode->GetCellId();
     NS_ASSERT(plmId == "111" && m_cellId != 0);
     std::string gnbId = std::to_string(m_cellId);
     NS_LOG_DEBUG("PLMN ID: " << plmId << " gNB cell ID: " << gnbId);
@@ -270,7 +234,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
 }
 
 void
-E2Interface::KpmSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
+E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
 {
     NS_LOG_FUNCTION(this);
     NS_LOG_DEBUG("KPM Subscription Request callback");
@@ -281,11 +245,92 @@ E2Interface::KpmSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
                                 << +params.actionId);
 
     static bool isFirsReportMessage = true;
-    NS_LOG_DEBUG("=====> isFirsReportMessage: " << isFirsReportMessage);
-    if (isFirsReportMessage)
+    if (params.serviceModelType == E2Termination::ServiceModelType::KPM)
     {
-        BuildAndSendReportMessage(params);
-        isFirsReportMessage = false;
+        if (isFirsReportMessage)
+        {
+            NS_LOG_DEBUG("=====> isFirsReportMessage: " << isFirsReportMessage);
+            BuildAndSendReportMessage(params);
+            isFirsReportMessage = false;
+        }
+    }
+    else if (params.serviceModelType == E2Termination::ServiceModelType::RAN_CONTROL)
+    {
+        ControlMessageReceivedCallback(sub_req_pdu);
+    }
+    else
+    {
+        NS_FATAL_ERROR("Unknown service model type");
+    }
+}
+
+void
+E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
+{
+    NS_LOG_DEBUG(
+        "\n\nLteEnbNetDevice::ControlMessageReceivedCallback: Received RIC Control Message");
+
+    Ptr<RicControlMessage> controlMessage = Create<RicControlMessage>(sub_req_pdu);
+    NS_LOG_INFO("After RicControlMessage::RicControlMessage constructor");
+    NS_LOG_INFO("Request type " << controlMessage->m_requestType);
+    switch (controlMessage->m_requestType)
+    {
+        /**
+         * This is the case for handover, which the legacy code was used in MmWave implementation.
+         * We hope NR team updates the NR module code
+         * */
+
+    case RicControlMessage::ControlMessageRequestIdType::TS: {
+        NS_FATAL_ERROR("TS not implemented in NR yet");
+        /**
+         *
+        NS_LOG_INFO("TS, do the handover");
+        // do handover
+        Ptr<OctetString> imsiString =
+            Create<OctetString>((void*)controlMessage->m_e2SmRcControlHeaderFormat1->ueId.buf,
+                                controlMessage->m_e2SmRcControlHeaderFormat1->ueId.size);
+        char* end;
+
+        uint64_t imsi = std::strtoull(imsiString->DecodeContent().c_str(), &end, 10);
+        uint16_t targetCellId = std::stoi(controlMessage->GetSecondaryCellIdHO());
+        NS_LOG_INFO("Imsi Decoded: " << imsi);
+        NS_LOG_INFO("Target Cell id " << targetCellId);
+        m_rrc->TakeUeHoControl(imsi);
+        if (!m_forceE2FileLogging)
+        {
+            Simulator::ScheduleWithContext(1,
+                                           Seconds(0),
+                                           &LteEnbRrc::PerformHandoverToTargetCell,
+                                           m_rrc,
+                                           imsi,
+                                           targetCellId);
+        }
+        else
+        {
+            Simulator::Schedule(Seconds(0),
+                                &LteEnbRrc::PerformHandoverToTargetCell,
+                                m_rrc,
+                                imsi,
+                                targetCellId);
+        }
+        break;
+        */
+    }
+    case RicControlMessage::ControlMessageRequestIdType::QoS: {
+        // use SetUeQoS()
+        NS_FATAL_ERROR("For QoS use file-based control.");
+        break;
+    }
+    case RicControlMessage::ControlMessageRequestIdType::RAN_SLICING: {
+        /**
+         * PLACEHOLDER: Implement the slicing control
+         */
+        break;
+    }
+    default: {
+        NS_LOG_ERROR("Unrecognized id type of Ric Control Message");
+        break;
+    }
     }
 }
 
@@ -314,7 +359,7 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
                                               false,
                                               false);
 
-    // get <rnti, UeManager> map of connected UEs
+    // get <rnti, NrUeManager> map of connected UEs
     ObjectMapValue ueManager;
     m_rrc->GetAttribute("UeMap", ueManager);
 
@@ -330,7 +375,7 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
 
     for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
     {
-        auto ue = DynamicCast<UeManager>(ueObject->second);
+        auto ue = DynamicCast<NrUeManager>(ueObject->second);
         uint64_t imsi = ue->GetImsi();
 
         std::string ueImsiComplete = GetImsiString(imsi);
@@ -379,7 +424,7 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
         long txPdcpPduNrRlc = 0;
         double txPdcpPduBytesNrRlc = 0;
 
-        // Get std::map<uint8_t, ns3::Ptr<ns3::LteDataRadioBearerInfo>> ns3::UeManager::m_drbMap
+        // Get std::map<uint8_t, ns3::Ptr<ns3::NrDataRadioBearerInfo>> ns3::NrUeManager::m_drbMap
         ObjectMapValue drbMap;
         ue->GetAttribute("DataRadioBearerMap", drbMap);
         auto rnti = ue->GetRnti();
@@ -454,45 +499,7 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
     NS_LOG_DEBUG("[" << Simulator::Now().GetSeconds() << "s]"
                      << " in cell ID: " << m_cellId
                      << " with this DL TX cell volume: " << cellDlTxVolume);
-    /**
-     *
-    if (m_forceE2FileLogging)
-    {
-        std::ofstream csv{};
-        csv.open(m_cuUpFileName.c_str(), std::ios_base::app);
-        if (!csv.is_open())
-        {
-            NS_FATAL_ERROR("Can't open file " << m_cuUpFileName.c_str());
-        }
 
-        uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
-
-        // the string is timestamp, ueImsiComplete, DRB.PdcpSduDelayDl (cellAverageLatency),
-        // m_pDCPBytesUL (0), m_pDCPBytesDL (cellDlTxVolume), DRB.PdcpSduVolumeDl_Filter.UEID
-        // (txBytes), Tot.PdcpSduNbrDl.UEID (txDlPackets), DRB.PdcpSduBitRateDl.UEID
-        // (pdcpThroughput), DRB.PdcpSduDelayDl.UEID (pdcpLatency),
-        // QosFlow.PdcpPduVolumeDL_Filter.UEID (txPdcpPduBytesNrRlc), DRB.PdcpPduNbrDl.Qos.UEID
-        // (txPdcpPduNrRlc)
-
-        for (auto ue : ueMap)
-        {
-            uint64_t imsi = ue.second->GetImsi();
-            std::string ueImsiComplete = GetImsiString(imsi);
-
-            auto uePms = uePmString.find(imsi)->second;
-
-            std::string to_print = std::to_string(timestamp) + "," + ueImsiComplete + "," + "," +
-                                   "," + "," + uePms + "\n";
-
-            csv << to_print;
-        }
-        csv.close();
-        return nullptr;
-    }
-    else
-    {
-    }
-    */
     return indicationMessageHelper->CreateIndicationMessage();
 }
 
@@ -560,7 +567,7 @@ E2Interface::BuildRicIndicationMessageCuCp(std::string plmId)
     for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
     {
         NS_LOG_DEBUG("CU-CP message in UE:" << ueObject->first);
-        auto ue = DynamicCast<UeManager>(ueObject->second);
+        auto ue = DynamicCast<NrUeManager>(ueObject->second);
         uint64_t imsi = ue->GetImsi();
         std::string ueImsiComplete = GetImsiString(imsi);
 
@@ -617,7 +624,7 @@ E2Interface::BuildRicIndicationMessageCuCp(std::string plmId)
         // invert key and value in sortFlipMap, then sort by value
         std::multimap<long double, uint16_t> sortFlipMap = FlipMap(m_l3sinrMap[rnti]);
         // new sortFlipMap structure sortFlipMap < sinr, cellId >
-        // The assumption is that the first cell in the scenario is always LTE and the rest NR
+        // The assumption is that the first cell in the scenario is always NR
         uint16_t nNeighbours = E2SM_REPORT_MAX_NEIGH;
         if (m_l3sinrMap[rnti].size() < nNeighbours)
         {
@@ -759,7 +766,7 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
 
     for (auto ueMap = ueManager.Begin(); ueMap != ueManager.End(); ueMap++)
     {
-        auto ue = DynamicCast<UeManager>(ueMap->second);
+        auto ue = DynamicCast<NrUeManager>(ueMap->second);
         uint64_t imsi = ue->GetImsi();
         std::string ueImsiComplete = GetImsiString(imsi);
         uint16_t rnti = ue->GetRnti();
@@ -863,20 +870,18 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
         ue->GetAttribute("DataRadioBearerMap", drbMap);
         for (auto dr = drbMap.Begin(); dr != drbMap.End(); dr++)
         {
-            PointerValue ltePtr;
+            PointerValue nrPtr;
             NS_ABORT_MSG_IF(dr->second == nullptr, "DRB is null");
             auto dataRadio = dr->second;
-            dataRadio->GetAttribute("LtePdcp", ltePtr);
-            [[maybe_unused]] auto lte = ltePtr.Get<LteRlc>();
-            Ptr<LteRlcAm> rlcAm = DynamicCast<LteRlcAm>(lte);
+            dataRadio->GetAttribute("NrPdcp", nrPtr);
+            [[maybe_unused]] auto nrRlc = nrPtr.Get<NrRlc>();
+            Ptr<NrRlcAm> rlcAm = DynamicCast<NrRlcAm>(nrRlc);
             if (rlcAm)
             {
-                /**
-                rlcAm->TraceConnectWithoutContext("TxBufferState",
-                    MakeCallback([](uint32_t size) {
-                        NS_LOG_UNCOND("Buffer size (bytes): " << size);
-                    }));
-                */
+                // rlcAm->TraceConnectWithoutContext("TxBufferState",
+                //     MakeCallback([](uint32_t size) {
+                //         NS_LOG_UNCOND("Buffer size (bytes): " << size);
+                //     }));bufferSta
             }
         }
 
@@ -904,7 +909,7 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
                      << " macSinrBin5 " << macSinrBin5 << " macSinrBin6 " << macSinrBin6
                      << " macSinrBin7 " << macSinrBin7 << " rlcBufferOccup " << rlcBufferOccup);
 
-        // UE-specific Downlink IP combined EN-DC throughput from LTE eNB. Unit is kbps. Pdcp based
+        // UE-specific Downlink IP combined EN-DC throughput from NR gNb. Unit is kbps. Pdcp based
         // computation This value is not requested anymore, so it has been removed from the
         // delivery, but it will be still logged;
         double drbThrDlPdcpBasedUeid = m_drbThrDlPdcpBasedComputationUeid.find(imsi) !=
@@ -912,7 +917,7 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
                                            ? m_drbThrDlPdcpBasedComputationUeid.at(imsi)
                                            : 0;
 
-        // UE-specific Downlink IP combined EN-DC throughput from LTE eNB. Unit is kbps. Rlc based
+        // UE-specific Downlink IP combined EN-DC throughput from NR gNb. Unit is kbps. Rlc based
         // computation
         double drbThrDlUeid =
             m_drbThrDlUeid.find(imsi) != m_drbThrDlUeid.end() ? m_drbThrDlUeid.at(imsi) : 0;
@@ -1112,7 +1117,7 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
 
         for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
         {
-            auto ue = DynamicCast<UeManager>(ueObject->second);
+            auto ue = DynamicCast<NrUeManager>(ueObject->second);
             uint64_t imsi = ue->GetImsi();
             std::string ueImsiComplete = GetImsiString(imsi);
 

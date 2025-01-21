@@ -1,9 +1,9 @@
 #include "E2-report.h"
 
-#include <ns3/core-module.h>
-#include <ns3/event-id.h>
-#include <ns3/nr-bearer-stats-connector.h>
-#include <ns3/nr-phy-rx-trace.h>
+#include "ns3/core-module.h"
+#include "ns3/event-id.h"
+#include "ns3/nr-bearer-stats-connector.h"
+#include "ns3/nr-phy-rx-trace.h"
 
 NS_LOG_COMPONENT_DEFINE("NoriE2Report");
 
@@ -13,10 +13,7 @@ NS_OBJECT_ENSURE_REGISTERED(NoriE2Report);
 
 NoriE2Report::NoriE2Report()
 {
-}
-
-NoriE2Report::~NoriE2Report()
-{
+    NS_LOG_FUNCTION(this);
 }
 
 TypeId

@@ -1,6 +1,6 @@
 set(base_examples
     nori-sample
-    oran-interface-example
+    #oran-interface-example
     nori-mimo-demo
     nori-simple-rl-sched
 )

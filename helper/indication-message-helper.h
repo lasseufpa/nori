@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <ns3/kpm-indication.h>
+#include "ns3/kpm-indication.h"
 
 namespace ns3
 {

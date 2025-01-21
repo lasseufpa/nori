@@ -15,7 +15,7 @@
 
 #include "asn1c-types.h"
 
-#include <ns3/log.h>
+#include "ns3/log.h"
 
 NS_LOG_COMPONENT_DEFINE("Asn1Types");
 

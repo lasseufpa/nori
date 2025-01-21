@@ -6,15 +6,15 @@
 
 #pragma once
 
-#include <ns3/E2-interface.h>
-#include <ns3/lte-enb-net-device.h>
-#include <ns3/net-device-container.h>
-#include <ns3/net-device.h>
-#include <ns3/nr-bearer-stats-calculator.h>
-#include <ns3/nr-bearer-stats-connector.h>
-#include <ns3/nr-gnb-net-device.h>
-#include <ns3/object-factory.h>
-#include <ns3/oran-interface.h>
+#include "ns3/E2-interface.h"
+#include "ns3/lte-enb-net-device.h"
+#include "ns3/net-device-container.h"
+#include "ns3/net-device.h"
+#include "ns3/nr-bearer-stats-calculator.h"
+#include "ns3/nr-bearer-stats-connector.h"
+#include "ns3/nr-gnb-net-device.h"
+#include "ns3/object-factory.h"
+#include "ns3/oran-interface.h"
 
 namespace ns3
 {
@@ -33,7 +33,9 @@ class E2TermHelper : public Object
     /**
      * @brief ~NoriHelper
      */
-    ~E2TermHelper() override;
+    ~E2TermHelper() override
+    {
+    }
 
     /**
      * @brief GetTypeId
@@ -60,15 +62,6 @@ class E2TermHelper : public Object
      * @param e2Messages A pointer to the E2 interface
      */
     void EnableSinrTraces(Ptr<E2Interface> e2Messages);
-
-    /**
-     * @brief Force E2 Logging for the E2 termination, this methods calls E2Termination::Start
-     * @param NetDevice the E2 gNB/eNB net device will have a log.
-     *
-     */
-    void ForceE2Log(Ptr<NetDevice> NetDevice);
-
-    void SetStandardLog(bool standardLog);
 
   private:
     /***

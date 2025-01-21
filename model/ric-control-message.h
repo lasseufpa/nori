@@ -42,7 +42,8 @@ class RicControlMessage : public SimpleRefCount<RicControlMessage>
     enum ControlMessageRequestIdType
     {
         TS = 1001,
-        QoS = 1002
+        QoS = 1002,
+        RAN_SLICING = 1003,
     };
 
     RicControlMessage(E2AP_PDU_t* pdu);

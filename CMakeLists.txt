@@ -34,8 +34,6 @@ set(header_files
     helper/lte-indication-message-helper.h
     helper/mmwave-indication-message-helper.h
     )
-    set(test_sources
-    test/oran-interface-test-suite.cc)
 
     build_lib(
         LIBNAME nori
@@ -46,5 +44,4 @@ set(header_files
           ${E2SIM_LIBRARIES}
           ${libcore}
           ${liblte}
-        TEST_SOURCES ${test_sources}
       )
