@@ -15,8 +15,8 @@
 
 #pragma once
 
+#include "ns3/math.h"
 #include "ns3/object.h"
-#include <ns3/math.h>
 
 extern "C"
 {

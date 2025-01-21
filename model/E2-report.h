@@ -1,8 +1,8 @@
 #pragma once
 
-#include <ns3/nr-bearer-stats-calculator.h>
-#include <ns3/nr-bearer-stats-connector.h>
-#include <ns3/nr-phy-mac-common.h>
+#include "ns3/nr-bearer-stats-calculator.h"
+#include "ns3/nr-bearer-stats-connector.h"
+#include "ns3/nr-phy-mac-common.h"
 
 namespace ns3
 {
@@ -26,7 +26,9 @@ class NoriE2Report : public Object
     /**
      * Destructor
      */
-    ~NoriE2Report() override;
+    ~NoriE2Report() override
+    {
+    }
 
     /**
      * Gets the number of MAC PDUs, UE specific

@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <ns3/nr-mac-scheduler-ofdma-rr.h>
-#include <ns3/nr-mac-scheduler-ofdma.h>
-#include <ns3/traced-value.h>
+#include "ns3/nr-mac-scheduler-ofdma-rr.h"
+#include "ns3/nr-mac-scheduler-ofdma.h"
+#include "ns3/traced-value.h"
 
 namespace ns3
 {

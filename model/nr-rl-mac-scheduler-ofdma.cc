@@ -4,8 +4,8 @@
 
 #include "nr-rl-mac-scheduler-ofdma.h"
 
-#include <ns3/log.h>
-#include <ns3/nr-fh-control.h>
+#include "ns3/log.h"
+#include "ns3/nr-fh-control.h"
 
 #include <algorithm>
 #include <random>

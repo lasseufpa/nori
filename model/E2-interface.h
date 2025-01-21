@@ -4,9 +4,9 @@
 #include "encode_e2apv1.hpp"
 #include "oran-interface.h"
 
-#include <ns3/nr-bearer-stats-calculator.h>
-#include <ns3/nr-gnb-net-device.h>
-#include <ns3/nr-phy-rx-trace.h>
+#include "ns3/nr-bearer-stats-calculator.h"
+#include "ns3/nr-gnb-net-device.h"
+#include "ns3/nr-phy-rx-trace.h"
 
 namespace ns3
 {
@@ -33,7 +33,9 @@ class E2Interface : public Object
     /**
      * @brief Destructor
      */
-    ~E2Interface() override;
+    ~E2Interface() override
+    {
+    }
 
     /**
      * @brief Get the type ID.
@@ -41,17 +43,13 @@ class E2Interface : public Object
      */
     static TypeId GetTypeId();
 
-    /**void DoInitialize() override;*/
-
     /**
-     * @brief KPM Subscription Request callback.
-     * This function is triggered whenever a RIC Subscription Request for
-     * the KPM RAN Function is received.
+     * @brief Function Service Subscription Request callback.
+     * This function is triggered whenever a RIC Subscription Request is received.
      *
      * @param pdu request message
-     * @param e2Term E2 termination object
      */
-    void KpmSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
+    void FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
 
     /**
      * @brief Register new SINR reading callback
@@ -114,6 +112,13 @@ class E2Interface : public Object
     Ptr<KpmIndicationHeader> BuildRicIndicationHeader(std::string plmId,
                                                       std::string gnbId,
                                                       uint16_t CellId) const;
+
+    /**
+     * @brief Control Message Received Callback: A handler that deals with the control message
+     * received
+     * @param sub_req_pdu the subscription request PDU
+     */
+    void ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu);
 
     /**
      * @brief Get the IMSI string

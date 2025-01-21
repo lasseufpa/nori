@@ -17,7 +17,7 @@
 
 #include "asn1c-types.h"
 
-#include <ns3/log.h>
+#include "ns3/log.h"
 
 extern "C"
 {

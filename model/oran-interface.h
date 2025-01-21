@@ -94,15 +94,22 @@ class E2Termination : public Object
                                   Ptr<FunctionDescription> ranFunctionDescription,
                                   SmCallback smCb);
 
+    enum class ServiceModelType
+    {
+        KPM,
+        RAN_CONTROL
+    };
+
     /**
      * Struct holding the values returned by ProcessRicSubscriptionRequest
      */
     struct RicSubscriptionRequest_rval_s
     {
-        uint16_t requestorId;  //!< RIC Requestor ID
-        uint16_t instanceId;   //!< RIC Instance ID
-        uint16_t ranFuncionId; //!< RAN Function ID
-        uint8_t actionId;      //!< RIC Action ID
+        uint16_t requestorId;              //!< RIC Requestor ID
+        uint16_t instanceId;               //!< RIC Instance ID
+        uint16_t ranFuncionId;             //!< RAN Function ID
+        uint8_t actionId;                  //!< RIC Action ID
+        ServiceModelType serviceModelType; //!< Service Model Type
     };
 
     /**
@@ -147,5 +154,6 @@ class E2Termination : public Object
     uint16_t m_clientPort;    //!< local bind port
     std::string m_gnbId;      //!< GNB id
     std::string m_plmnId;     //!< PLMN Id
+    Ptr<RicControlMessage> m_ricControlMessage; //! RAN control message handler
 };
 } // namespace ns3
