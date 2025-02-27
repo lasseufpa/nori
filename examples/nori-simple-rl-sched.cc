@@ -36,6 +36,7 @@ $ ./ns3 run "cttc-nr-simple-qos-sched --PrintHelp"
 #include "ns3/mobility-module.h"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-module.h"
+#include "ns3/E2-term-helper.h"
 
 using namespace ns3;
 
@@ -52,12 +53,13 @@ main(int argc, char* argv[])
     // Scenario parameters (that we will use inside this script):
     uint16_t gNbNum = 1;
     uint16_t ueNumPergNb = 4;
+    std::string ipE2TermRic = "10.244.0.246";
     uint16_t slice1Ues = 2; // Other UEs are assigned to slice 2
     bool logging = false;
 
     // Simulation parameters. Please don't use double to indicate seconds; use
     // ns-3 Time values which use integers to avoid portability issues.
-    Time simTime = MilliSeconds(1000);
+    Time simTime = Seconds(60);
     Time udpAppStartTime = MilliSeconds(400);
 
     // NR parameters. We will take the input from the command line, and then we
@@ -106,6 +108,7 @@ main(int argc, char* argv[])
     cmd.AddValue("enableOfdma",
                  "If set to true it enables Ofdma scheduler. Default value is false (Tdma)",
                  enableOfdma);
+    cmd.AddValue("ipE2TermRic", "Ip address of the E2 termination", ipE2TermRic);
 
     cmd.Parse(argc, argv);
 
@@ -142,7 +145,11 @@ main(int argc, char* argv[])
     gridScenario.SetScenarioLength(3); // be distributed.
     randomStream += gridScenario.AssignStreams(randomStream);
     gridScenario.CreateScenario();
-
+    
+    // Get the main nodes
+    auto gnbs = gridScenario.GetBaseStations();
+    auto ues = gridScenario.GetUserTerminals();
+    
     uint32_t udpPacketSizeULL;
     uint32_t udpPacketSizeBe;
     uint32_t lambdaULL = 1000;
@@ -208,8 +215,8 @@ main(int argc, char* argv[])
     /**
      * @todo remove when finish tests
      */
-    [[maybe_unused]] std::string schedTest = "ns3::NrMacSchedulerOfdmaRR";
-    nrHelper->SetSchedulerTypeId(TypeId::LookupByName("ns3::NrRLMacSchedulerOfdma"));
+    [[maybe_unused]] std::string schedTest = "ns3::NrRLMacSchedulerOfdma";
+    nrHelper->SetSchedulerTypeId(TypeId::LookupByName(schedTest));
 
     // Error Model: gNB and UE with same spectrum error model.
     std::string errorModel = "ns3::NrEesmIrT" + std::to_string(mcsTable);
@@ -376,6 +383,10 @@ main(int argc, char* argv[])
 
     // The bearer that will carry low latency traffic
     NrEpsBearer lowLatBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
+
+    auto e2 = CreateObject<E2TermHelper>();
+    e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
+    e2->InstallE2Term(gnbNetDev);
 
     // The filter for the low-latency traffic
     Ptr<NrEpcTft> lowLatTft = Create<NrEpcTft>();

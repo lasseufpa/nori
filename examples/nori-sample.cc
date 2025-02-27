@@ -128,7 +128,7 @@ int
 main(int argc, char* argv[])
 {
     LogComponentEnable("E2Interface", LOG_LEVEL_INFO);
-    // LogComponentEnable("NoriE2Report", LOG_LEVEL_DEBUG);
+    LogComponentEnable("E2Termination", LOG_LEVEL_INFO);
 
     uint16_t numerologyBwp1 = 0;
     uint32_t udpPacketSize = 2048;
@@ -138,7 +138,7 @@ main(int argc, char* argv[])
     uint16_t ueNumPergNb = 1;
     bool enableUl = false;
     std::string ipE2TermRic = "10.244.0.246";
-
+    RngSeedManager::SetSeed(1);
     Time sendPacketTime = Seconds(1);
 
     GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));

@@ -128,21 +128,22 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     // Enable SINR traces
     EnableSinrTraces(e2Messages);
 
-    // Connect E2 termination to E2 messages
+    // Connect E2 termination to E2 messages via KPM subscription callback
     Ptr<KpmFunctionDescription> kpmFd = Create<KpmFunctionDescription>();
-    // auto rcFd = Create<RanControlFunctionDescription>();
     e2Term->RegisterKpmCallbackToE2Sm(200,
                                       kpmFd,
                                       std::bind(&E2Interface::FunctionServiceSubscriptionCallback,
                                                 e2Messages,
                                                 std::placeholders::_1));
 
+    
     auto ricFd = Create<RicControlFunctionDescription>();
-    e2Term->RegisterSmCallbackToE2Sm(200,
+    e2Term->RegisterSmCallbackToE2Sm(300,
                                      ricFd,
-                                     std::bind(&E2Interface::FunctionServiceSubscriptionCallback,
+                                     std::bind(&E2Interface::ControlMessageReceivedCallback,
                                                e2Messages,
                                                std::placeholders::_1));
+
     Simulator::Schedule(MicroSeconds(0), &E2Termination::Start, e2Term);
 
     NetDevice->AggregateObject(e2Messages);

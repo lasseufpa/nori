@@ -23,6 +23,7 @@
 #include "ns3/string.h"
 #include "ns3/type-id.h"
 #include "ns3/uinteger.h"
+#include "ns3/nr-rl-mac-scheduler-ofdma.h"
 
 #include <encode_e2apv1.hpp>
 
@@ -245,22 +246,11 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
                                 << +params.actionId);
 
     static bool isFirsReportMessage = true;
-    if (params.serviceModelType == E2Termination::ServiceModelType::KPM)
+    if (isFirsReportMessage)
     {
-        if (isFirsReportMessage)
-        {
-            NS_LOG_DEBUG("=====> isFirsReportMessage: " << isFirsReportMessage);
-            BuildAndSendReportMessage(params);
-            isFirsReportMessage = false;
-        }
-    }
-    else if (params.serviceModelType == E2Termination::ServiceModelType::RAN_CONTROL)
-    {
-        ControlMessageReceivedCallback(sub_req_pdu);
-    }
-    else
-    {
-        NS_FATAL_ERROR("Unknown service model type");
+        NS_LOG_DEBUG("=====> isFirsReportMessage: " << isFirsReportMessage);
+        BuildAndSendReportMessage(params);
+        isFirsReportMessage = false;
     }
 }
 
@@ -271,7 +261,7 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
         "\n\nLteEnbNetDevice::ControlMessageReceivedCallback: Received RIC Control Message");
 
     Ptr<RicControlMessage> controlMessage = Create<RicControlMessage>(sub_req_pdu);
-    NS_LOG_INFO("After RicControlMessage::RicControlMessage constructor");
+    NS_LOG_INFO("After RicControlMessage::RicControlMessage constructor");    
     NS_LOG_INFO("Request type " << controlMessage->m_requestType);
     switch (controlMessage->m_requestType)
     {
@@ -318,13 +308,23 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
     }
     case RicControlMessage::ControlMessageRequestIdType::QoS: {
         // use SetUeQoS()
-        NS_FATAL_ERROR("For QoS use file-based control.");
+        NS_FATAL_ERROR("Not implemented yet.");
         break;
     }
-    case RicControlMessage::ControlMessageRequestIdType::RAN_SLICING: {
+    case 0//RicControlMessage::ControlMessageRequestIdType::RAN_SLICING
+    : {
+        auto gnbNetDev = DynamicCast<NrGnbNetDevice>(m_netDev);
+        NS_ASSERT(gnbNetDev);
         /**
-         * PLACEHOLDER: Implement the slicing control
+         * @TODO: We should provide some way of changing the scheduler. I mean, if
+         * the action need to be executed by the second scheduler, then we screw up.
          */
+        
+        auto scheduler = gnbNetDev->GetScheduler(0);
+        auto rlScheduler = DynamicCast<NrRLMacSchedulerOfdma>(scheduler);
+        NS_ABORT_MSG_UNLESS(rlScheduler, "Scheduler is not a RL OFDMA scheduler");
+        rlScheduler->SetSlicingParameters(controlMessage->m_slicePRBQuota);
+
         break;
     }
     default: {
