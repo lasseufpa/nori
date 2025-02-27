@@ -6,6 +6,7 @@
 
 #include "ns3/nr-mac-scheduler-ofdma-rr.h"
 #include "ns3/nr-mac-scheduler-ofdma.h"
+#include "ns3/ric-control-message.h"
 #include "ns3/traced-value.h"
 
 namespace ns3
@@ -21,7 +22,7 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
 {
   public:
     /**
-     * @brief GetTypeId
+     * @brief GetTypeIdNrRLMacSchedulerOfdma
      * @return The TypeId of the class
      */
     static TypeId GetTypeId();
@@ -38,21 +39,28 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
     {
     }
 
+    /**
+     * @brief Set the slicing parameters for a specific slice:
+     * 
+     *  - Dedicated physical resource block per slice
+     * 
+     *  - Minimum physical resource block per slice
+     * 
+     *  - Maximum physical resource block per slice
+     * 
+     * @param slicePRBQuota The slice PRB quota
+     */
+    void SetSlicingParameters(const RicControlMessage::SlicePRBQuota& slicePRBQuota);
+
   protected:
     BeamSymbolMap AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl) const override;
 
   private:
-    uint32_t numberSlices;
-    std::vector<uint32_t> dedicatedRbPercSlices;
-    std::vector<uint32_t> minRbPercSlices;
-    std::vector<uint32_t> maxRbPercSlices;
-    std::vector<std::vector<uint32_t>> sliceUeRnti;
-    /**
-     * @brief Rescue the controled attributes intendended by the RL xApp.
-     * This function will define the maximum, minimum and dedicated resources for each slice.
-     * @todo Implement it
-     */
-    [[maybe_unused]] void RescueXAppValues();
+    uint32_t m_numberSlices; //!< Number of slices
+    std::vector<uint32_t> m_dedicatedRbPercSlices; //!< Dedicated RB percentage per slice
+    std::vector<uint32_t> m_minRbPercSlices; //!< Minimum RB percentage per slice
+    std::vector<uint32_t> m_maxRbPercSlices; //!< Maximum RB percentage per slice
+    std::vector<std::vector<uint32_t>> m_sliceUeRnti; //!< UE RNTI per slice
 
     TracedValue<uint32_t> m_tracedValueSymPerBeam;
 };

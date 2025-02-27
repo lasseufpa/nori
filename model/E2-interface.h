@@ -96,8 +96,16 @@ class E2Interface : public Object
      */
     void SetE2RlcStatsCalculator(Ptr<NrBearerStatsCalculator> e2RlcStatsCalculator);
 
-    bool m_useSinrTraces; //<! Flag to enable SINR traces
+    /**
+     * @brief Control Message Received Callback: A handler that deals with the control message
+     * received
+     * @param sub_req_pdu the subscription request PDU
+     */
+    void ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu);
+
     Ptr<NoriE2Report> GetE2DuCalculator();
+
+    
     void MLSliceInterface(double macPrb, uint64_t imsi);
 
   private:
@@ -112,13 +120,6 @@ class E2Interface : public Object
     Ptr<KpmIndicationHeader> BuildRicIndicationHeader(std::string plmId,
                                                       std::string gnbId,
                                                       uint16_t CellId) const;
-
-    /**
-     * @brief Control Message Received Callback: A handler that deals with the control message
-     * received
-     * @param sub_req_pdu the subscription request PDU
-     */
-    void ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu);
 
     /**
      * @brief Get the IMSI string

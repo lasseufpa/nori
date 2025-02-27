@@ -241,31 +241,7 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
                     actionIdsAccept.push_back(reqActionId);
                     NS_LOG_DEBUG("Action ID " << actionId << " accepted");
                     foundAction = true;
-                    // if (actionType == RICactionType_insert)
-                    //{
-                    //     RICactionDefinition_t* actionDef =
-                    //         ((RICaction_ToBeSetup_ItemIEs*)next_item)
-                    //             ->value.choice.RICaction_ToBeSetup_Item.ricActionDefinition;
-                    //     if (actionDef != nullptr)
-                    //     {
-                    //         uint8_t* defBuf = actionDef->buf;
-                    //         size_t defSize = actionDef->size;
-                    //         NS_LOG_DEBUG("RIC Action Definition for INSERT: "
-                    //                      << std::string(defBuf, defBuf + defSize));
-                    //         // Process the policy action
-                    //         auto rcMessage = CreateObject<RicControlMessage>(sub_req_pdu);
-                    //         /**
-                    //          * \todo: Implement something with the values extracted
-                    //          */
-                    //         rcMessage->m_valuesExtracted;
-                    //     }
-                    // }
                 }
-                // else if (actionType == RICactionType_policy)
-                //{
-                //     ((RICaction_ToBeSetup_ItemIEs*)next_item)->value.choice.RICaction_ToBeSetup_Item.ricSubsequentAction
-                //     ((RICaction_ToBeSetup_ItemIEs*)next_item)->value.choice.RICaction_ToBeSetup_Item.ricActionDefinition->buf;
-                // }
                 else
                 {
                     reqActionId = actionId;
@@ -279,23 +255,6 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
             NS_LOG_DEBUG("in case default");
             break;
         }
-        }
-    }
-
-    if (sub_req_pdu->present == E2AP_PDU_PR_initiatingMessage)
-    {
-        auto initiatingMessage = sub_req_pdu->choice.initiatingMessage;
-        if (initiatingMessage->procedureCode == ProcedureCode_id_RICcontrol)
-        {
-            reqParams.serviceModelType = ServiceModelType::RAN_CONTROL;
-        }
-        else if (initiatingMessage->procedureCode == ProcedureCode_id_RICsubscription)
-        {
-            reqParams.serviceModelType = ServiceModelType::KPM;
-        }
-        else
-        {
-            NS_FATAL_ERROR("Unknown procedure code");
         }
     }
 

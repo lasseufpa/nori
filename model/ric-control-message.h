@@ -39,6 +39,19 @@ namespace ns3
 class RicControlMessage : public SimpleRefCount<RicControlMessage>
 {
   public:
+
+    /**
+     * Structure to store the slice RAN parameters extracted from the RIC Control message
+     * @TODO: Remove the default values when it is working
+     */
+    struct SlicePRBQuota
+    {
+        uint32_t sliceId = 0;
+        long maxPRBRatio = 0;
+        long minPRBRatio= 0;
+        long dedicatePRBRatio = 0;
+    } m_slicePRBQuota;
+
     enum ControlMessageRequestIdType
     {
         TS = 1001,
