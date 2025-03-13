@@ -244,9 +244,9 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
                 }
                 else
                 {
-                    reqActionId = actionId;
-                    NS_LOG_DEBUG("Policy Action ID " << actionId << " processed");
-                    actionIdsReject.push_back(reqActionId);
+                    // reqActionId = actionId;
+                    // NS_LOG_DEBUG("Policy Action ID " << actionId << " processed");
+                    // actionIdsReject.push_back(reqActionId);
                 }
             }
             break;
