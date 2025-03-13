@@ -14,6 +14,7 @@
 #include "ns3/nr-gnb-net-device.h"
 #include "ns3/nr-gnb-rrc.h"
 #include "ns3/nr-mac-sched-sap.h"
+#include "ns3/nr-rl-mac-scheduler-ofdma.h"
 #include "ns3/nr-rlc-am.h"
 #include "ns3/nr-rlc.h"
 #include "ns3/nstime.h"
@@ -23,7 +24,6 @@
 #include "ns3/string.h"
 #include "ns3/type-id.h"
 #include "ns3/uinteger.h"
-#include "ns3/nr-rl-mac-scheduler-ofdma.h"
 
 #include <encode_e2apv1.hpp>
 
@@ -257,11 +257,10 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
 void
 E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
 {
-    NS_LOG_DEBUG(
-        "\n\nLteEnbNetDevice::ControlMessageReceivedCallback: Received RIC Control Message");
+    NS_LOG_DEBUG("Received RIC Control Message");
 
     Ptr<RicControlMessage> controlMessage = Create<RicControlMessage>(sub_req_pdu);
-    NS_LOG_INFO("After RicControlMessage::RicControlMessage constructor");    
+    NS_LOG_INFO("After RicControlMessage::RicControlMessage constructor");
     NS_LOG_INFO("Request type " << controlMessage->m_requestType);
     switch (controlMessage->m_requestType)
     {
@@ -311,15 +310,10 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
         NS_FATAL_ERROR("Not implemented yet.");
         break;
     }
-    case 0//RicControlMessage::ControlMessageRequestIdType::RAN_SLICING
-    : {
+    case RicControlMessage::ControlMessageRequestIdType::RAN_SLICING: {
         auto gnbNetDev = DynamicCast<NrGnbNetDevice>(m_netDev);
         NS_ASSERT(gnbNetDev);
-        /**
-         * @TODO: We should provide some way of changing the scheduler. I mean, if
-         * the action need to be executed by the second scheduler, then we screw up.
-         */
-        
+
         auto scheduler = gnbNetDev->GetScheduler(0);
         auto rlScheduler = DynamicCast<NrRLMacSchedulerOfdma>(scheduler);
         NS_ABORT_MSG_UNLESS(rlScheduler, "Scheduler is not a RL OFDMA scheduler");
