@@ -1,13 +1,12 @@
-#ifndef E2_INTERFACE_H
-#define E2_INTERFACE_H
+#pragma once
 
+#include "E2-report.h"
 #include "encode_e2apv1.hpp"
+#include "oran-interface.h"
 
-#include <ns3/nr-bearer-stats-calculator.h>
-#include <ns3/nr-gnb-net-device.h>
-#include <ns3/nr-phy-rx-trace.h>
-#include <ns3/oran-interface.h>
-#include <ns3/E2-report.h>
+#include "ns3/nr-bearer-stats-calculator.h"
+#include "ns3/nr-gnb-net-device.h"
+#include "ns3/nr-phy-rx-trace.h"
 
 namespace ns3
 {
@@ -21,46 +20,44 @@ class E2Interface : public Object
     const static uint16_t E2SM_REPORT_MAX_NEIGH = 8; //<! Maximum number of neighbors
 
     /**
-     * \brief Constructor
+     * @brief Constructor
      */
     E2Interface();
 
     /**
-     * \brief Constructor
-     * \param netDev the net device of the nodeB
+     * @brief Constructor
+     * @param netDev the net device of the nodeB
      */
     E2Interface(Ptr<NetDevice> netDev);
 
     /**
-     * \brief Destructor
+     * @brief Destructor
      */
-    ~E2Interface() override;
+    ~E2Interface() override
+    {
+    }
 
     /**
-     * \brief Get the type ID.
-     * \return the object TypeId
+     * @brief Get the type ID.
+     * @return the object TypeId
      */
     static TypeId GetTypeId();
 
-    /**void DoInitialize() override;*/
-
     /**
-     * \brief KPM Subscription Request callback.
-     * This function is triggered whenever a RIC Subscription Request for
-     * the KPM RAN Function is received.
+     * @brief Function Service Subscription Request callback.
+     * This function is triggered whenever a RIC Subscription Request is received.
      *
-     * \param pdu request message
-     * \param e2Term E2 termination object
+     * @param pdu request message
      */
-    void KpmSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
+    void FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
 
     /**
-     * \brief Register new SINR reading callback
-     * \param path the path
-     * \param cellId the cell identifier
-     * \param rnti the Radio Network Temporary Identifier
-     * \param avgSinr the average SINR
-     * \param bwpId the Bandwidth Part Identifier
+     * @brief Register new SINR reading callback
+     * @param path the path
+     * @param cellId the cell identifier
+     * @param rnti the Radio Network Temporary Identifier
+     * @param avgSinr the average SINR
+     * @param bwpId the Bandwidth Part Identifier
      */
     void RegisterNewSinrReadingCallback([[maybe_unused]] std::string path,
                                         uint16_t cellId,
@@ -69,47 +66,55 @@ class E2Interface : public Object
                                         uint16_t bwpId);
 
     /**
-     * \brief Register new SINR reading
+     * @brief Register new SINR reading
      */
     void RegisterNewSinrReading(uint16_t imsi, uint16_t cellId, double avgSinr);
 
     /**
-     * \brief Build and send report message
-     * \param params subscription request parameters
-     * \param nodeBNetdev the net device of the nodeB
+     * @brief Build and send report message
+     * @param params subscription request parameters
+     * @param nodeBNetdev the net device of the nodeB
      *
      */
     void BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rval_s params);
 
     /**
-     * \brief Report the number of TX PDU calls
-     * \param rnti the current Radio network temporary identifier
-     * \param lcid the current cell identifier
-     * \param packetSize the size of the packet in bytes
+     * @brief Report the number of TX PDU calls
+     * @param rnti the current Radio network temporary identifier
+     * @param lcid the current cell identifier
+     * @param packetSize the size of the packet in bytes
      */
     void ReportTxPDU(uint16_t rnti, uint8_t lcid, uint32_t packetSize);
 
     /**
-     * \brief Set E2 PDCP stats variable report
+     * @brief Set E2 PDCP stats variable report
      */
     void SetE2PdcpStatsCalculator(Ptr<NrBearerStatsCalculator> e2PdcpStatsCalculator);
 
     /**
-     * \brief Set E2 RLC stats variable report
+     * @brief Set E2 RLC stats variable report
      */
     void SetE2RlcStatsCalculator(Ptr<NrBearerStatsCalculator> e2RlcStatsCalculator);
 
-    bool m_useSinrTraces; //<! Flag to enable SINR traces
+    /**
+     * @brief Control Message Received Callback: A handler that deals with the control message
+     * received
+     * @param sub_req_pdu the subscription request PDU
+     */
+    void ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu);
+
     Ptr<NoriE2Report> GetE2DuCalculator();
+
+    
     void MLSliceInterface(double macPrb, uint64_t imsi);
 
   private:
     /**
-     * \brief Build RIC Indication Header
-     * \param plmId PLMN ID
-     * \param gnbId gNB ID
-     * \param CellId NR cell ID
-     * \return the RIC Indication Header
+     * @brief Build RIC Indication Header
+     * @param plmId PLMN ID
+     * @param gnbId gNB ID
+     * @param CellId NR cell ID
+     * @return the RIC Indication Header
      */
 
     Ptr<KpmIndicationHeader> BuildRicIndicationHeader(std::string plmId,
@@ -117,44 +122,44 @@ class E2Interface : public Object
                                                       uint16_t CellId) const;
 
     /**
-     * \brief Get the IMSI string
-     * \param imsi the IMSI
+     * @brief Get the IMSI string
+     * @param imsi the IMSI
      */
     std::string GetImsiString(uint64_t imsi);
 
     /**
-     * \brief Build RIC Indication Message for CU-UP
-     * \param plmId PLMN ID
-     * \return the RIC Indication Message
+     * @brief Build RIC Indication Message for CU-UP
+     * @param plmId PLMN ID
+     * @return the RIC Indication Message
      */
 
     Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuUp(std::string plmId);
 
     /**
-     * \brief Build RIC Indication Message for CU-CP
-     * \param plmId PLMN ID
-     * \return the RIC Indication Message
+     * @brief Build RIC Indication Message for CU-CP
+     * @param plmId PLMN ID
+     * @return the RIC Indication Message
      *
      */
     Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuCp(std::string plmId);
 
     /**
-     * \brief Build RIC Indication Message for DU
-     * \param plmId PLMN ID
-     * \param nrCellId NR cell ID
-     * \return the RIC Indication Message
+     * @brief Build RIC Indication Message for DU
+     * @param plmId PLMN ID
+     * @param nrCellId NR cell ID
+     * @return the RIC Indication Message
      */
     Ptr<KpmIndicationMessage> BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId);
 
     /**
-     * \brief Function to help us to flip the map
-     * \param src the source map
-     * \return the flipped map
+     * @brief Function to help us to flip the map
+     * @param src the source map
+     * @return the flipped map
      */
     std::multimap<long double, uint16_t> FlipMap(const std::map<uint16_t, long double>& src);
 
     double m_e2Periodicity;                                          //<! E2 periodicity
-    Ptr<LteEnbRrc> m_rrc;                                            //<! RRC object
+    Ptr<NrGnbRrc> m_rrc;                                             //<! RRC object
     std::map<uint64_t, std::map<uint16_t, long double>> m_l3sinrMap; //<! L3 SINR map
 
     Ptr<E2Termination> m_e2term;                          //<! E2 termination object
@@ -179,5 +184,3 @@ class E2Interface : public Object
     std::map<uint64_t, double> m_previousTime;
 };
 } // namespace ns3
-
-#endif // E2_INTERFACE_H

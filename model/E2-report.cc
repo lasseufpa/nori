@@ -1,9 +1,9 @@
 #include "E2-report.h"
 
-#include <ns3/core-module.h>
-#include <ns3/event-id.h>
-#include <ns3/nr-bearer-stats-connector.h>
-#include <ns3/nr-phy-rx-trace.h>
+#include "ns3/core-module.h"
+#include "ns3/event-id.h"
+#include "ns3/nr-bearer-stats-connector.h"
+#include "ns3/nr-phy-rx-trace.h"
 
 NS_LOG_COMPONENT_DEFINE("NoriE2Report");
 
@@ -13,10 +13,7 @@ NS_OBJECT_ENSURE_REGISTERED(NoriE2Report);
 
 NoriE2Report::NoriE2Report()
 {
-}
-
-NoriE2Report::~NoriE2Report()
-{
+    NS_LOG_FUNCTION(this);
 }
 
 TypeId
@@ -36,8 +33,9 @@ NoriE2Report::UpdateTraces(/*Ptr<NoriE2Report> phyStats, */ std::string path,
     NS_LOG_LOGIC("Update trace rnti " << params.m_rnti << " cellId " << params.m_cellId);
 
     m_macPduUeSpecific = IncreaseMapValue(m_macPduUeSpecific, pair, 1);
-    NS_LOG_DEBUG("M_rv: " << (unsigned)params.m_rv << ", MCS: " << (unsigned)params.m_mcs << ", SINR: " << 10 * std::log10(params.m_sinr)
-                           << ", TB size: " << params.m_tbSize << ", Num sym: " << (unsigned)params.m_numSym);
+    NS_LOG_DEBUG("M_rv: " << (unsigned)params.m_rv << ", MCS: " << (unsigned)params.m_mcs
+                          << ", SINR: " << 10 * std::log10(params.m_sinr) << ", TB size: "
+                          << params.m_tbSize << ", Num sym: " << (unsigned)params.m_numSym);
     if ((unsigned)params.m_rv == 0)
     {
         m_macPduInitialTransmissionUeSpecific =

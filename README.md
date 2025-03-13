@@ -12,7 +12,7 @@ Requisitos para o e2sim
 sudo apt-get install -y build-essential git cmake libsctp-dev autoconf automake libtool bison flex libboost-all-dev
 ```
 
-Para ns-3 
+Para ns-3
 
 ```jsx
 sudo apt install -y git gcc python3 cmake g++
@@ -24,7 +24,7 @@ Para o NR-5G Lena
 sudo apt install libc6-dev sqlite sqlite3 libsqlite3-dev libeigen3-dev
 ```
 
-Para o projeto funcionar o gcc e o g++ 11 deve estar instalado, geralmente no Ubuntu 20.04 apenas a versão 9 está dinsponivel. 
+Para o projeto funcionar o gcc e o g++ 11 deve estar instalado, geralmente no Ubuntu 20.04 apenas a versão 9 está dinsponivel.
 
 Siga os passos para instalar a versão 11 do gcc e g++
 
@@ -90,7 +90,7 @@ git clone https://github.com/lasseufpa/nori.git
 
 # Executando o exemplo
 
-Existem dois exemplos que podem ser executados para demonstrar as funionalidade do modulo, são ele o nori-sample e nori-mimo-demo, ambos os exemplos são codigos de exemplo existentes do modulo NR com modificações para funcionar com o nori e se conectar ao Near-RT RIC. 
+Existem dois exemplos que podem ser executados para demonstrar as funionalidade do modulo, são ele o nori-sample e nori-mimo-demo, ambos os exemplos são codigos de exemplo existentes do modulo NR com modificações para funcionar com o nori e se conectar ao Near-RT RIC.
 
 O primeiro exemplo consiste em uma GNB e um UE
 ```jsx

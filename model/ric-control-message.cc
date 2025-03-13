@@ -4,18 +4,9 @@
  * Copyright (c) 2022 Sapienza, University of Rome
  * Copyright (c) 2022 University of Padova
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * SPDX-License-Identifier: GPL-2.0-only
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
@@ -26,9 +17,14 @@
 
 #include "asn1c-types.h"
 
-#include <ns3/log.h>
+#include "ns3/log.h"
 
 #include <bitset>
+
+extern "C"
+{
+#include <SlicePRBQuota.h>
+}
 
 namespace ns3
 {
@@ -79,6 +75,11 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
                 m_requestType = ControlMessageRequestIdType::QoS;
                 break;
             }
+            case 1003: {
+                NS_LOG_DEBUG("RAN Slicing control message");
+                m_requestType = ControlMessageRequestIdType::RAN_SLICING;
+                break;
+            }
             }
             break;
         }
@@ -111,9 +112,17 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
             if (e2smControlHeader->present == E2SM_RC_ControlHeader_PR_controlHeader_Format1)
             {
                 m_e2SmRcControlHeaderFormat1 = e2smControlHeader->choice.controlHeader_Format1;
+                auto prb = m_e2SmRcControlHeaderFormat1->slicePRBQuota;
+
+                uint8_t sliceId = prb->sliceID.sST.buf[0];
+                // Get the UE ID
+                // uint8_t ueId = m_e2SmRcControlHeaderFormat1->ueId.buf[0];
+                m_slicePRBQuota = {sliceId,
+                                   prb->maxPRBRatio,
+                                   prb->minPRBRatio,
+                                   prb->dedicatePRBRatio};
                 // m_e2SmRcControlHeaderFormat1->ric_ControlAction_ID;
                 // m_e2SmRcControlHeaderFormat1->ric_ControlStyle_Type;
-                // m_e2SmRcControlHeaderFormat1->ueId;
             }
             else
             {
@@ -128,7 +137,6 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
             auto* e2SmControlMessage =
                 (E2SM_RC_ControlMessage_t*)calloc(1, sizeof(E2SM_RC_ControlMessage_t));
             ASN_STRUCT_RESET(asn_DEF_E2SM_RC_ControlMessage, e2SmControlMessage);
-
             asn_decode(nullptr,
                        ATS_ALIGNED_BASIC_PER,
                        &asn_DEF_E2SM_RC_ControlMessage,
@@ -145,6 +153,7 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
                     e2SmControlMessage->choice.controlMessage_Format1;
                 m_valuesExtracted =
                     ExtractRANParametersFromControlMessage(e2SmRcControlMessageFormat1);
+
                 if (m_requestType == ControlMessageRequestIdType::TS)
                 {
                     // Get and parse the secondaty cell id according to 3GPP TS 38.473,
@@ -180,10 +189,10 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
                 NS_LOG_DEBUG("[E2SM] RIC Control ack value: ACK");
                 break;
             }
-            //case RICcontrolAckRequest_nAck: {
-            //    NS_LOG_DEBUG("[E2SM] RIC Control ack value: NACK");
-            //    break;
-            //}
+            // case RICcontrolAckRequest_nAck: {
+            //     NS_LOG_DEBUG("[E2SM] RIC Control ack value: NACK");
+            //     break;
+            // }
             default: {
                 NS_LOG_DEBUG("[E2SM] RIC Control ack value unknown");
                 break;
@@ -202,7 +211,6 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
         }
         }
     }
-
     NS_LOG_INFO("End of DecodeRicControlMessage");
 }
 
@@ -216,19 +224,23 @@ std::vector<RANParameterItem>
 RicControlMessage::ExtractRANParametersFromControlMessage(
     E2SM_RC_ControlMessage_Format1_t* e2SmRcControlMessageFormat1)
 {
+    // Returning an empty vector for now
     std::vector<RANParameterItem> ranParameterList;
-    int count = e2SmRcControlMessageFormat1->ranParameters_List->list.count;
-    for (int i = 0; i < count; i++)
-    {
+    /**
+     *
+     int count = e2SmRcControlMessageFormat1->ranParameters_List->list.count;
+     std::cout << "flag" << std::endl;
+     for (int i = 0; i < count; i++)
+     {
         RANParameter_Item_t* ranParameterItem =
-            e2SmRcControlMessageFormat1->ranParameters_List->list.array[i];
+        e2SmRcControlMessageFormat1->ranParameters_List->list.array[i];
         for (RANParameterItem extractedParameter :
-             RANParameterItem::ExtractRANParametersFromRANParameter(ranParameterItem))
+        RANParameterItem::ExtractRANParametersFromRANParameter(ranParameterItem))
         {
             ranParameterList.push_back(extractedParameter);
         }
     }
-
+    */
     return ranParameterList;
 }
 

@@ -4,18 +4,9 @@
  * Copyright (c) 2022 Sapienza, University of Rome
  * Copyright (c) 2022 University of Padova
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * SPDX-License-Identifier: GPL-2.0-only
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
@@ -26,8 +17,9 @@
 
 #include "asn1c-types.h"
 #include "encode_e2apv1.hpp"
+#include "ric-control-message.h"
 
-#include <ns3/log.h>
+#include "ns3/log.h"
 
 #include <thread>
 
@@ -72,11 +64,6 @@ E2Termination::E2Termination(const std::string ricAddress,
 {
     NS_LOG_FUNCTION(this);
     m_e2sim = new E2Sim;
-
-    // create a new file which will be used to trace the encoded messages
-    // TODO create an appropriate log class to handle these messages
-    // FILE* f = fopen ("messages.txt", "w");
-    // fclose (f);
 }
 
 void
@@ -155,6 +142,9 @@ E2Termination::~E2Termination()
 E2Termination::RicSubscriptionRequest_rval_s
 E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
 {
+    // Intro params
+    RicSubscriptionRequest_rval_s reqParams;
+
     // Record RIC Request ID
     // Go through RIC action to be Setup List
     // Find first entry with REPORT action Type
@@ -242,7 +232,7 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
                     ((RICaction_ToBeSetup_ItemIEs*)next_item)
                         ->value.choice.RICaction_ToBeSetup_Item.ricActionType;
 
-                // We identify the first action whose type is REPORT
+                // We identify the first action whose type is REPORT or INSERT
                 // That is the only one accepted; all others are rejected
                 if (!foundAction &&
                     (actionType == RICactionType_report || actionType == RICactionType_insert))
@@ -254,8 +244,8 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
                 }
                 else
                 {
-                    reqActionId = actionId;
-                    NS_LOG_DEBUG("Action ID " << actionId << " rejected");
+                    // reqActionId = actionId;
+                    // NS_LOG_DEBUG("Policy Action ID " << actionId << " processed");
                     // actionIdsReject.push_back(reqActionId);
                 }
             }
@@ -269,9 +259,7 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
     }
 
     NS_LOG_DEBUG("Create RIC Subscription Response");
-
     auto* e2ap_pdu = (E2AP_PDU*)calloc(1, sizeof(E2AP_PDU));
-
     long* accept_array = &actionIdsAccept[0];
     long* reject_array = &actionIdsReject[0];
     int accept_size = actionIdsAccept.size();
@@ -288,7 +276,6 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
     NS_LOG_DEBUG("Send RIC Subscription Response");
     m_e2sim->encode_and_send_sctp_data(e2ap_pdu);
 
-    RicSubscriptionRequest_rval_s reqParams;
     reqParams.requestorId = reqRequestorId;
     reqParams.instanceId = reqInstanceId;
     reqParams.ranFuncionId = ranFuncionId;

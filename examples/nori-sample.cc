@@ -5,9 +5,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /**
- * \ingroup examples
- * \file cttc-3gpp-channel-simple-ran.cc
- * \brief Simple RAN
+ * @ingroup examples
+ * @file cttc-3gpp-channel-simple-ran.cc
+ * @brief Simple RAN
  *
  * This example describes how to setup a simulation using the 3GPP channel model
  * from TR 38.901. This example consists of a simple topology of 1 UE and 1 gNb,
@@ -20,20 +20,19 @@
 #include "ns3/antenna-module.h"
 #include "ns3/config-store.h"
 #include "ns3/core-module.h"
-#include "ns3/eps-bearer-tag.h"
 #include "ns3/grid-scenario-helper.h"
 #include "ns3/internet-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/log.h"
 #include "ns3/mobility-module.h"
 #include "ns3/network-module.h"
+#include "ns3/nori-module.h"
+#include "ns3/nr-eps-bearer-tag.h"
 #include "ns3/nr-helper.h"
 #include "ns3/nr-module.h"
 #include "ns3/nr-point-to-point-epc-helper.h"
-#include "ns3/nori-module.h"
-#include "ns3/point-to-point-helper.h"
 #include "ns3/pcap-file-wrapper.h"
-
+#include "ns3/point-to-point-helper.h"
 
 using namespace ns3;
 
@@ -54,7 +53,7 @@ SendContinuousPacket(Ptr<NetDevice> device, Address addr, uint32_t packetSize, T
     Ipv4Header ipv4Header;
     ipv4Header.SetProtocol(UdpL4Protocol::PROT_NUMBER);
     pkt->AddHeader(ipv4Header);
-    EpsBearerTag tag(1, 1);
+    NrEpsBearerTag tag(1, 1);
     pkt->AddPacketTag(tag);
     device->Send(pkt, addr, Ipv4L3Protocol::PROT_NUMBER);
 
@@ -128,10 +127,9 @@ ConnectUlPdcpRlcTraces()
 int
 main(int argc, char* argv[])
 {
-
     LogComponentEnable("E2Interface", LOG_LEVEL_INFO);
-    //LogComponentEnable("NoriE2Report", LOG_LEVEL_DEBUG);
-    
+    LogComponentEnable("E2Termination", LOG_LEVEL_INFO);
+
     uint16_t numerologyBwp1 = 0;
     uint32_t udpPacketSize = 2048;
     double centralFrequencyBand1 = 28e9;
@@ -140,11 +138,10 @@ main(int argc, char* argv[])
     uint16_t ueNumPergNb = 1;
     bool enableUl = false;
     std::string ipE2TermRic = "10.244.0.246";
-
+    RngSeedManager::SetSeed(1);
     Time sendPacketTime = Seconds(1);
 
-    GlobalValue::Bind("SimulatorImplementationType",
-                  StringValue("ns3::RealtimeSimulatorImpl"));
+    GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("numerologyBwp1", "The numerology to be used in bandwidth part 1", numerologyBwp1);
@@ -154,7 +151,7 @@ main(int argc, char* argv[])
     cmd.AddValue("bandwidthBand1", "The system bandwidth to be used in band 1", bandwidthBand1);
     cmd.AddValue("packetSize", "packet size in bytes", udpPacketSize);
     cmd.AddValue("enableUl", "Enable Uplink", enableUl);
-    cmd.AddValue("ipE2TermRic","Ip address of the E2 termination",ipE2TermRic);
+    cmd.AddValue("ipE2TermRic", "Ip address of the E2 termination", ipE2TermRic);
     cmd.Parse(argc, argv);
 
     int64_t randomStream = 1;
@@ -177,10 +174,11 @@ main(int argc, char* argv[])
     Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
+    Ptr<NrChannelHelper> channelHelper = CreateObject<NrChannelHelper>();
 
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
     nrHelper->SetEpcHelper(epcHelper);
-
+    channelHelper->ConfigureFactories("UMi", "LOS");
     // Create one operational band containing one CC with one bandwidth part
     BandwidthPartInfoPtrVector allBwps;
     CcBwpCreator ccBwpCreator;
@@ -189,19 +187,16 @@ main(int argc, char* argv[])
     // Create the configuration for the CcBwpHelper
     CcBwpCreator::SimpleOperationBandConf bandConf1(centralFrequencyBand1,
                                                     bandwidthBand1,
-                                                    numCcPerBand,
-                                                    BandwidthPartInfo::UMi_StreetCanyon_LoS);
+                                                    numCcPerBand);
 
     // By using the configuration created, it is time to make the operation band
     OperationBandInfo band1 = ccBwpCreator.CreateOperationBandContiguousCc(bandConf1);
 
     Config::SetDefault("ns3::ThreeGppChannelModel::UpdatePeriod", TimeValue(MilliSeconds(5)));
     nrHelper->SetSchedulerAttribute("FixedMcsDl", BooleanValue(false));
-    //nrHelper->SetSchedulerAttribute("StartingMcsDl", UintegerValue(28));
-    nrHelper->SetChannelConditionModelAttribute("UpdatePeriod", TimeValue(MilliSeconds(0)));
-    nrHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
+    channelHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
 
-    nrHelper->InitializeOperationBand(&band1);
+    channelHelper->AssignChannelsToBands({band1});
     allBwps = CcBwpCreator::GetAllBwps({band1});
 
     // Beamforming method
@@ -228,7 +223,7 @@ main(int argc, char* argv[])
 
     randomStream += nrHelper->AssignStreams(enbNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueNetDev, randomStream);
-    
+
     auto e2 = CreateObject<E2TermHelper>();
     e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
     e2->InstallE2Term(enbNetDev.Get(0));
@@ -237,53 +232,51 @@ main(int argc, char* argv[])
     nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)
         ->SetAttribute("Numerology", UintegerValue(numerologyBwp1));
 
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
-    {
-        DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
-    }
-
-    for (auto it = ueNetDev.Begin(); it != ueNetDev.End(); ++it)
-    {
-        DynamicCast<NrUeNetDevice>(*it)->UpdateConfig();
-    }
-
     InternetStackHelper internet;
     internet.Install(gridScenario.GetUserTerminals());
     Ipv4InterfaceContainer ueIpIface;
     ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
     Time interval = MilliSeconds(2.0); // Intervalo entre pacotes
-
     if (enableUl)
     {
         std::cout << "\n Sending continuous data in uplink." << std::endl;
-        Simulator::Schedule(sendPacketTime, &SendContinuousPacket, ueNetDev.Get(0), enbNetDev.Get(0)->GetAddress(), udpPacketSize, interval);
+        Simulator::Schedule(sendPacketTime,
+                            &SendContinuousPacket,
+                            ueNetDev.Get(0),
+                            enbNetDev.Get(0)->GetAddress(),
+                            udpPacketSize,
+                            interval);
     }
     else
     {
         std::cout << "\n Sending continuous data in downlink." << std::endl;
-        Simulator::Schedule(sendPacketTime, &SendContinuousPacket, enbNetDev.Get(0), ueNetDev.Get(0)->GetAddress(), udpPacketSize, interval);
+        Simulator::Schedule(sendPacketTime,
+                            &SendContinuousPacket,
+                            enbNetDev.Get(0),
+                            ueNetDev.Get(0)->GetAddress(),
+                            udpPacketSize,
+                            interval);
     }
 
-
     // attach UEs to the closest eNB
-    nrHelper->AttachToClosestEnb(ueNetDev, enbNetDev);
-    
-    //if (enableUl)
+    nrHelper->AttachToClosestGnb(ueNetDev, enbNetDev);
+
+    // if (enableUl)
     //{
-    //    std::cout << "\n Sending data in uplink." << std::endl;
-    //    Simulator::Schedule(Seconds(0.2), &ConnectUlPdcpRlcTraces);
-    //}
-    //else
+    //     std::cout << "\n Sending data in uplink." << std::endl;
+    //     Simulator::Schedule(Seconds(0.2), &ConnectUlPdcpRlcTraces);
+    // }
+    // else
     //{
-    //    std::cout << "\n Sending data in downlink." << std::endl;
-    //    Simulator::Schedule(Seconds(0.2), &ConnectPdcpRlcTraces);
-    //}
+    //     std::cout << "\n Sending data in downlink." << std::endl;
+    //     Simulator::Schedule(Seconds(0.2), &ConnectPdcpRlcTraces);
+    // }
 
     nrHelper->EnableTraces();
-    
-    //Simulator::Stop(Seconds(1));
-    //ShowProgress progress(Seconds(1), std::cerr);
+
+    // Simulator::Stop(Seconds(1));
+    // ShowProgress progress(Seconds(1), std::cerr);
     Simulator::Run();
     Simulator::Destroy();
 
