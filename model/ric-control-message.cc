@@ -21,8 +21,9 @@
 
 #include <bitset>
 
-extern "C"{
-    #include <SlicePRBQuota.h>
+extern "C"
+{
+#include <SlicePRBQuota.h>
 }
 
 namespace ns3
@@ -74,7 +75,7 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
                 m_requestType = ControlMessageRequestIdType::QoS;
                 break;
             }
-            case 1003:{
+            case 1003: {
                 NS_LOG_DEBUG("RAN Slicing control message");
                 m_requestType = ControlMessageRequestIdType::RAN_SLICING;
                 break;
@@ -112,18 +113,14 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
             {
                 m_e2SmRcControlHeaderFormat1 = e2smControlHeader->choice.controlHeader_Format1;
                 auto prb = m_e2SmRcControlHeaderFormat1->slicePRBQuota;
-                /**
-                 * @TODO: Remove this hardcoded value when Rersouce alocation xapp
-                 * is implemented.  
-                 */
-                prb->maxPRBRatio = 100;
-                prb->minPRBRatio = 0;
-                prb->dedicatePRBRatio = 0;
-                // Get the slice index (unique byte to identify the slice)
+
                 uint8_t sliceId = prb->sliceID.sST.buf[0];
                 // Get the UE ID
-                //uint8_t ueId = m_e2SmRcControlHeaderFormat1->ueId.buf[0];
-                m_slicePRBQuota = {sliceId, prb->maxPRBRatio, prb->minPRBRatio, prb->dedicatePRBRatio};
+                // uint8_t ueId = m_e2SmRcControlHeaderFormat1->ueId.buf[0];
+                m_slicePRBQuota = {sliceId,
+                                   prb->maxPRBRatio,
+                                   prb->minPRBRatio,
+                                   prb->dedicatePRBRatio};
                 // m_e2SmRcControlHeaderFormat1->ric_ControlAction_ID;
                 // m_e2SmRcControlHeaderFormat1->ric_ControlStyle_Type;
             }
@@ -140,7 +137,6 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
             auto* e2SmControlMessage =
                 (E2SM_RC_ControlMessage_t*)calloc(1, sizeof(E2SM_RC_ControlMessage_t));
             ASN_STRUCT_RESET(asn_DEF_E2SM_RC_ControlMessage, e2SmControlMessage);
-
             asn_decode(nullptr,
                        ATS_ALIGNED_BASIC_PER,
                        &asn_DEF_E2SM_RC_ControlMessage,
@@ -157,6 +153,7 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
                     e2SmControlMessage->choice.controlMessage_Format1;
                 m_valuesExtracted =
                     ExtractRANParametersFromControlMessage(e2SmRcControlMessageFormat1);
+
                 if (m_requestType == ControlMessageRequestIdType::TS)
                 {
                     // Get and parse the secondaty cell id according to 3GPP TS 38.473,
@@ -214,7 +211,6 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
         }
         }
     }
-
     NS_LOG_INFO("End of DecodeRicControlMessage");
 }
 
@@ -228,19 +224,23 @@ std::vector<RANParameterItem>
 RicControlMessage::ExtractRANParametersFromControlMessage(
     E2SM_RC_ControlMessage_Format1_t* e2SmRcControlMessageFormat1)
 {
+    // Returning an empty vector for now
     std::vector<RANParameterItem> ranParameterList;
-    int count = e2SmRcControlMessageFormat1->ranParameters_List->list.count;
-    for (int i = 0; i < count; i++)
-    {
+    /**
+     *
+     int count = e2SmRcControlMessageFormat1->ranParameters_List->list.count;
+     std::cout << "flag" << std::endl;
+     for (int i = 0; i < count; i++)
+     {
         RANParameter_Item_t* ranParameterItem =
-            e2SmRcControlMessageFormat1->ranParameters_List->list.array[i];
+        e2SmRcControlMessageFormat1->ranParameters_List->list.array[i];
         for (RANParameterItem extractedParameter :
-             RANParameterItem::ExtractRANParametersFromRANParameter(ranParameterItem))
+        RANParameterItem::ExtractRANParametersFromRANParameter(ranParameterItem))
         {
             ranParameterList.push_back(extractedParameter);
         }
     }
-
+    */
     return ranParameterList;
 }
 
