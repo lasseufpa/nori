@@ -21,32 +21,32 @@ NrRLMacSchedulerOfdma::GetTypeId()
     static TypeId tid = TypeId("ns3::NrRLMacSchedulerOfdma")
                             .SetParent<NrMacSchedulerOfdmaRR>()
                             .AddConstructor<NrRLMacSchedulerOfdma>()
-                            //.AddAttribute("NumberSlices",
-                            //              "Number of slices",
-                            //              UintegerValue(1),
-                            //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_numberSlices),
-                            //              MakeUintegerChecker<uint32_t>())
-                            //.AddAttribute("DedicatedRbPercSlices",
-                            //              "Dedicated RB percentage per slice",
-                            //              VectorValue(Vector(0.0, 0.0, 0.0)), // ignored initial value.
-                            //              MakeVectorAccessor(&NrRLMacSchedulerOfdma::m_dedicatedRbPercSlices),
-                            //              MakeVectorChecker())
-                            //.AddAttribute("MinRbPercSlices",
-                            //              "Minimum RB percentage per slice",
-                            //              Vector2DValue(),
-                            //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_minRbPercSlices),
-                            //              MakeUintegerChecker<uint32_t>())
-                            //.AddAttribute("MaxRbPercSlices",
-                            //              "Maximum RB percentage per slice",
-                            //              Vector2DValue(),
-                            //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_maxRbPercSlices),
-                            //              MakeUintegerChecker<uint32_t>())
-                            //.AddAttribute("SliceUeRnti",
-                            //              "UE RNTI per slice",
-                            //              Vector2DValue(),
-                            //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_sliceUeRnti),
-                            //              MakeUintegerChecker<std::vector<uint32_t>>())
-                            ;
+        //.AddAttribute("NumberSlices",
+        //              "Number of slices",
+        //              UintegerValue(1),
+        //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_numberSlices),
+        //              MakeUintegerChecker<uint32_t>())
+        //.AddAttribute("DedicatedRbPercSlices",
+        //              "Dedicated RB percentage per slice",
+        //              VectorValue(Vector(0.0, 0.0, 0.0)), // ignored initial value.
+        //              MakeVectorAccessor(&NrRLMacSchedulerOfdma::m_dedicatedRbPercSlices),
+        //              MakeVectorChecker())
+        //.AddAttribute("MinRbPercSlices",
+        //              "Minimum RB percentage per slice",
+        //              Vector2DValue(),
+        //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_minRbPercSlices),
+        //              MakeUintegerChecker<uint32_t>())
+        //.AddAttribute("MaxRbPercSlices",
+        //              "Maximum RB percentage per slice",
+        //              Vector2DValue(),
+        //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_maxRbPercSlices),
+        //              MakeUintegerChecker<uint32_t>())
+        //.AddAttribute("SliceUeRnti",
+        //              "UE RNTI per slice",
+        //              Vector2DValue(),
+        //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_sliceUeRnti),
+        //              MakeUintegerChecker<std::vector<uint32_t>>())
+        ;
     return tid;
 }
 
@@ -101,7 +101,8 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
             NS_ASSERT(m_minRbPercSlices[sliceIdx] <= m_maxRbPercSlices[sliceIdx]);
             minRbPerSlicesOnly[sliceIdx] =
                 m_minRbPercSlices[sliceIdx] - m_dedicatedRbPercSlices[sliceIdx];
-            maxRbPerSlicesOnly[sliceIdx] = m_maxRbPercSlices[sliceIdx] - m_minRbPercSlices[sliceIdx];
+            maxRbPerSlicesOnly[sliceIdx] =
+                m_maxRbPercSlices[sliceIdx] - m_minRbPercSlices[sliceIdx];
 
             for (const auto& ue : GetUeVector(el))
             {
@@ -110,10 +111,7 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
                     if (ue.first->m_rnti == rnti)
                     {
                         ranSliceUeVector[sliceIdx].emplace_back(ue);
-                        BeforeDlSched(
-                            ue,
-                            FTResources(rbgAssignable,
-                                        beamSym));
+                        BeforeDlSched(ue, FTResources(rbgAssignable, beamSym));
                     }
                 }
             }
@@ -121,8 +119,9 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
         std::vector<std::vector<uint32_t>> rbsPercSlices = {m_dedicatedRbPercSlices,
                                                             minRbPerSlicesOnly,
                                                             maxRbPerSlicesOnly};
-        NS_ASSERT(std::accumulate(m_dedicatedRbPercSlices.begin(), m_dedicatedRbPercSlices.end(), 0) <=
-                  100);
+        NS_ASSERT(std::accumulate(m_dedicatedRbPercSlices.begin(),
+                                  m_dedicatedRbPercSlices.end(),
+                                  0) <= 100);
         NS_ASSERT(std::accumulate(m_minRbPercSlices.begin(), m_minRbPercSlices.end(), 0) <= 100);
 
         // RAN slicing allocation
@@ -132,7 +131,8 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
             {
                 uint32_t slicesResource =
                     floor(total_resources * rbsPercSlices[allocProcess][sliceIdx] / 100.0);
-                NS_LOG_DEBUG("Alloc process: " << allocProcess << ", Slice " << sliceIdx << ": " << slicesResource << " RBs");
+                NS_LOG_DEBUG("Alloc process: " << allocProcess << ", Slice " << sliceIdx << ": "
+                                               << slicesResource << " RBs");
                 while (slicesResource > 0 && resources > 0)
                 {
                     // Round-robin for UEs in the slice
@@ -209,10 +209,11 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
             if (allocProcess == 0)
             { // Reduce all the dedicated resources from the total resources (even if the RBs were
               // not used)
-                resources -= ceil(
-                    resources *
-                    std::accumulate(m_dedicatedRbPercSlices.begin(), m_dedicatedRbPercSlices.end(), 0) /
-                    100);
+                resources -= ceil(resources *
+                                  std::accumulate(m_dedicatedRbPercSlices.begin(),
+                                                  m_dedicatedRbPercSlices.end(),
+                                                  0) /
+                                  100);
             }
         }
 
@@ -226,20 +227,16 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
             }
         }
     }
-
     return symPerBeam;
 }
 
 void
-NrRLMacSchedulerOfdma::SetSlicingParameters(const RicControlMessage::SlicePRBQuota& slicePRBQuota){
-    NS_LOG_INFO("Setting slicing parameters with: " << slicePRBQuota.dedicatePRBRatio << " dedicated, "
-                                                     << slicePRBQuota.minPRBRatio << " min, "
-                                                     << slicePRBQuota.maxPRBRatio << " max for slice ID: "
-                                                     << slicePRBQuota.sliceId);
-    std::cout << "Setting slicing parameters with: " << slicePRBQuota.dedicatePRBRatio << " dedicated, "
-              << slicePRBQuota.minPRBRatio << " min, "
-              << slicePRBQuota.maxPRBRatio << " max for slice ID: "
-              << slicePRBQuota.sliceId << std::endl;
+NrRLMacSchedulerOfdma::SetSlicingParameters(const RicControlMessage::SlicePRBQuota& slicePRBQuota)
+{
+    NS_LOG_INFO("Setting slicing parameters with: "
+                << slicePRBQuota.dedicatePRBRatio << " dedicated, " << slicePRBQuota.minPRBRatio
+                << " min, " << slicePRBQuota.maxPRBRatio
+                << " max for slice ID: " << slicePRBQuota.sliceId);
     auto dedicatedPRBRatio = static_cast<uint32_t>(slicePRBQuota.dedicatePRBRatio);
     auto minPRBRatio = static_cast<uint32_t>(slicePRBQuota.minPRBRatio);
     auto maxPRBRatio = static_cast<uint32_t>(slicePRBQuota.maxPRBRatio);
@@ -248,6 +245,5 @@ NrRLMacSchedulerOfdma::SetSlicingParameters(const RicControlMessage::SlicePRBQuo
     m_minRbPercSlices[slicePRBQuota.sliceId] = minPRBRatio;
     m_maxRbPercSlices[slicePRBQuota.sliceId] = maxPRBRatio;
 }
-
 
 } // namespace ns3
