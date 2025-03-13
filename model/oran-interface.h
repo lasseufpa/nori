@@ -105,11 +105,10 @@ class E2Termination : public Object
      */
     struct RicSubscriptionRequest_rval_s
     {
-        uint16_t requestorId;              //!< RIC Requestor ID
-        uint16_t instanceId;               //!< RIC Instance ID
-        uint16_t ranFuncionId;             //!< RAN Function ID
-        uint8_t actionId;                  //!< RIC Action ID
-        ServiceModelType serviceModelType; //!< Service Model Type
+        uint16_t requestorId;  //!< RIC Requestor ID
+        uint16_t instanceId;   //!< RIC Instance ID
+        uint16_t ranFuncionId; //!< RAN Function ID
+        uint8_t actionId;      //!< RIC Action ID
     };
 
     /**
