@@ -25,6 +25,7 @@ $ ./ns3 run "cttc-nr-simple-qos-sched --PrintHelp"
  *
  */
 
+#include "ns3/E2-term-helper.h"
 #include "ns3/antenna-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/buildings-module.h"
@@ -36,7 +37,6 @@ $ ./ns3 run "cttc-nr-simple-qos-sched --PrintHelp"
 #include "ns3/mobility-module.h"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-module.h"
-#include "ns3/E2-term-helper.h"
 
 using namespace ns3;
 
@@ -59,7 +59,7 @@ main(int argc, char* argv[])
 
     // Simulation parameters. Please don't use double to indicate seconds; use
     // ns-3 Time values which use integers to avoid portability issues.
-    Time simTime = Seconds(60);
+    Time simTime = Seconds(10);
     Time udpAppStartTime = MilliSeconds(400);
 
     // NR parameters. We will take the input from the command line, and then we
@@ -145,11 +145,11 @@ main(int argc, char* argv[])
     gridScenario.SetScenarioLength(3); // be distributed.
     randomStream += gridScenario.AssignStreams(randomStream);
     gridScenario.CreateScenario();
-    
+
     // Get the main nodes
     auto gnbs = gridScenario.GetBaseStations();
     auto ues = gridScenario.GetUserTerminals();
-    
+
     uint32_t udpPacketSizeULL;
     uint32_t udpPacketSizeBe;
     uint32_t lambdaULL = 1000;
