@@ -50,7 +50,7 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
      * 
      * @param slicePRBQuota The slice PRB quota
      */
-    void SetSlicingParameters(const RicControlMessage::SlicePRBQuota& slicePRBQuota);
+    void SetSlicingParameters(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
 
   protected:
     BeamSymbolMap AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl) const override;

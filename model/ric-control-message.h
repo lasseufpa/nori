@@ -73,7 +73,7 @@ class RicControlMessage : public SimpleRefCount<RicControlMessage>
     RICcallProcessID_t m_ricCallProcessId;
     E2SM_RC_ControlHeader_Format1_t* m_e2SmRcControlHeaderFormat1;
     std::string GetSecondaryCellIdHO();
-
+    std::vector<SlicePRBQuota> m_prbQuotas;
   private:
     /**
      * Decodes the RIC Control message .
