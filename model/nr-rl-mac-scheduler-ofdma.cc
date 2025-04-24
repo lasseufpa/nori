@@ -230,20 +230,30 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
     return symPerBeam;
 }
 
-void
-NrRLMacSchedulerOfdma::SetSlicingParameters(const RicControlMessage::SlicePRBQuota& slicePRBQuota)
+void NrRLMacSchedulerOfdma::SetSlicingParameters(const std::vector<RicControlMessage::SlicePRBQuota>& quotas)
 {
-    NS_LOG_INFO("Setting slicing parameters with: "
-                << slicePRBQuota.dedicatePRBRatio << " dedicated, " << slicePRBQuota.minPRBRatio
-                << " min, " << slicePRBQuota.maxPRBRatio
-                << " max for slice ID: " << slicePRBQuota.sliceId);
-    auto dedicatedPRBRatio = static_cast<uint32_t>(slicePRBQuota.dedicatePRBRatio);
-    auto minPRBRatio = static_cast<uint32_t>(slicePRBQuota.minPRBRatio);
-    auto maxPRBRatio = static_cast<uint32_t>(slicePRBQuota.maxPRBRatio);
 
-    m_dedicatedRbPercSlices[slicePRBQuota.sliceId] = dedicatedPRBRatio;
-    m_minRbPercSlices[slicePRBQuota.sliceId] = minPRBRatio;
-    m_maxRbPercSlices[slicePRBQuota.sliceId] = maxPRBRatio;
+    size_t maxSliceId = 0;
+    for (auto const& q : quotas) {
+        maxSliceId = std::max(maxSliceId, static_cast<size_t>(q.sliceId));
+    }
+    m_dedicatedRbPercSlices.resize(maxSliceId+1);
+    m_minRbPercSlices      .resize(maxSliceId+1);
+    m_maxRbPercSlices      .resize(maxSliceId+1);
+
+    for (auto const& q : quotas) {
+        NS_LOG_INFO("Setting slicing parameters for slice " << q.sliceId
+                    << ": " << q.dedicatePRBRatio << "% dedicated, "
+                    << q.minPRBRatio      << "% min, "
+                    << q.maxPRBRatio      << "% max");
+        auto dedicated = static_cast<uint32_t>(q.dedicatePRBRatio);
+        auto minPRB     = static_cast<uint32_t>(q.minPRBRatio);
+        auto maxPRB     = static_cast<uint32_t>(q.maxPRBRatio);
+
+        m_dedicatedRbPercSlices[q.sliceId] = dedicated;
+        m_minRbPercSlices      [q.sliceId] = minPRB;
+        m_maxRbPercSlices      [q.sliceId] = maxPRB;
+    }
 }
 
 } // namespace ns3

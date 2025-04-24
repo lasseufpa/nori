@@ -23,9 +23,12 @@
 
 extern "C"
 {
-#include <SlicePRBQuota.h>
+#include <E2SM-RC-ControlHeader.h>
+#include <E2SM-RC-ControlMessage-Format1.h>
+#include <RRMPolicyRatioList.h>
+#include <RRMPolicyRatioGroup.h>
+#include <RRMPolicyMember.h>
 }
-
 namespace ns3
 {
 
@@ -112,15 +115,52 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
             if (e2smControlHeader->present == E2SM_RC_ControlHeader_PR_controlHeader_Format1)
             {
                 m_e2SmRcControlHeaderFormat1 = e2smControlHeader->choice.controlHeader_Format1;
-                auto prb = m_e2SmRcControlHeaderFormat1->slicePRBQuota;
 
-                uint8_t sliceId = prb->sliceID.sST.buf[0];
+                auto *prList = m_e2SmRcControlHeaderFormat1->rrmPolicyList;
+
+                for (size_t i = 0; i < prList->list.count; ++i)
+                {
+                    auto *grp = prList->list.array[i];
+
+                    uint8_t sliceId = 0;
+                    if (grp->rrmPolicy.rrmPolicyMemberList.list.count > 0){
+                        auto *member = grp->rrmPolicy.rrmPolicyMemberList.list.array[0];
+                        uint8_t sliceId = 0;
+                        if (grp->rrmPolicy.rrmPolicyMemberList.list.count > 0) {
+                            // Get the slice ID from the first member
+                            RRMPolicyMember_t *member =
+                              grp->rrmPolicy.rrmPolicyMemberList.list.array[0];
+                            if (member->sNSSAI) {
+                                auto *raw = member->sNSSAI;
+
+                                SNSSAI_t *snssai = reinterpret_cast<SNSSAI_t*>(raw);
+                                //S_NSSAI *snssai = member->sNSSAI;
+                                
+                                if (snssai->sST.buf && snssai->sST.size > 0) {
+                                    sliceId = snssai->sST.buf[0];
+                              }
+                            }
+                          }
+                        //if (member->sNSSAI && member->sNSSAI->sST.buf && member->sNSSAI->sST.size  > 0){
+                        //    sliceId = member->sNSSAI->sST.buf[0];
+                        //}
+                    }
+                    long maxPRBRatio = grp->maxPRBPolicyRatio ? *grp->maxPRBPolicyRatio : 100;
+                    long minPRBRatio = grp->minPRBPolicyRatio ? *grp->minPRBPolicyRatio : 100;
+                    long dedicatePRBRatio = grp->dedicatedPRBPolicyRatio ? *grp->dedicatedPRBPolicyRatio : 100;
+
+                    m_prbQuotas.push_back({sliceId, maxPRBRatio, minPRBRatio, dedicatePRBRatio});
+                }
+
+                //uint8_t sliceId = prb->sliceID.sST.buf[0];
+
+
                 // Get the UE ID
                 // uint8_t ueId = m_e2SmRcControlHeaderFormat1->ueId.buf[0];
-                m_slicePRBQuota = {sliceId,
-                                   prb->maxPRBRatio,
-                                   prb->minPRBRatio,
-                                   prb->dedicatePRBRatio};
+                //m_slicePRBQuota = {sliceId,
+                //                   prb->maxPRBRatio,
+                //                   prb->minPRBRatio,
+                //                   prb->dedicatePRBRatio};
                 // m_e2SmRcControlHeaderFormat1->ric_ControlAction_ID;
                 // m_e2SmRcControlHeaderFormat1->ric_ControlStyle_Type;
             }
