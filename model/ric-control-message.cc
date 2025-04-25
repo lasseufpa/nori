@@ -122,10 +122,9 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
                 {
                     auto *grp = prList->list.array[i];
 
-                    uint8_t sliceId = 0;
+                    uint32_t sliceId = 0;
                     if (grp->rrmPolicy.rrmPolicyMemberList.list.count > 0){
                         auto *member = grp->rrmPolicy.rrmPolicyMemberList.list.array[0];
-                        uint8_t sliceId = 0;
                         if (grp->rrmPolicy.rrmPolicyMemberList.list.count > 0) {
                             // Get the slice ID from the first member
                             RRMPolicyMember_t *member =
@@ -137,7 +136,7 @@ RicControlMessage::DecodeRicControlMessage(E2AP_PDU_t* pdu)
                                 //S_NSSAI *snssai = member->sNSSAI;
                                 
                                 if (snssai->sST.buf && snssai->sST.size > 0) {
-                                    sliceId = snssai->sST.buf[0];
+                                    sliceId = (uint32_t) snssai->sST.buf[0];
                               }
                             }
                           }
