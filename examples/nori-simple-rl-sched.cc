@@ -51,15 +51,16 @@ main(int argc, char* argv[])
      * possibly overridden below when command-line arguments are parsed.
      */
     // Scenario parameters (that we will use inside this script):
+    bool enableRanSlicing = true; // In case false, utilizes the default RR without slicing
     uint16_t gNbNum = 1;
     uint16_t ueNumPergNb = 4;
-    std::string ipE2TermRic = "10.244.0.246";
+    std::string ipE2TermRic = "10.244.0.33";
     uint16_t slice1Ues = 2; // Other UEs are assigned to slice 2
     bool logging = false;
 
     // Simulation parameters. Please don't use double to indicate seconds; use
     // ns-3 Time values which use integers to avoid portability issues.
-    Time simTime = Seconds(10);
+    Time simTime = Seconds(1000);
     Time udpAppStartTime = MilliSeconds(400);
 
     // NR parameters. We will take the input from the command line, and then we
@@ -215,7 +216,7 @@ main(int argc, char* argv[])
     /**
      * @todo remove when finish tests
      */
-    [[maybe_unused]] std::string schedTest = "ns3::NrRLMacSchedulerOfdma";
+    [[maybe_unused]] std::string schedTest = (enableRanSlicing) ? "ns3::NrRLMacSchedulerOfdma" : "ns3::NrMacSchedulerOfdmaRR";
     nrHelper->SetSchedulerTypeId(TypeId::LookupByName(schedTest));
 
     // Error Model: gNB and UE with same spectrum error model.
