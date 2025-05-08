@@ -388,10 +388,10 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
          */
         // m_e2PdcpStatsCalculator->ResetResults();
 
-        // double rxDlPackets = m_e2PdcpStatsCalculator->GetDlRxPackets(imsi, 3); // LCID 3 is used
+        // double rxDlPackets = m_e2PdcpStatsCalculator->GetDlRxPackets(imsi, 4); // LCID 3 is used
         // for data
         // Get the tx packets in DL flow
-        long txDlPackets = m_e2PdcpStatsCalculator->GetDlTxPackets(imsi, 3) -
+        long txDlPackets = m_e2PdcpStatsCalculator->GetDlTxPackets(imsi, 4) -
                            m_cellTxDlPackets; // LCID 3 is used for data
         m_cellTxDlPackets += txDlPackets;
         // Get the tx kbits
@@ -408,7 +408,7 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
         m_cellTxBytes[imsi] += txBytes;
 
         // Get the rx kbit
-        double actualTotalRxBytes = m_e2PdcpStatsCalculator->GetDlRxData(imsi, 3) * (8 / 1e3);
+        double actualTotalRxBytes = m_e2PdcpStatsCalculator->GetDlRxData(imsi, 4) * (8 / 1e3);
         double rxBytes = (actualTotalRxBytes - m_cellRxBytes); // in kbit, not byte
         NS_LOG_DEBUG("Actual value of RX bytes: " << (actualTotalRxBytes) << " - " << m_cellRxBytes
                                                   << ", Result = " << rxBytes);
@@ -443,8 +443,8 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
 
         // compute mean latency based on PDCP statistics
         /** TODO: Actually, it returns the average latency and i don't know how to reset it */
-        [[maybe_unused]] auto stats = m_e2PdcpStatsCalculator->GetDlDelayStats(imsi, 3);
-        double pdcpLatency = m_e2PdcpStatsCalculator->GetDlDelay(imsi, 3) / 1e5; // unit: x 0.1 ms
+        [[maybe_unused]] auto stats = m_e2PdcpStatsCalculator->GetDlDelayStats(imsi, 4);
+        double pdcpLatency = m_e2PdcpStatsCalculator->GetDlDelay(imsi, 4) / 1e5; // unit: x 0.1 ms
         perUserAverageLatencySum += pdcpLatency;
 
         double pdcpThroughput = txBytes / m_e2Periodicity;                    // unit kbps
@@ -463,9 +463,9 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
         }
 
         // compute bitrate based on RLC statistics, decoupled from pdcp throughput
-        double rlcLatency = m_e2RlcStatsCalculator->GetDlDelay(imsi, 3) / 1e9; // unit: s
+        double rlcLatency = m_e2RlcStatsCalculator->GetDlDelay(imsi, 4) / 1e9; // unit: s
         double pduStats =
-            m_e2RlcStatsCalculator->GetDlPduSizeStats(imsi, 3)[0] * 8.0 / 1e3; // unit kbit
+            m_e2RlcStatsCalculator->GetDlPduSizeStats(imsi, 4)[0] * 8.0 / 1e3; // unit kbit
 
         double rlcBitrate = (rlcLatency == 0) ? 0 : pduStats / rlcLatency; // unit kbit/s
 
@@ -1199,10 +1199,10 @@ E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
     double currentTime = Simulator::Now().GetMilliSeconds();
     double deltatime = currentTime - m_previousTime[imsi];
 
-    double currentDlTxData = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 3);
+    double currentDlTxData = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4);
     double dlThroughput = (currentDlTxData - m_previousDlTxData[imsi]) * 8 / deltatime;
     m_previousDlTxData[imsi] = currentDlTxData;
-    double currentUlTxData = m_e2PdcpStatsCalculator->GetUlTxData(imsi, 3);
+    double currentUlTxData = m_e2PdcpStatsCalculator->GetUlTxData(imsi, 4);
     double ulThroughput = (currentUlTxData - m_previousUlTxData[imsi]) * 8 / deltatime;
     m_previousUlTxData[imsi] = currentUlTxData;
     m_previousTime[imsi] = currentTime;
