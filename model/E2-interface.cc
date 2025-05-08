@@ -395,13 +395,17 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
                            m_cellTxDlPackets; // LCID 3 is used for data
         m_cellTxDlPackets += txDlPackets;
         // Get the tx kbits
-        double actualTotalTxBytes = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 3) * (8 / 1e3);
-        double txBytes = (actualTotalTxBytes - m_cellTxBytes); // in kbit, not byte
+        double actualTotalTxBytes = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3);
+        if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
+        {
+            m_cellTxBytes.insert(std::make_pair(imsi, 0));
+        }
+        double txBytes = (actualTotalTxBytes - m_cellTxBytes[imsi]); // in kbit, not byte
 
-        NS_LOG_DEBUG("Actual value of TX bytes: " << (actualTotalTxBytes) << " - " << m_cellTxBytes
+        NS_LOG_DEBUG("Actual value of TX bytes: " << (actualTotalTxBytes) << " - " << m_cellTxBytes[imsi]
                                                   << ", Result = " << txBytes);
         // Save the current value to validate the tx bits in this frame window
-        m_cellTxBytes += txBytes;
+        m_cellTxBytes[imsi] += txBytes;
 
         // Get the rx kbit
         double actualTotalRxBytes = m_e2PdcpStatsCalculator->GetDlRxData(imsi, 3) * (8 / 1e3);
@@ -444,6 +448,8 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
         perUserAverageLatencySum += pdcpLatency;
 
         double pdcpThroughput = txBytes / m_e2Periodicity;                    // unit kbps
+        std::cout << "imsi: " << imsi <<" -> " << pdcpThroughput << " kbps" << std::endl;
+        
         [[maybe_unused]] double pdcpThroughputRx = rxBytes / m_e2Periodicity; // unit kbps
 
         if (m_drbThrDlPdcpBasedComputationUeid.find(imsi) !=
