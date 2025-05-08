@@ -477,12 +477,14 @@ E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
         {
             indicationMessageHelper->AddCuUpUePmItem(ueImsiComplete,
                                                      txPdcpPduBytesNrRlc,
-                                                     txPdcpPduNrRlc);
+                                                     txPdcpPduNrRlc,
+                                                     pdcpThroughput);
         }
 
         uePmString.insert(std::make_pair(imsi,
                                          ",,,," + std::to_string(txPdcpPduBytesNrRlc) + "," +
-                                             std::to_string(txPdcpPduNrRlc)));
+                                             std::to_string(txPdcpPduNrRlc) + "," +
+                                             std::to_string(pdcpThroughput)));
     }
 
     if (!indicationMessageHelper->IsOffline())

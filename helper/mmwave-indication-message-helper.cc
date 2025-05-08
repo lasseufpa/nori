@@ -28,7 +28,8 @@ MmWaveIndicationMessageHelper::MmWaveIndicationMessageHelper(IndicationMessageTy
 void
 MmWaveIndicationMessageHelper::AddCuUpUePmItem(std::string ueImsiComplete,
                                                long txPdcpPduBytesNrRlc,
-                                               long txPdcpPduNrRlc)
+                                               long txPdcpPduNrRlc,
+                                               double pdcpThroughput)
 {
     Ptr<MeasurementItemList> ueVal = Create<MeasurementItemList>(ueImsiComplete);
     if (!m_reducedPmValues)
@@ -38,6 +39,8 @@ MmWaveIndicationMessageHelper::AddCuUpUePmItem(std::string ueImsiComplete,
 
         // UE-specific number of PDCP PDUs split with NR gNB
         ueVal->AddItem<long>("DRB.PdcpPduNbrDl.Qos.UEID", txPdcpPduNrRlc);
+
+        ueVal->AddItem<double>("DRB.PdcpSduBitRateDl.UEID", pdcpThroughput);
     }
 
     m_msgValues.m_ueIndications.insert(ueVal);
