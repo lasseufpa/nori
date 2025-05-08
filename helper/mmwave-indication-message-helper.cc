@@ -40,7 +40,7 @@ MmWaveIndicationMessageHelper::AddCuUpUePmItem(std::string ueImsiComplete,
         // UE-specific number of PDCP PDUs split with NR gNB
         ueVal->AddItem<long>("DRB.PdcpPduNbrDl.Qos.UEID", txPdcpPduNrRlc);
 
-        ueVal->AddItem<double>("DRB.PdcpSduBitRateDl.UEID", pdcpThroughput);
+        ueVal->AddItem<float>("DRB.PdcpSduBitRateDl.UEID", pdcpThroughput);
     }
 
     m_msgValues.m_ueIndications.insert(ueVal);
