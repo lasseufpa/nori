@@ -171,7 +171,9 @@ class E2Interface : public Object
     Ptr<NoriE2Report> m_e2DuCalculator;                   //<! E2 DU calculator
     uint16_t m_cellId{0};                                 //<! Cell ID
     double m_cellTxDlPackets = 0;                         //<! Number of DL packets
-    double m_cellTxBytes = 0;                             //<! Number of DL bytes
+    //double m_cellTxBytes = 0;                             //<! Number of DL bytes
+    std::map <uint64_t, double> m_cellTxBytes;                             //<! Number of DL bytes
+    
     double m_cellRxBytes = 0;                             //<! Number of UL bytes
     uint64_t m_startTime = 0;                             //<! Start time
     std::map<uint64_t, uint32_t>
