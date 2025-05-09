@@ -73,7 +73,7 @@ MmWaveIndicationMessageHelper::AddDuUePmItem(std::string ueImsiComplete,
                                              long mac16Qam,
                                              long mac64Qam,
                                              long macRetx,
-                                             long macVolume,
+                                             [[maybe_unused]] long macVolume,
                                              long macPrb,
                                              long macMac04,
                                              long macMac59,
@@ -100,7 +100,7 @@ MmWaveIndicationMessageHelper::AddDuUePmItem(std::string ueImsiComplete,
         ueVal->AddItem<long>("TB.TotNbrDlInitial.16Qam.UEID", mac16Qam);
         ueVal->AddItem<long>("TB.TotNbrDlInitial.64Qam.UEID", mac64Qam);
         ueVal->AddItem<long>("TB.ErrTotalNbrDl.1.UEID", macRetx);
-        ueVal->AddItem<long>("QosFlow.PdcpPduVolumeDL_Filter.UEID", macVolume);
+        //ueVal->AddItem<long>("QosFlow.PdcpPduVolumeDL_Filter.UEID", macVolume);
         ueVal->AddItem<long>("RRU.PrbUsedDl.UEID", (long)std::ceil(macPrb));
         ueVal->AddItem<long>("CARR.PDSCHMCSDist.Bin1.UEID", macMac04);
         ueVal->AddItem<long>("CARR.PDSCHMCSDist.Bin2.UEID", macMac59);
