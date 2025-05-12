@@ -51,6 +51,8 @@ main(int argc, char* argv[])
      * possibly overridden below when command-line arguments are parsed.
      */
     // Scenario parameters (that we will use inside this script):
+    GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
+    GlobalValue::Bind("ChecksumEnabled", BooleanValue(true));
     bool enableRanSlicing = true; // In case false, utilizes the default RR without slicing
     uint16_t gNbNum = 1;
     uint16_t ueNumPergNb = 4;
@@ -447,8 +449,8 @@ main(int argc, char* argv[])
     // start UDP server and client apps
     serverApps.Start(udpAppStartTime);
     clientApps.Start(udpAppStartTime);
-    serverApps.Stop(simTime);
-    clientApps.Stop(simTime);
+    // serverApps.Stop(simTime); // TODO
+    // clientApps.Stop(simTime); // TODO
 
     // enable the traces provided by the nr module
     // nrHelper->EnableTraces();
@@ -463,7 +465,7 @@ main(int argc, char* argv[])
     monitor->SetAttribute("JitterBinWidth", DoubleValue(0.001));
     monitor->SetAttribute("PacketSizeBinWidth", DoubleValue(20));
 
-    Simulator::Stop(simTime);
+    // Simulator::Stop(simTime);
     Simulator::Run();
 
     /*
