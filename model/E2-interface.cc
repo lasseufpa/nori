@@ -64,7 +64,7 @@ E2Interface::GetTypeId()
                                           MakePointerChecker<NetDevice>())
                             .AddAttribute("E2Periodicity",
                                           "The periodicity of the E2 report messages",
-                                          DoubleValue(0.5),
+                                          DoubleValue(0.01),
                                           MakeDoubleAccessor(&E2Interface::m_e2Periodicity),
                                           MakeDoubleChecker<double>())
                             .AddAttribute("StartTime",
