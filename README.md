@@ -1,105 +1,154 @@
-# Quick Start
+# NORI - New Open RAN Interface (Module for ns-3)
 
-NORI(NEW OPEN RAN INTERFACE) é um modulo NS-3 que conecta o modulo NR por meio da interface e2 a um Near-RT RIC Release I da ORAN-SC
+**NORI** (New Open RAN Interface) is a module for the **ns-3** simulator that integrates the **NR 5G LENA** module with a **Near-RT RIC (Release I)** from the **O-RAN** architecture via the standardized **E2 interface**.
 
-# Requisitos
+This project enables:
+- Metric collection via **KPM Service Model**
+- Network control using the **RAN Control Service Model**
+- Integration with custom xApps
+- Operation in simulated environments without modifying the ns-3 core
 
-Sistema Ubuntu 20.04.6 LTS
+## 📘 Available Blueprints
 
-Requisitos para o e2sim
+To simplify the setup and experimentation with the **NORI** module, we provide **blueprints** with pre-configured environments, including **ns-3**, the **NR 5G LENA** module, **NORI**, and the necessary **xApps**.
 
-```jsx
+These blueprints are ideal for quick testing, prototyping, and hands-on learning with the RIC stack.
+
+▶️ Access the full documentation in the project’s **Wiki**:
+[https://github.com/lasseufpa/nori/wiki](https://github.com/lasseufpa/nori/wiki)
+
+> 💡 **However, if you prefer to test the module in a different environment**, just follow the steps below to manually install the required components and run the examples directly on your system.
+
+---
+
+## 📦 Requirements
+
+Recommended OS: **Ubuntu 20.04.6 LTS**
+
+### E2Sim dependencies
+
+```bash
 sudo apt-get install -y build-essential git cmake libsctp-dev autoconf automake libtool bison flex libboost-all-dev
-```
+````
 
-Para ns-3
+### ns-3 dependencies
 
-```jsx
+```bash
 sudo apt install -y git gcc python3 cmake g++
 ```
 
-Para o NR-5G Lena
+### NR 5G LENA dependencies
 
-```jsx
-sudo apt install libc6-dev sqlite sqlite3 libsqlite3-dev libeigen3-dev
+```bash
+sudo apt install -y libc6-dev sqlite sqlite3 libsqlite3-dev libeigen3-dev
 ```
 
-Para o projeto funcionar o gcc e o g++ 11 deve estar instalado, geralmente no Ubuntu 20.04 apenas a versão 9 está dinsponivel.
+### ⚠️ GCC/G++ 11 Required
 
-Siga os passos para instalar a versão 11 do gcc e g++
+This project requires **GCC/G++ version 11**. To install on Ubuntu 20.04:
 
-```python
+```bash
 sudo add-apt-repository ppa:ubuntu-toolchain-r/test
 sudo apt update
 sudo apt install gcc-11 g++-11
 ```
 
-```python
+Set GCC 11 as default:
+
+```bash
 sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 10
 sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 20
-
 sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 10
 sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 20
 ```
 
-# Instalar e2sim (Atualmente usando o E2sim do Lacava com o ASN1c modificado)
+---
 
-```jsx
+## 🧩 Installing Components
+
+### 1. E2Sim (Lacava’s fork with modified ASN1c)
+
+```bash
 git clone https://github.com/lasseufpa/e2sim.git
-```
-
-```jsx
 cd e2sim/e2sim/
 mkdir build
 ./build_e2sim.sh 3
-```
-
-```cpp
 cd ../..
 ```
 
-# Instalar ns-3
+### 2. ns-3
 
-```jsx
+```bash
 git clone https://gitlab.com/nsnam/ns-3-dev.git
-```
-
-## Instalar NR 5G Lena
-
-```jsx
-git clone https://gitlab.com/cttc-lena/nr.git
 cd ns-3-dev
 git checkout -b ns-3.42 ns-3.42
 ```
 
-# Instalar NORI
+### 3. NR 5G LENA
 
-```jsx
+```bash
+git clone https://gitlab.com/cttc-lena/nr.git
+```
+
+### 4. NORI
+
+```bash
 git clone https://github.com/lasseufpa/nori.git
 ```
 
-# Build ns-3
+---
 
-```jsx
-./ns3 configure --enable-example
-```
+## 🔧 Building ns-3
 
-```jsx
+From the `ns-3-dev` directory:
+
+```bash
+./ns3 configure --enable-examples
 ./ns3 build -j 2
 ```
 
-# Executando o exemplo
+---
 
-Existem dois exemplos que podem ser executados para demonstrar as funionalidade do modulo, são ele o nori-sample e nori-mimo-demo, ambos os exemplos são codigos de exemplo existentes do modulo NR com modificações para funcionar com o nori e se conectar ao Near-RT RIC.
+## 🚀 Running Examples
 
-O primeiro exemplo consiste em uma GNB e um UE
-```jsx
-./ns3 run nori-sample -- --IpE2TermRic="10.244.0.108"
+Two example scenarios are provided to demonstrate the core functionality of the **NORI** module:
+
+### 1. `nori-sample`
+
+Simulates one **gNB** and one **UE**, with UDP traffic and KPM metrics enabled.
+
+```bash
+./ns3 run nori-sample -- --IpE2TermRic="YOUR_E2TERM_IP"
 ```
-Atenção: o ip passado deve pertencer ao pod do e2term, isso pode ser verificado com `kubectl get pods -A -o wide`.
 
-O log do e2term pode der obsevado com:
+> 🔎 You can get the E2Term pod IP with:
 
-```jsx
-kubectl logs deployment-ricplt-e2term-alpha-5dc768bcb7-ppcql -n ricplt
+```bash
+kubectl get pods -A -o wide
 ```
+
+To view the E2Term logs:
+
+```bash
+kubectl logs deployment-ricplt-e2term-alpha-XYZ -n ricplt
+```
+
+### 2. `nori-mimo-demo`
+
+A variation of the sample with **MIMO** (multiple antennas) support.
+
+```bash
+./ns3 run nori-mimo-demo -- --IpE2TermRic="YOUR_E2TERM_IP"
+```
+
+---
+
+## 🧠 Tips
+
+* Ensure the **RIC stack** is running before executing ns-3 examples.
+* The ns-3 terminal will show **E2-SETUP** and **RIC Indication** messages when working correctly.
+
+---
+
+## 📬 Contact
+* Technical contact: [andrey.oliveira@itec.ufpa.br](mailto:andrey.oliveira@itec.ufpa.br)
