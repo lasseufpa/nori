@@ -110,7 +110,7 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
 
     auto e2Term = CreateObject<E2Termination>(m_e2ip,
                                               m_e2port,
-                                              m_e2localPort,
+                                              localPort,
                                               std::to_string(cellId),
                                               plmnId);
     NetDevice->AggregateObject(e2Term);
