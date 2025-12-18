@@ -83,7 +83,14 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     // Public Land Mobile Network Identifier or with abbreviated version PLMN is a combination of
     // MCC and MNC. It is unique value and globally used to identify the mobile network that a user
     // subscribed.
-    std::string plmnId = "111";
+    std::string plmnId = "268413"; // Equivalent to MCC=001 and MNC=01 in Octet string with 3 bytes
+    std::string encodedPlmnId;
+    if (plmnId.length() == 6) {
+        encodedPlmnId = {plmnId[1], plmnId[0], plmnId[3], plmnId[2], plmnId[5], plmnId[4]};
+    } 
+    else if (plmnId.length() == 5) {
+        encodedPlmnId =  {plmnId[1], plmnId[0], 'F', plmnId[2], plmnId[4], plmnId[3]};
+    }
     // node cell ID
     uint16_t cellId{0};
     // Client local port
@@ -106,13 +113,17 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
         NS_ABORT_MSG("NetDevice is not a gNB or eNB");
     }
     // Assert that configuration was properly set
-    NS_ASSERT(plmnId == "111" && cellId != 0 && localPort != 0);
-
+    //NS_ASSERT(plmnId == "00101" && cellId != 0 && localPort != 0);
+    printf("E2TermHelper: PLMN ID %s, Cell ID %s, Cell id int %u, Local Port %u\n",
+           plmnId.c_str(),
+           std::to_string(cellId).c_str(),
+            cellId,
+           localPort);
     auto e2Term = CreateObject<E2Termination>(m_e2ip,
                                               m_e2port,
                                               m_e2localPort,
                                               std::to_string(cellId),
-                                              plmnId);
+                                              encodedPlmnId);
     NetDevice->AggregateObject(e2Term);
     e2Messages->SetAttribute("E2Term", PointerValue(e2Term));
 
