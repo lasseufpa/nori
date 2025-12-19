@@ -81,13 +81,15 @@ cd ../..
 ```bash
 git clone https://gitlab.com/nsnam/ns-3-dev.git
 cd ns-3-dev
-git checkout -b ns-3.42 ns-3.42
+git checkout ab4cce021d8f6b2458784704a10af810d3969f0f
 ```
 
 ### 3. NR 5G LENA
 
 ```bash
+cd contrib
 git clone https://gitlab.com/cttc-lena/nr.git
+cd nr && git checkout 78b7179e3841c608c2021ffa88bea1906a1c7594 && cd ..
 ```
 
 ### 4. NORI
