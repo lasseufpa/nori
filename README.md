@@ -111,6 +111,9 @@ From the `ns-3-dev` directory:
 
 ---
 
+## Running a Docker container
+Clone the NORI repository using `git clone https://github.com/lasseufpa/nori.git` and then inside the `nori/` folder build the Docker image running `docker build -t nori .`. Then, you can run the NORI image running `docker run -it --name nori --network host nori bash`.
+
 ## 🚀 Running Examples
 
 Two example scenarios are provided to demonstrate the core functionality of the **NORI** module:
@@ -120,7 +123,7 @@ Two example scenarios are provided to demonstrate the core functionality of the 
 Simulates one **gNB** and one **UE**, with UDP traffic and KPM metrics enabled.
 
 ```bash
-./ns3 run nori-sample -- --IpE2TermRic="YOUR_E2TERM_IP"
+./ns3 run nori-sample -- --ipE2TermRic="YOUR_E2TERM_IP"
 ```
 
 > 🔎 You can get the E2Term pod IP with:
