@@ -55,11 +55,25 @@ NrRLMacSchedulerOfdma::NrRLMacSchedulerOfdma()
 {
     NS_LOG_FUNCTION(this);
     // Default values -> SHouldn't be hardcoded
-    m_numberSlices = 2;
-    m_minRbPercSlices = {70, 30};
-    m_dedicatedRbPercSlices = {30, 30};
-    m_maxRbPercSlices = {100, 100};
-    m_sliceUeRnti = {{1, 2}, {3, 4}};
+    m_numberSlices = 0;
+    // m_minRbPercSlices = {70, 30};
+    // m_dedicatedRbPercSlices = {30, 30};
+    // m_maxRbPercSlices = {100, 100};
+    // m_sliceUeRnti = {{1, 2}, {3, 4}}; //TODO: add automatic population of this structure
+}
+
+void NrRLMacSchedulerOfdma::SetSliceUeMapping( uint32_t numSlices,
+    const std::vector<std::vector<uint32_t>>& sliceUeRnti)
+{
+    NS_LOG_FUNCTION(this);
+    m_numberSlices = numSlices;
+    m_sliceUeRnti = sliceUeRnti;
+
+    NS_ASSERT_MSG(m_numberSlices > 0, "Number of slices must be greater than 0");
+
+    m_dedicatedRbPercSlices.resize(m_numberSlices, 0);
+    m_minRbPercSlices.resize(m_numberSlices, 0);
+    m_maxRbPercSlices.resize(m_numberSlices, 100);
 }
 
 NrMacSchedulerNs3::BeamSymbolMap
@@ -93,7 +107,7 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
         NS_ASSERT(resources > 0);
 
         // RAN slicing addition
-        uint32_t m_numberSlices = 2;
+        // uint32_t m_numberSlices = 2;
 
         for (uint16_t sliceIdx = 0; sliceIdx < m_numberSlices; sliceIdx++)
         {
@@ -240,6 +254,7 @@ void NrRLMacSchedulerOfdma::SetSlicingParameters(const std::vector<RicControlMes
     m_dedicatedRbPercSlices.resize(maxSliceId+1);
     m_minRbPercSlices      .resize(maxSliceId+1);
     m_maxRbPercSlices      .resize(maxSliceId+1);
+    
 
     for (auto const& q : quotas) {
         NS_LOG_INFO("Setting slicing parameters for slice " << q.sliceId
