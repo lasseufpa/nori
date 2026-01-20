@@ -1,5 +1,6 @@
 // nori-embb-urllc-com-epc.cc
 // Versão com EPC/PGW — tráfego IP fim-a-fim UE <-> remoteHost
+#include "ns3/E2-term-helper.h"
 #include "ns3/applications-module.h"
 #include "ns3/core-module.h"
 #include "ns3/flow-monitor-module.h"
@@ -9,6 +10,7 @@
 #include "ns3/network-module.h"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-module.h"
+#include "ns3/nr-rl-mac-scheduler-ofdma.h"
 #include <nlohmann/json.hpp>
 
 #include <cstdlib>
@@ -27,8 +29,10 @@ NS_LOG_COMPONENT_DEFINE("nori-embb-urllc-scenario");
 
 int main(int argc, char* argv[])
 {   
-    LogComponentEnable("nori-embb-urllc-scenario", LOG_LEVEL_INFO);
-    LogComponentEnable("NrUePhy", LOG_LEVEL_INFO);
+    //LogComponentEnable("nori-embb-urllc-scenario", LOG_LEVEL_INFO);
+    //LogComponentEnable("NrUePhy", LOG_LEVEL_INFO);
+    LogComponentEnable("E2Interface", LOG_LEVEL_INFO);
+    LogComponentEnable("E2Termination", LOG_LEVEL_INFO);
 
     //Config::SetDefault("ns3::NrGnbPhy::IdealRrc", BooleanValue(false));
     //Config::SetDefault("ns3::NrUePhy::IdealRrc", BooleanValue(false));
@@ -43,6 +47,8 @@ int main(int argc, char* argv[])
     uint16_t numerology = 0;
     double txPower = 0.0;
     double ueTxPower = 0.0;
+
+    std::string ipE2TermRic = "10.244.0.246";
 
     uint16_t packetSizeeMBB = 0;
     double dataRateeMBB = 0.0;
@@ -75,7 +81,8 @@ int main(int argc, char* argv[])
         simTime = configJson["simulation"].value("duration", simTime);
 
         numerology = configJson["NR"].value("numerology", numerology);
-        bandwidth = configJson["NR"].value("bandwidthMHz", bandwidth);
+        double bwMHz = configJson["NR"]["bandwidthMHz"].get<double>();
+        bandwidth = bwMHz * 1e6; // converter de MHz para Hz
         centralFrequency = configJson["NR"].value("centralFrequency", centralFrequency);
         txPower = configJson["NR"].value("txPower", txPower);
         ueTxPower = configJson["NR"].value("ueTxPower", ueTxPower);
@@ -132,9 +139,15 @@ int main(int argc, char* argv[])
     }
 
     GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
+    
+    // Parâmetro para habilitar/desabilitar RAN Slicing com RL
+    bool enableRanSlicing = true;
+    
     CommandLine cmd;
     //cmd.AddValue("ueNum", "Número de UEs", ueNum);
     //cmd.AddValue("simTime", "Tempo de simulação (s)", simTime);
+    cmd.AddValue("enableRanSlicing", "Enable RAN Slicing with RL scheduler", enableRanSlicing);
+    cmd.AddValue("ipE2TermRic", "Ip address of the E2 termination", ipE2TermRic);
     cmd.Parse(argc, argv);
 
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
@@ -142,8 +155,18 @@ int main(int argc, char* argv[])
     nrHelper->SetAttribute("UseIdealRrc", BooleanValue(true));
     nrHelper->SetGnbPhyAttribute("TbDecodeLatency", TimeValue(MicroSeconds(1.0)));
     nrHelper->SetUePhyAttribute("TbDecodeLatency", TimeValue(MicroSeconds(1.0)));
+    // Configurar numerologia e potências a partir do config.json
+    nrHelper->SetGnbPhyAttribute("Numerology", UintegerValue(numerology));
+    nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(txPower));
+    nrHelper->SetUePhyAttribute("TxPower", DoubleValue(ueTxPower));
     //nrHelper->SetGnbPhyAttribute("DciProcessingDelay", TimeValue(MicroSeconds(1.0)));
     //nrHelper->SetUePhyAttribute("DciProcessingDelay", TimeValue(MicroSeconds(1.0)));
+    
+    // Configurar scheduler: RL com slicing ou RoundRobin padrão
+    std::string schedulerType = enableRanSlicing ? "ns3::NrRLMacSchedulerOfdma" : "ns3::NrMacSchedulerOfdmaRR";
+    nrHelper->SetSchedulerTypeId(TypeId::LookupByName(schedulerType));
+    NS_LOG_INFO("Scheduler selecionado: " << schedulerType);
+    
     // EPC helper
     Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
     nrHelper->SetEpcHelper(epcHelper);
@@ -208,17 +231,72 @@ int main(int argc, char* argv[])
     channelHelper->AssignChannelsToBands({band});
     allBwps = CcBwpCreator::GetAllBwps({band});
 
-    // --- Pilha IP: instalar em remoteHost (servidor) e UEs (gNB não recebe endereço user-plane) ---
+    //  Pilha IP: instalar em remoteHost  e UEs 
     InternetStackHelper internet;
     internet.Install(remoteHostContainer);
     internet.Install(ueNodes);
 
-    // --- Instala dispositivos NR ---
     NetDeviceContainer gNbDevs = nrHelper->InstallGnbDevice(gNbNodes, allBwps);
     NetDeviceContainer ueDevs = nrHelper->InstallUeDevice(ueNodes, allBwps);
 
-    // Attach UEs
+    // habilitar suporte E2 nos gNBs
+    auto e2 = CreateObject<E2TermHelper>();
+    e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
+    e2->InstallE2Term(gNbDevs);
+
     nrHelper->AttachToClosestGnb(ueDevs, gNbDevs);
+
+    // mapeamento de Slices
+    if (enableRanSlicing && uesPerSlice.size() > 0)
+    {
+        NS_LOG_INFO("Configurando mapeamento de slices no scheduler RL...");
+        
+        // mapeamento de RNTI por slice
+        std::vector<std::vector<uint32_t>> sliceUeRntiMap(uesPerSlice.size());
+        uint32_t currentUeIdx = 0;
+        
+        for (size_t sliceId = 0; sliceId < uesPerSlice.size(); ++sliceId) 
+        {
+            int numUesInSlice = uesPerSlice[sliceId];
+            for (int k = 0; k < numUesInSlice; ++k) 
+            {
+                if (currentUeIdx < ueDevs.GetN()) {
+                    // RNTI começa em 1 e é sequencial
+                    uint32_t rnti = currentUeIdx + 1;
+                    sliceUeRntiMap[sliceId].push_back(rnti);
+                    NS_LOG_INFO("Slice " << sliceId << " -> UE RNTI " << rnti);
+                    currentUeIdx++;
+                }
+            }
+        }
+        
+        // Configurar mapeamento em cada gNB (assumindo um BWP por gNB -> índice 0)
+        for (uint32_t gNbIdx = 0; gNbIdx < gNbDevs.GetN(); ++gNbIdx)
+        {
+            Ptr<NrGnbNetDevice> gnbNetDev = gNbDevs.Get(gNbIdx)->GetObject<NrGnbNetDevice>();
+            if (!gnbNetDev)
+            {
+                continue;
+            }
+
+            Ptr<NrMacScheduler> scheduler = gnbNetDev->GetScheduler(0);
+            Ptr<NrRLMacSchedulerOfdma> rlScheduler = DynamicCast<NrRLMacSchedulerOfdma>(scheduler);
+
+            if (rlScheduler)
+            {
+                rlScheduler->SetSliceUeMapping(uesPerSlice.size(), sliceUeRntiMap);
+                NS_LOG_INFO("Mapeamento de slices configurado no gNB " << gNbIdx);
+            }
+            else
+            {
+                NS_LOG_WARN("Scheduler do gNB " << gNbIdx << " não é NrRLMacSchedulerOfdma");
+            }
+        }
+    }
+    else
+    {
+        NS_LOG_INFO("RAN Slicing desabilitado ou sem slices configurados");
+    }
 
     // --- Conecta remoteHost (servidor) ao PGW via link P2P ---
     PointToPointHelper p2ph;
@@ -272,7 +350,7 @@ int main(int argc, char* argv[])
         NS_LOG_INFO("UE[" << i << "] rota adicionada: 1.0.0.0/8 via interface 1");
     }
 
-    // --- Aplicações: instalar sinks no remoteHost e OnOff nos UEs ---
+    // Aplicações: instalar sinks no remoteHost e OnOff nos UEs
     uint16_t portBase = 8080;
 
     // instalar sink no remoteHost (server)
@@ -314,7 +392,7 @@ int main(int argc, char* argv[])
     //    sourceApps.Stop(Seconds(simTime));
     //}
 
-    // --- LÓGICA DE APLICAÇÃO PARA N SLICES ---
+    // LÓGICA DE APLICAÇÃO PARA N SLICES
     uint32_t currentUeIndex = 0;
 
     for (size_t sliceId = 0; sliceId < uesPerSlice.size(); ++sliceId) 
@@ -371,7 +449,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    // --- Teste de conectividade: enviar um UDP Echo para verificar ---
+    // Teste de conectividade: enviar um UDP Echo para verificar
     NS_LOG_INFO("Instalando teste UDP Echo...");
     uint16_t echoPort = 9;
     UdpEchoServerHelper echoServer(echoPort);

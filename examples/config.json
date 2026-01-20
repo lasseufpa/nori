@@ -1,28 +1,35 @@
 { 
+  "_comment": "Configuration file for the nori-embb-urllc-scenario. All values use SI units unless otherwise noted.",
   "topology": {
+    "_comment": "NR network topology.",
     "numGNb": 1,
     "numUes": 4,
     "distance": 50
   },
   "simulation": {
-    "duration": 10,
+    "_comment": "Global simulation parameters.",
+    "duration": 240,
     "enableLogging": false
   },
   "NR": {
+    "_comment": "Physical parameters of the NR cell.",
     "numerology": 2,
-    "bandwidthMHz": 20e6,
+    "bandwidthMHz": 20,
     "centralFrequency": 3.5e9,
     "txPower": 30,
     "ueTxPower": 23
   },
   "traffic": {
+    "_comment": "Traffic profiles per slice type (eMBB, URLLC).",
     "eMBB": {
+      "_comment": "eMBB traffic: high throughput, less strict delay constraints.",
       "packetSize": 1400,
       "bitrateMbps": 50,
       "onTimeMean": 1.0,
       "offTimeMean": 0.01
     },
     "URLLC": {
+      "_comment": "URLLC traffic: lower throughput, higher reliability/low latency.",
       "packetSize": 200,
       "bitrateMbps": 1,
       "onTimeMean": 0.5,
@@ -30,6 +37,7 @@
     }
   },
   "slices": {
+    "_comment": "RAN slicing configuration: number of UEs per slice and associated traffic type.",
     "numSlices": 2,
     "UesPerSlice": [1, 3],
     "trafficTypes": ["eMBB", "URLLC"]

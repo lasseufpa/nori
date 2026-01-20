@@ -1,4 +1,3 @@
-
 set(base_examples
     nori-sample
     #oran-interface-example
