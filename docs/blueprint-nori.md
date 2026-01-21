@@ -20,7 +20,7 @@ The **blueprint-nori** is a new virtual machine image developed based on the [bl
 ## Deploying Virtual Box
 
 ### Download and Configuration
-1. Download the blueprint-nori from [blueprint-nori-v1](https://nextcloud.lasseufpa.org/s/b6sd42DKnFgmxmP).  
+1. Download the blueprint-nori from [blueprint-nori-v1](https://nextcloud.lasseufpa.org/s/o9RKmmbg5R8ekMg).  
 2. The blueprint is available in zip format, and when unzipped, it will occupy about 64GB of disk space.
 3. In VirtualBox, add the virtual disk in Tools -> Media -> Add Disk Media and select the virtual disk you just downloaded.
 
