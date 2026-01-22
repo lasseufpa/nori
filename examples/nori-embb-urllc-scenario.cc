@@ -13,8 +13,6 @@
 #include "ns3/nr-rl-mac-scheduler-ofdma.h"
 #include <nlohmann/json.hpp>
 
-#include <cstdlib>
-#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -29,13 +27,9 @@ NS_LOG_COMPONENT_DEFINE("nori-embb-urllc-scenario");
 
 int main(int argc, char* argv[])
 {   
-    //LogComponentEnable("nori-embb-urllc-scenario", LOG_LEVEL_INFO);
-    //LogComponentEnable("NrUePhy", LOG_LEVEL_INFO);
+    LogComponentEnable("nori-embb-urllc-scenario", LOG_LEVEL_INFO);
     LogComponentEnable("E2Interface", LOG_LEVEL_INFO);
     LogComponentEnable("E2Termination", LOG_LEVEL_INFO);
-
-    //Config::SetDefault("ns3::NrGnbPhy::IdealRrc", BooleanValue(false));
-    //Config::SetDefault("ns3::NrUePhy::IdealRrc", BooleanValue(false));
 
     uint16_t gNbNum = 1;
     uint16_t ueNum = 2;
@@ -49,12 +43,6 @@ int main(int argc, char* argv[])
     double ueTxPower = 0.0;
 
     std::string ipE2TermRic = "10.244.0.246";
-
-    uint16_t packetSizeeMBB = 0;
-    double dataRateeMBB = 0.0;
-
-    uint16_t packetSizeURLLC = 0;
-    uint16_t bitrateMbpsURLLC = 0;
 
     std::vector<int> uesPerSlice;
     std::vector<std::string> trafficTypes;
@@ -75,7 +63,6 @@ int main(int argc, char* argv[])
         configFile.close();
 
         gNbNum = configJson["topology"].value("numGNb", gNbNum);
-        //ueNum = configJson["topology"].value("numUes", ueNum);
         interSiteDistance = configJson["topology"].value("distance", interSiteDistance);
 
         simTime = configJson["simulation"].value("duration", simTime);
@@ -86,13 +73,6 @@ int main(int argc, char* argv[])
         centralFrequency = configJson["NR"].value("centralFrequency", centralFrequency);
         txPower = configJson["NR"].value("txPower", txPower);
         ueTxPower = configJson["NR"].value("ueTxPower", ueTxPower);
-
-        packetSizeeMBB = configJson["traffic"].value("packetSize", packetSizeeMBB);
-        dataRateeMBB = configJson["traffic"].value("bitrateMbps", dataRateeMBB);
-        packetSizeURLLC = configJson["traffic"].value("packetSizeURLLC", packetSizeURLLC);
-        bitrateMbpsURLLC = configJson["traffic"].value("bitrateMbpsURLLC", bitrateMbpsURLLC);
-
-        //numUeSlice = configJson["slices"].value("numUeSlice", numUeSlice);
 
         std::vector<uint32_t> jsonSlices = configJson["slices"]["UesPerSlice"];
 
@@ -113,8 +93,8 @@ int main(int argc, char* argv[])
         if (configJson["traffic"].contains("eMBB")) {
             auto embbConfig = configJson["traffic"]["eMBB"];
             TrafficProfile embbProfile;
-            embbProfile.dataRate = embbConfig.value("bitrateMbps", dataRateeMBB);
-            embbProfile.packetSize = embbConfig.value("packetSize", packetSizeeMBB);
+            embbProfile.dataRate = embbConfig.value("bitrateMbps", 0.0);
+            embbProfile.packetSize = embbConfig.value("packetSize", static_cast<uint16_t>(0));
             embbProfile.onTime = embbConfig.value("onTimeMean", 1.0);
             embbProfile.offTime = embbConfig.value("offTimeMean", 0.01);
             trafficProfiles["eMBB"] = embbProfile;
@@ -123,8 +103,8 @@ int main(int argc, char* argv[])
         if (configJson["traffic"].contains("URLLC")) {
             auto urllcConfig = configJson["traffic"]["URLLC"];
             TrafficProfile urllcProfile;
-            urllcProfile.dataRate = urllcConfig.value("bitrateMbps", bitrateMbpsURLLC);
-            urllcProfile.packetSize = urllcConfig.value("packetSize", packetSizeURLLC);
+            urllcProfile.dataRate = urllcConfig.value("bitrateMbps", 0.0);
+            urllcProfile.packetSize = urllcConfig.value("packetSize", static_cast<uint16_t>(0));
             urllcProfile.onTime = urllcConfig.value("onTimeMean", 0.5);
             urllcProfile.offTime = urllcConfig.value("offTimeMean", 0.01);
             trafficProfiles["URLLC"] = urllcProfile;
@@ -137,6 +117,10 @@ int main(int argc, char* argv[])
         NS_LOG_ERROR("Não foi possível abrir o arquivo de configuração: ");
         NS_LOG_INFO("Usando parâmetros padrão.");
     }
+
+    // Vetores auxiliares para mapear cada UE ao slice e tipo de tráfego
+    std::vector<int> ueSliceId(ueNum, -1);
+    std::vector<std::string> ueSliceTrafficType(ueNum, "");
 
     GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
     
@@ -194,10 +178,23 @@ int main(int argc, char* argv[])
     gnbMobility.SetPositionAllocator(gnbPositionAlloc);
     gnbMobility.Install(gNbNodes);
 
+    // Logar posições iniciais das gNBs
+    NS_LOG_INFO("*** Posições das gNBs ***");
+    for (uint32_t i = 0; i < gNbNodes.GetN(); ++i)
+    {
+        Ptr<MobilityModel> mob = gNbNodes.Get(i)->GetObject<MobilityModel>();
+        if (mob)
+        {
+            Vector pos = mob->GetPosition();
+            NS_LOG_INFO("gNB[" << i << "] pos = (" << pos.x << ", " << pos.y << ", " << pos.z << ")");
+        }
+    }
+
     MobilityHelper ueMobility;
     Ptr<RandomRectanglePositionAllocator> positionAlloc = CreateObject<RandomRectanglePositionAllocator>();
-    positionAlloc->SetAttribute("X", StringValue("ns3::UniformRandomVariable[Min=-50|Max=50]"));
-    positionAlloc->SetAttribute("Y", StringValue("ns3::UniformRandomVariable[Min=-50|Max=50]"));
+    // Reduzir a área de mobilidade para manter UEs mais próximos do gNB
+    positionAlloc->SetAttribute("X", StringValue("ns3::UniformRandomVariable[Min=-20|Max=20]"));
+    positionAlloc->SetAttribute("Y", StringValue("ns3::UniformRandomVariable[Min=-20|Max=20]"));
     ueMobility.SetPositionAllocator(positionAlloc);
     ueMobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
                                 "Speed",
@@ -207,6 +204,18 @@ int main(int argc, char* argv[])
                                 "PositionAllocator",
                                 PointerValue(positionAlloc));
     ueMobility.Install(ueNodes);
+
+    // Logar posições iniciais das UEs
+    NS_LOG_INFO("*** Posições iniciais das UEs ***");
+    for (uint32_t i = 0; i < ueNodes.GetN(); ++i)
+    {
+        Ptr<MobilityModel> mob = ueNodes.Get(i)->GetObject<MobilityModel>();
+        if (mob)
+        {
+            Vector pos = mob->GetPosition();
+            NS_LOG_INFO("UE[" << i << "] pos = (" << pos.x << ", " << pos.y << ", " << pos.z << ")");
+        }
+    }
 
     // --- Antenas & canal ---
     nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(1));
@@ -226,7 +235,7 @@ int main(int argc, char* argv[])
     band = ccBwpCreator.CreateOperationBandContiguousCc(bandConf);
     Ptr<NrChannelHelper> channelHelper = CreateObject<NrChannelHelper>();
     channelHelper->ConfigureFactories("UMi", "Default", "ThreeGpp");
-    channelHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(true));
+    channelHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
     channelHelper->SetChannelConditionModelAttribute("UpdatePeriod", TimeValue(MilliSeconds(0)));
     channelHelper->AssignChannelsToBands({band});
     allBwps = CcBwpCreator::GetAllBwps({band});
@@ -315,12 +324,17 @@ int main(int argc, char* argv[])
     Ipv4InterfaceContainer ueIpIfaces = epcHelper->AssignUeIpv4Address(ueDevs);
     // Em muitas versões: Ipv4InterfaceContainer ueIpIfaces = epcHelper->AssignUeIpv4Address(ueDevs);
 
+    // Mapa IP->índice de UE para classificação posterior dos fluxos
+    std::map<Ipv4Address, uint32_t> ueIpToIndex;
+
     NS_LOG_INFO("*** Endereços atribuídos (EPC) ***");
     NS_LOG_INFO("remoteHost (server): " << remoteHostAddr);
     NS_LOG_INFO("PGW: " << pgwAddr);
     for (uint32_t i = 0; i < ueIpIfaces.GetN(); ++i)
     {
-        NS_LOG_INFO("UE[" << i << "] IP (via EPC): " << ueIpIfaces.GetAddress(i));
+        Ipv4Address addr = ueIpIfaces.GetAddress(i);
+        ueIpToIndex[addr] = i;
+        NS_LOG_INFO("UE[" << i << "] IP (via EPC): " << addr);
     }
 
     // --- Rotas: no remoteHost precisamos de rota para rede UE via PGW ---
@@ -334,63 +348,57 @@ int main(int argc, char* argv[])
     //remoteStatic->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     remoteStatic->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), Ipv4Address("1.0.0.1"), 1);
 
-    // Configurar default routes nos UEs para o PGW (via EPC)
-    // Isto garante que pacotes dos UEs para remoteHost passem pelo EPC
+    // Configurar rota default nos UEs para o gateway do EPC (via EPC)
+    // Padrão alinhado com exemplos LTE/NR (SetDefaultRoute para GetUeDefaultGatewayAddress)
     for (uint32_t i = 0; i < ueNodes.GetN(); ++i)
     {
         Ptr<Ipv4> ueIpv4 = ueNodes.Get(i)->GetObject<Ipv4>();
         Ptr<Ipv4StaticRouting> ueStatic = ipv4RoutingHelper.GetStaticRouting(ueIpv4);
-        // Interface 1 é o PDN (a interface do lado EPC)
-        // Adicionar rota de default: todo tráfego não local vai para fora via interface 1
-        // O IP de gateway é o PGW (1.0.0.1), mas pacotes UDP podem não precisar de gateway explícito
-        // Apenas apontar a interface é suficiente para o EPC router
-        
-        // Rota para 1.0.0.0/8 via interface 1 (onde está o link P2P para remoteHost)
-        ueStatic->AddNetworkRouteTo(Ipv4Address("1.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
-        NS_LOG_INFO("UE[" << i << "] rota adicionada: 1.0.0.0/8 via interface 1");
+        ueStatic->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        NS_LOG_INFO("UE[" << i << "] default route: GW=" << epcHelper->GetUeDefaultGatewayAddress()
+                         << " via interface 1");
     }
 
-    // Aplicações: instalar sinks no remoteHost e OnOff nos UEs
+    // Aplicações: instalar sinks nos UEs e OnOff no remoteHost (downlink)
     uint16_t portBase = 8080;
 
-    // instalar sink no remoteHost (server)
+    // --- Ativar bearers dedicados para tráfego de downlink (remoteHost -> UEs) ---
+    // Isso garante que o EPC crie mapeamentos S1-U corretos para as portas UDP usadas
+    // nas aplicações OnOff (portas 8080 + índice do UE).
+    for (uint32_t i = 0; i < ueDevs.GetN(); ++i)
+    {
+        Ptr<NetDevice> ueDevice = ueDevs.Get(i);
+
+        // Usar um bearer não-GBR de baixa latência (padrão usado em outros exemplos Nori)
+        NrEpsBearer bearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
+
+        Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+
+        // Filtro de downlink: porta local = porta UDP em que o UE escuta (sink)
+        uint16_t uePort = portBase + i;
+        NrEpcTft::PacketFilter dlpf;
+        dlpf.localPortStart = uePort;
+        dlpf.localPortEnd = uePort;
+        tft->Add(dlpf);
+
+        nrHelper->ActivateDedicatedEpsBearer(ueDevice, bearer, tft);
+
+        NS_LOG_INFO("Bearer dedicado DL ativado para UE[" << i << "] porta " << uePort);
+    }
+
+    // instalar sink em cada UE
     // Sinks precisam iniciar ANTES das apps (em 0s) para estar prontas
     for (uint32_t i = 0; i < ueNum; ++i)
     {
         uint16_t port = portBase + i;
         PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
-        ApplicationContainer sinkApps = sink.Install(remoteHostContainer.Get(0));
+        ApplicationContainer sinkApps = sink.Install(ueNodes.Get(i));
         sinkApps.Start(Seconds(0.0));
         sinkApps.Stop(Seconds(simTime));
-        NS_LOG_INFO("Sink instalada na porta " << port << " no remoteHost");
+        NS_LOG_INFO("Sink instalada na porta " << port << " no UE[" << i << "]");
     }
 
-    // Criar aplicações OnOff nos UEs: primeiros ueNum/2 = eMBB, restantes URLLC
-    //for (uint32_t i = 0; i < ueNum / 2; ++i)
-    //{
-    //    uint16_t port = portBase + i;
-    //    // destino = remoteHostAddr
-    //    OnOffHelper embb("ns3::UdpSocketFactory", InetSocketAddress(remoteHostAddr, port));
-    //    embb.SetAttribute("DataRate", DataRateValue(DataRate("25Mbps")));
-    //    embb.SetAttribute("PacketSize", UintegerValue(1200));
-    //    embb.SetAttribute("OnTime", StringValue("ns3::ExponentialRandomVariable[Mean=1.0]"));
-    //    embb.SetAttribute("OffTime", StringValue("ns3::ExponentialRandomVariable[Mean=0.01]"));
-    //    ApplicationContainer sourceApps = embb.Install(ueNodes.Get(i));
-    //    sourceApps.Start(Seconds(4.0));
-    //    sourceApps.Stop(Seconds(simTime));
-    //}
-    //for (uint32_t i = ueNum / 2; i < ueNum; ++i)
-    //{
-    //    uint16_t port = portBase + i;
-    //    OnOffHelper urllc("ns3::UdpSocketFactory", InetSocketAddress(remoteHostAddr, port));
-    //    urllc.SetAttribute("DataRate", DataRateValue(DataRate("5Mbps")));
-    //    urllc.SetAttribute("PacketSize", UintegerValue(200));
-    //    urllc.SetAttribute("OnTime", StringValue("ns3::ExponentialRandomVariable[Mean=0.5]"));
-    //    urllc.SetAttribute("OffTime", StringValue("ns3::ExponentialRandomVariable[Mean=0.01]"));
-    //    ApplicationContainer sourceApps = urllc.Install(ueNodes.Get(i));
-    //    sourceApps.Start(Seconds(4.0));
-    //    sourceApps.Stop(Seconds(simTime));
-    //}
+    // (lógica antiga de OnOff por metade dos UEs removida; agora o tráfego é definido por slices e perfis em config.json)
 
     // LÓGICA DE APLICAÇÃO PARA N SLICES
     uint32_t currentUeIndex = 0;
@@ -416,18 +424,25 @@ int main(int argc, char* argv[])
             uint16_t port = portBase + nodeIdx;
 
             // Verificar se o tipo de tráfego tem perfil configurado
-            if (trafficProfiles.find(trafficType) == trafficProfiles.end()) {
-                NS_LOG_WARN("Tipo de tráfego '" << trafficType << "' não configurado. Usando padrão eMBB.");
-                trafficType = "eMBB";
+            std::string resolvedTrafficType = trafficType;
+            if (trafficProfiles.find(resolvedTrafficType) == trafficProfiles.end()) {
+                NS_LOG_WARN("Tipo de tráfego '" << resolvedTrafficType << "' não configurado. Usando padrão eMBB.");
+                resolvedTrafficType = "eMBB";
             }
 
-            TrafficProfile profile = trafficProfiles[trafficType];
+            TrafficProfile profile = trafficProfiles[resolvedTrafficType];
 
-            // DEBUG: Primeiro, testar conectividade com Ping
-            NS_LOG_INFO("DEBUG UE[" << nodeIdx << "]: Tentando enviar para " << remoteHostAddr 
-                << " porta " << port << " tipo " << trafficType);
+            Ipv4Address ueAddr = ueIpIfaces.GetAddress(nodeIdx);
 
-            OnOffHelper trafficApp("ns3::UdpSocketFactory", InetSocketAddress(remoteHostAddr, port));
+            // Registrar mapeamento UE -> slice e tipo de tráfego para uso na análise do FlowMonitor
+            ueSliceId[nodeIdx] = static_cast<int>(sliceId);
+            ueSliceTrafficType[nodeIdx] = resolvedTrafficType;
+
+            // DEBUG: tráfego downlink: remoteHost -> UE
+            NS_LOG_INFO("DEBUG DL para UE[" << nodeIdx << "] (" << ueAddr
+                        << "): porta " << port << " tipo " << resolvedTrafficType);
+
+            OnOffHelper trafficApp("ns3::UdpSocketFactory", InetSocketAddress(ueAddr, port));
             trafficApp.SetAttribute("DataRate", DataRateValue(DataRate(std::to_string((int)profile.dataRate) + "Mbps")));
             trafficApp.SetAttribute("PacketSize", UintegerValue(profile.packetSize));
             
@@ -439,7 +454,7 @@ int main(int argc, char* argv[])
             // Tentar ativar a aplicação assim que possível
             trafficApp.SetAttribute("StartTime", TimeValue(Seconds(0.1)));
             
-            ApplicationContainer sourceApps = trafficApp.Install(ueNodes.Get(nodeIdx));
+            ApplicationContainer sourceApps = trafficApp.Install(remoteHostContainer.Get(0));
             
             // Iniciar em 6s para garantir que RRC seja completado
             sourceApps.Start(Seconds(6.0));
@@ -474,7 +489,6 @@ int main(int argc, char* argv[])
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
 
-// Análise
     // Análise
     monitor->CheckForLostPackets();
     Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier>(flowmonHelper.GetClassifier());
@@ -521,8 +535,11 @@ int main(int argc, char* argv[])
         const FlowMonitor::FlowStats& stats = it.second;
         Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(flowId);
 
-        // Verifica se a FONTE é um UE
-        if (ueNetworkMask.IsMatch(t.sourceAddress, ueNetworkAddress))
+        // Verifica se o fluxo está associado a um UE (uplink ou downlink)
+        bool ueAsSource = ueNetworkMask.IsMatch(t.sourceAddress, ueNetworkAddress);
+        bool ueAsDest = ueNetworkMask.IsMatch(t.destinationAddress, ueNetworkAddress);
+
+        if (ueAsSource || ueAsDest)
         {
             double throughput = 0.0;
             double delay = 0.0;
@@ -538,24 +555,72 @@ int main(int argc, char* argv[])
                 lossRatio = (stats.txPackets > 0) ? ((double)(stats.txPackets - stats.rxPackets) / stats.txPackets) * 100.0 : 0.0;
             }
 
-            std::string trafficType;
-            if (t.destinationPort < (portBase + ueNum / 2))
+            // Identificar se é fluxo do teste de Echo (porta 9 em qualquer extremo)
+            bool isEchoFlow = (t.sourcePort == echoPort || t.destinationPort == echoPort);
+
+            // Descobrir qual é o IP do UE neste fluxo
+            Ipv4Address ueAddr;
+            if (ueAsSource && !ueAsDest)
             {
-                trafficType = "eMBB";
+                ueAddr = t.sourceAddress;
+            }
+            else if (ueAsDest && !ueAsSource)
+            {
+                ueAddr = t.destinationAddress;
+            }
+            else
+            {
+                // Caso raro: ambos endpoints em rede de UEs (UE-UE)
+                ueAddr = t.sourceAddress;
+            }
+
+            int ueIndex = -1;
+            auto itIdx = ueIpToIndex.find(ueAddr);
+            if (itIdx != ueIpToIndex.end())
+            {
+                ueIndex = static_cast<int>(itIdx->second);
+            }
+
+            int sliceId = -1;
+            std::string trafficType = "UNKNOWN";
+            if (ueIndex >= 0 && ueIndex < static_cast<int>(ueSliceId.size()))
+            {
+                sliceId = ueSliceId[ueIndex];
+            }
+            if (ueIndex >= 0 && ueIndex < static_cast<int>(ueSliceTrafficType.size()) &&
+                !ueSliceTrafficType[ueIndex].empty())
+            {
+                trafficType = ueSliceTrafficType[ueIndex];
+            }
+
+            if (isEchoFlow)
+            {
+                // Fluxo de teste de conectividade: não entra nas estatísticas eMBB/URLLC
+                std::cout << "Flow " << flowId << " (ECHO TEST): UE " << ueAddr
+                          << " | T-put: " << std::fixed << std::setprecision(2) << throughput << " Mbps"
+                          << " | Delay: " << delay << " ms"
+                          << " | Loss: " << lossRatio << " %" << std::endl;
+                continue;
+            }
+
+            // Atualizar estatísticas agregadas conforme o tipo de tráfego do slice
+            if (trafficType == "eMBB" || trafficType == "EMBB" || trafficType == "embb")
+            {
                 totalThroughputEmbB += throughput;
                 totalDelayEmbB += delay;
                 embbFlows++;
             }
-            else
+            else if (trafficType == "URLLC" || trafficType == "urllc")
             {
-                trafficType = "URLLC";
                 totalThroughputUrllc += throughput;
                 totalDelayUrllc += delay;
                 urllcFlows++;
             }
 
-            std::cout << "Flow " << flowId << " (" << trafficType << "): UE " << t.sourceAddress 
-                      << " -> Server " << t.destinationAddress 
+            std::cout << "Flow " << flowId << " (" << trafficType
+                      << ", slice " << ((sliceId >= 0) ? std::to_string(sliceId) : std::string("N/A"))
+                      << "): " << t.sourceAddress << ":" << t.sourcePort
+                      << " -> " << t.destinationAddress << ":" << t.destinationPort
                       << " | T-put: " << std::fixed << std::setprecision(2) << throughput << " Mbps" 
                       << " | Delay: " << delay << " ms" 
                       << " | Loss: " << lossRatio << " %" << std::endl;

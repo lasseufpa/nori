@@ -3,13 +3,11 @@
   "topology": {
     "_comment": "NR network topology.",
     "numGNb": 1,
-    "numUes": 4,
     "distance": 50
   },
   "simulation": {
     "_comment": "Global simulation parameters.",
-    "duration": 240,
-    "enableLogging": false
+    "duration": 200
   },
   "NR": {
     "_comment": "Physical parameters of the NR cell.",
@@ -24,14 +22,14 @@
     "eMBB": {
       "_comment": "eMBB traffic: high throughput, less strict delay constraints.",
       "packetSize": 1400,
-      "bitrateMbps": 50,
+      "bitrateMbps": 20,
       "onTimeMean": 1.0,
       "offTimeMean": 0.01
     },
     "URLLC": {
       "_comment": "URLLC traffic: lower throughput, higher reliability/low latency.",
       "packetSize": 200,
-      "bitrateMbps": 1,
+      "bitrateMbps": 4,
       "onTimeMean": 0.5,
       "offTimeMean": 0.02
     }
@@ -39,7 +37,7 @@
   "slices": {
     "_comment": "RAN slicing configuration: number of UEs per slice and associated traffic type.",
     "numSlices": 2,
-    "UesPerSlice": [1, 3],
+    "UesPerSlice": [1, 2],
     "trafficTypes": ["eMBB", "URLLC"]
   }
 }
