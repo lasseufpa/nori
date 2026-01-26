@@ -9,9 +9,6 @@
 #include "ns3/network-module.h"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-module.h"
-#include "ns3/nr-rl-mac-scheduler-ofdma.h"
-#include "ns3/nr-ue-net-device.h"
-#include "ns3/nr-ue-mac.h"
 #include "ns3/nori-slicing-helper.h"
 #include <nlohmann/json.hpp>
 
