@@ -2,6 +2,7 @@ set(source_files
     model/E2-report.cc
     model/E2-interface.cc
     helper/E2-term-helper.cc
+    helper/nori-slicing-helper.cc
     model/asn1c-types.cc
     model/function-description.cc
     model/kpm-function-description.cc
@@ -22,6 +23,7 @@ set(header_files
     model/E2-report.h
     model/E2-interface.h
     helper/E2-term-helper.h
+    helper/nori-slicing-helper.h
     model/asn1c-types.h
     model/function-description.h
     model/kpm-function-description.h
