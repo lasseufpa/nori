@@ -63,8 +63,9 @@ NrRLMacSchedulerOfdma::NrRLMacSchedulerOfdma()
     // m_sliceUeRnti = {{1, 2}, {3, 4}}; //TODO: add automatic population of this structure
 }
 
-void NrRLMacSchedulerOfdma::SetSliceUeMapping( uint32_t numSlices,
-    const std::vector<std::vector<uint32_t>>& sliceUeRnti)
+void
+NrRLMacSchedulerOfdma::SetSliceUeMapping(uint32_t numSlices,
+                                         const std::vector<std::vector<uint32_t>>& sliceUeRnti)
 {
     NS_LOG_FUNCTION(this);
     m_numberSlices = numSlices;
@@ -105,6 +106,10 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
     std::vector<uint32_t> maxRbPerSlicesOnly(m_maxRbPercSlices.size());
     std::vector<std::vector<UePtrAndBufferReq>> ranSliceUeVector(m_numberSlices);
 
+    std::vector<uint32_t> dedicatedRbPercSlices = m_dedicatedRbPercSlices;
+    std::vector<uint32_t> minRbPercSlices = m_minRbPercSlices;
+    std::vector<uint32_t> maxRbPercSlices = m_maxRbPercSlices;
+
     // Iterate through the different beams
     for (const auto& el : activeDl)
     {
@@ -124,12 +129,11 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
 
         for (uint16_t sliceIdx = 0; sliceIdx < m_numberSlices; sliceIdx++)
         {
-            NS_ASSERT(m_dedicatedRbPercSlices[sliceIdx] <= m_minRbPercSlices[sliceIdx]);
-            NS_ASSERT(m_minRbPercSlices[sliceIdx] <= m_maxRbPercSlices[sliceIdx]);
+            NS_ASSERT(dedicatedRbPercSlices[sliceIdx] <= minRbPercSlices[sliceIdx]);
+            NS_ASSERT(minRbPercSlices[sliceIdx] <= maxRbPercSlices[sliceIdx]);
             minRbPerSlicesOnly[sliceIdx] =
-                m_minRbPercSlices[sliceIdx] - m_dedicatedRbPercSlices[sliceIdx];
-            maxRbPerSlicesOnly[sliceIdx] =
-                m_maxRbPercSlices[sliceIdx] - m_minRbPercSlices[sliceIdx];
+                minRbPercSlices[sliceIdx] - dedicatedRbPercSlices[sliceIdx];
+            maxRbPerSlicesOnly[sliceIdx] = maxRbPercSlices[sliceIdx] - minRbPercSlices[sliceIdx];
 
             for (const auto& ue : GetUeVector(el))
             {
@@ -156,13 +160,17 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
             }
             NS_LOG_INFO(oss.str());
         }
-        std::vector<std::vector<uint32_t>> rbsPercSlices = {m_dedicatedRbPercSlices,
+        std::vector<std::vector<uint32_t>> rbsPercSlices = {dedicatedRbPercSlices,
                                                             minRbPerSlicesOnly,
                                                             maxRbPerSlicesOnly};
-        NS_ASSERT(std::accumulate(m_dedicatedRbPercSlices.begin(),
-                                  m_dedicatedRbPercSlices.end(),
-                                  0) <= 100);
-        NS_ASSERT(std::accumulate(m_minRbPercSlices.begin(), m_minRbPercSlices.end(), 0) <= 100);
+
+        NS_LOG_UNCOND("dedicatedRbPercSlices sum: " << std::accumulate(dedicatedRbPercSlices.begin(), dedicatedRbPercSlices.end(), 0) 
+                  << ", minRbPercSlices sum: " << std::accumulate(minRbPercSlices.begin(), minRbPercSlices.end(), 0)
+                  << ", maxRbPercSlices sum: " << std::accumulate(maxRbPercSlices.begin(), maxRbPercSlices.end(), 0));
+
+        NS_ASSERT(std::accumulate(dedicatedRbPercSlices.begin(), dedicatedRbPercSlices.end(), 0) <=
+                  100);
+        NS_ASSERT(std::accumulate(minRbPercSlices.begin(), minRbPercSlices.end(), 0) <= 100);
 
         // RAN slicing allocation
         for (int allocProcess = 0; allocProcess < 3; allocProcess++) // 0=dedicated, 1=min, 2=max
@@ -249,11 +257,10 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
             if (allocProcess == 0)
             { // Reduce all the dedicated resources from the total resources (even if the RBs were
               // not used)
-                resources -= ceil(resources *
-                                  std::accumulate(m_dedicatedRbPercSlices.begin(),
-                                                  m_dedicatedRbPercSlices.end(),
-                                                  0) /
-                                  100);
+                resources -= ceil(
+                    resources *
+                    std::accumulate(dedicatedRbPercSlices.begin(), dedicatedRbPercSlices.end(), 0) /
+                    100);
             }
         }
 
@@ -270,30 +277,31 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
     return symPerBeam;
 }
 
-void NrRLMacSchedulerOfdma::SetSlicingParameters(const std::vector<RicControlMessage::SlicePRBQuota>& quotas)
+void
+NrRLMacSchedulerOfdma::SetSlicingParameters(
+    const std::vector<RicControlMessage::SlicePRBQuota>& quotas)
 {
-
     size_t maxSliceId = 0;
-    for (auto const& q : quotas) {
+    for (const auto& q : quotas)
+    {
         maxSliceId = std::max(maxSliceId, static_cast<size_t>(q.sliceId));
     }
-    m_dedicatedRbPercSlices.resize(maxSliceId+1);
-    m_minRbPercSlices      .resize(maxSliceId+1);
-    m_maxRbPercSlices      .resize(maxSliceId+1);
-    
+    m_dedicatedRbPercSlices.resize(maxSliceId + 1);
+    m_minRbPercSlices.resize(maxSliceId + 1);
+    m_maxRbPercSlices.resize(maxSliceId + 1);
 
-    for (auto const& q : quotas) {
-        NS_LOG_INFO("Setting slicing parameters for slice " << q.sliceId
-                    << ": " << q.dedicatePRBRatio << "% dedicated, "
-                    << q.minPRBRatio      << "% min, "
-                    << q.maxPRBRatio      << "% max");
+    for (const auto& q : quotas)
+    {
+        std::cout << "Setting slicing parameters for slice " << q.sliceId << ": "
+                  << q.dedicatePRBRatio << "% dedicated, " << q.minPRBRatio << "% min, "
+                  << q.maxPRBRatio << "% max" << std::endl;
         auto dedicated = static_cast<uint32_t>(q.dedicatePRBRatio);
-        auto minPRB     = static_cast<uint32_t>(q.minPRBRatio);
-        auto maxPRB     = static_cast<uint32_t>(q.maxPRBRatio);
+        auto minPRB = static_cast<uint32_t>(q.minPRBRatio);
+        auto maxPRB = static_cast<uint32_t>(q.maxPRBRatio);
 
         m_dedicatedRbPercSlices[q.sliceId] = dedicated;
-        m_minRbPercSlices      [q.sliceId] = minPRB;
-        m_maxRbPercSlices      [q.sliceId] = maxPRB;
+        m_minRbPercSlices[q.sliceId] = minPRB;
+        m_maxRbPercSlices[q.sliceId] = maxPRB;
     }
 }
 
