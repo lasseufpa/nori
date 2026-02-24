@@ -33,6 +33,7 @@ void
 NoriSlicingHelper::ScheduleSliceMapping(Time when,
                                         bool enableRanSlicing,
                                         const std::vector<int>& uesPerSlice,
+                                        const std::vector<uint8_t>& sstPerSlice,
                                         NetDeviceContainer gNbDevs,
                                         NetDeviceContainer ueDevs)
 {
@@ -45,10 +46,17 @@ NoriSlicingHelper::ScheduleSliceMapping(Time when,
     NS_LOG_INFO("[NoriSlicingHelper] Slice configuration event scheduled for t="
                 << when.GetSeconds() << "s");
 
+    if (sstPerSlice.empty() || sstPerSlice.size() != uesPerSlice.size())
+    {
+        NS_FATAL_ERROR("[NoriSlicingHelper] Invalid sstPerSlice configuration: expected one SST "
+                       "per slice and non-empty vector");
+    }
+
     Simulator::Schedule(when,
                         &NoriSlicingHelper::ConfigureSliceMapping,
                         enableRanSlicing,
                         uesPerSlice,
+                        sstPerSlice,
                         gNbDevs,
                         ueDevs);
 }
@@ -56,6 +64,7 @@ NoriSlicingHelper::ScheduleSliceMapping(Time when,
 void
 NoriSlicingHelper::ConfigureSliceMapping(bool enableRanSlicing,
                                          std::vector<int> uesPerSlice,
+                                         std::vector<uint8_t> sstPerSlice,
                                          NetDeviceContainer gNbDevs,
                                          NetDeviceContainer ueDevs)
 {
@@ -118,7 +127,7 @@ NoriSlicingHelper::ConfigureSliceMapping(bool enableRanSlicing,
     }
 
     // Update single-source-of-truth mapping RNTI -> SST
-    RegisterSstMapping(sliceUeRntiMap);
+    RegisterSstMapping(sliceUeRntiMap, sstPerSlice);
 
     // Configure mapping in each gNB
     for (uint32_t gNbIdx = 0; gNbIdx < gNbDevs.GetN(); ++gNbIdx)
@@ -147,29 +156,21 @@ NoriSlicingHelper::ConfigureSliceMapping(bool enableRanSlicing,
 }
 
 void
-NoriSlicingHelper::RegisterSstMapping(const std::vector<std::vector<uint32_t>>& sliceUeRntiMap)
+NoriSlicingHelper::RegisterSstMapping(const std::vector<std::vector<uint32_t>>& sliceUeRntiMap,
+                                      const std::vector<uint8_t>& sstPerSlice)
 {
     // Clear previous mapping before installing a new configuration
     m_rntiToSst.clear();
 
+    if (sstPerSlice.empty() || sstPerSlice.size() != sliceUeRntiMap.size())
+    {
+        NS_FATAL_ERROR("[NoriSlicingHelper] sstPerSlice must be provided and match the number "
+                       "of slices");
+    }
+
     for (size_t sliceIdx = 0; sliceIdx < sliceUeRntiMap.size(); ++sliceIdx)
     {
-        // Semantic: slice index 0 -> SST=1, slice index 1 -> SST=2,
-        // any other index -> SST=0 ("unknown" / not represented).
-        uint8_t sst = 0;
-        if (sliceIdx == 0)
-        {
-            sst = 1;
-        }
-        else if (sliceIdx == 1)
-        {
-            sst = 2;
-        }
-        else
-        {
-            NS_LOG_WARN("[NoriSlicingHelper] Slice index " << sliceIdx
-                         << " has no SST mapping (only {1,2} supported); marking as unknown.");
-        }
+        uint8_t sst = sstPerSlice[sliceIdx];
 
         for (uint32_t rnti32 : sliceUeRntiMap[sliceIdx])
         {
@@ -177,6 +178,8 @@ NoriSlicingHelper::RegisterSstMapping(const std::vector<std::vector<uint32_t>>& 
             if (sst == 0)
             {
                 // Keep the RNTI unmapped (sst=0) to signal "unknown".
+                NS_LOG_WARN("[NoriSlicingHelper] SST=0 for slice index " << sliceIdx
+                             << ", RNTI=" << rnti << " (treating as unknown / not mapped).");
                 continue;
             }
 

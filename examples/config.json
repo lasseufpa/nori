@@ -38,6 +38,7 @@
     "_comment": "RAN slicing configuration: number of UEs per slice and associated traffic type.",
     "numSlices": 2,
     "UesPerSlice": [2, 2],
-    "trafficTypes": ["eMBB", "URLLC"]
+    "trafficTypes": ["eMBB", "URLLC"],
+    "SstPerSlice": [1, 2]
   }
 }

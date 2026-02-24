@@ -18,6 +18,7 @@
 
 #include <vector>
 #include <numeric>
+#include <cstdint>
 
 
 using namespace ns3;
@@ -45,6 +46,7 @@ int main(int argc, char* argv[])
     std::string ipE2TermRic = "10.244.0.246";
 
     std::vector<int> uesPerSlice;
+    std::vector<uint8_t> sstPerSlice;
     std::vector<std::string> trafficTypes;
 
     // Per-traffic-type traffic parameters
@@ -78,7 +80,7 @@ int main(int argc, char* argv[])
 
         for (uint32_t& item : jsonSlices) {
             NS_LOG_INFO("Number of UEs per slice: " << item);
-            uesPerSlice.push_back(item);
+            uesPerSlice.push_back(static_cast<int>(item));
         }
 
         if (configJson["slices"].contains("trafficTypes")) {
@@ -109,12 +111,37 @@ int main(int argc, char* argv[])
             trafficProfiles["URLLC"] = urllcProfile;
         }
 
+        // Expected format in config.json: "SstPerSlice": [1, 2]
+        if (!configJson["slices"].contains("SstPerSlice")) {
+            NS_FATAL_ERROR("[nori-embb-urllc-scenario] Missing required field slices.SstPerSlice in config.json");
+        }
+
+        std::vector<uint32_t> jsonSst = configJson["slices"]["SstPerSlice"];
+
+        if (jsonSst.size() != uesPerSlice.size()) {
+            NS_FATAL_ERROR("[nori-embb-urllc-scenario] SstPerSlice size (" << jsonSst.size()
+                           << ") does not match UesPerSlice size (" << uesPerSlice.size() << ")");
+        }
+
+        for (size_t i = 0; i < jsonSst.size(); ++i) {
+            uint32_t v = jsonSst[i];
+            if (v > 255) {
+                NS_FATAL_ERROR("[nori-embb-urllc-scenario] Invalid SST value " << v
+                               << " for slice " << i << " (expected 0..255)");
+            }
+            uint8_t sst = static_cast<uint8_t>(v);
+            sstPerSlice.push_back(sst);
+            NS_LOG_INFO("[nori-embb-urllc-scenario] Slice " << i
+                         << " configured SST from JSON: " << static_cast<uint32_t>(sst));
+        }
+
         ueNum = std::accumulate(uesPerSlice.begin(), uesPerSlice.end(), 0);
         NS_LOG_INFO("Total number of UEs (from slice configuration): " << ueNum);
 
     }else {
-        NS_LOG_ERROR("Could not open configuration file; using default parameters.");
+        NS_LOG_ERROR("Could not open configuration file.");
     }
+
 
     // Map each UE to its slice and traffic type (for post-processing)
     std::vector<int> ueSliceId(ueNum, -1);
@@ -253,6 +280,7 @@ int main(int argc, char* argv[])
     NoriSlicingHelper::ScheduleSliceMapping(Seconds(1.0),
                                             enableRanSlicing,
                                             uesPerSlice,
+                                            sstPerSlice,
                                             gNbDevs,
                                             ueDevs);
 
