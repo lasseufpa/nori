@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <cstdint>
+#include <map>
 #include <vector>
 
 #include "ns3/net-device-container.h"
@@ -35,6 +37,24 @@ class NoriSlicingHelper
                                      NetDeviceContainer gNbDevs,
                                      NetDeviceContainer ueDevs);
 
+                    /**
+                     * \brief Get the SST associated to a given UE RNTI.
+                     *
+                     * Semantic convention (single source of truth for slicing SST):
+                     *  - slice index 0 -> SST = 1
+                     *  - slice index 1 -> SST = 2
+                     *  - any other slice index or unknown RNTI -> SST = 0 ("unknown")
+                     *
+                     * This function is the official entry point for KPM/RC/scheduler
+                     * components that need to translate a UE RNTI into its SST. The
+                     * internal representation may still use per-slice lists, but the
+                     * mapping RNTI -> SST is centralized here.
+                     *
+                     * \param rnti 16-bit UE RNTI.
+                     * \return SST value in {0,1,2}.
+                     */
+                    static uint8_t GetSstForRnti(uint16_t rnti);
+
   private:
     /**
      * \brief Internal function that applies the slice mapping configuration.
@@ -45,6 +65,17 @@ class NoriSlicingHelper
                                       std::vector<int> uesPerSlice,
                                       NetDeviceContainer gNbDevs,
                                       NetDeviceContainer ueDevs);
+
+    /**
+     * \brief Helper used internally to register the RNTI->SST mapping
+     *        whenever a new slice mapping is configured.
+     */
+    static void RegisterSstMapping(const std::vector<std::vector<uint32_t>>& sliceUeRntiMap);
+
+    /**
+     * \brief Global RNTI -> SST mapping (single source of truth).
+     */
+    static std::map<uint16_t, uint8_t> m_rntiToSst;
 };
 
 } // namespace ns3

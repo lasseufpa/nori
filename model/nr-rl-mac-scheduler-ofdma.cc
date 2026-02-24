@@ -4,7 +4,10 @@
 
 #include "nr-rl-mac-scheduler-ofdma.h"
 
+#include "nr-mac-scheduler-ue-info-rl.h"
+
 #include "ns3/log.h"
+#include "ns3/nori-slicing-helper.h"
 #include "ns3/nr-fh-control.h"
 
 #include <algorithm>
@@ -61,6 +64,20 @@ NrRLMacSchedulerOfdma::NrRLMacSchedulerOfdma()
     // m_dedicatedRbPercSlices = {30, 30};
     // m_maxRbPercSlices = {100, 100};
     // m_sliceUeRnti = {{1, 2}, {3, 4}}; //TODO: add automatic population of this structure
+}
+
+std::shared_ptr<NrMacSchedulerUeInfo>
+NrRLMacSchedulerOfdma::CreateUeRepresentation(
+    const NrMacCschedSapProvider::CschedUeConfigReqParameters& params) const
+{
+    NS_LOG_FUNCTION(this);
+    // Use RL-aware UE representation so we can answer RNTI->SST at runtime
+    // without scanning slice lists; the actual SST lookup is delegated to
+    // NoriSlicingHelper via NrMacSchedulerUeInfoRl.
+    return std::make_shared<NrMacSchedulerUeInfoRl>(
+        params.m_rnti,
+        params.m_beamId,
+        std::bind(&NrRLMacSchedulerOfdma::GetNumRbPerRbg, this));
 }
 
 void
@@ -142,6 +159,13 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
                     if (ue.first->m_rnti == rnti)
                     {
                         ranSliceUeVector[sliceIdx].emplace_back(ue);
+                        // Evidence/log: when we associate an active UE to a slice
+                        // in the scheduler, also log its SST as seen via the
+                        // RNTI->SST mapping (deterministic, no list scan here).
+                        uint8_t sst = NrMacSchedulerUeInfoRl::GetSstFromUe(ue.first);
+                        NS_LOG_INFO("[NrRLMacSchedulerOfdma] UE RNTI="
+                                    << ue.first->m_rnti << " mapped to slice " << sliceIdx
+                                    << " with SST=" << static_cast<uint32_t>(sst));
                         BeforeDlSched(ue, FTResources(rbgAssignable, beamSym));
                     }
                 }
@@ -281,27 +305,85 @@ void
 NrRLMacSchedulerOfdma::SetSlicingParameters(
     const std::vector<RicControlMessage::SlicePRBQuota>& quotas)
 {
-    size_t maxSliceId = 0;
-    for (const auto& q : quotas)
+    NS_LOG_FUNCTION(this);
+
+    // Build a mapping SST (sliceId from RC, e.g., 1/2) -> internal
+    // slice index used by the scheduler (0-based), using the
+    // RNTI->SST mapping provided by NoriSlicingHelper and the
+    // per-slice UE lists configured at attach time.
+    std::map<uint8_t, uint32_t> sstToSliceIdx;
+
+    for (uint32_t sliceIdx = 0; sliceIdx < m_sliceUeRnti.size(); ++sliceIdx)
     {
-        maxSliceId = std::max(maxSliceId, static_cast<size_t>(q.sliceId));
+        for (uint32_t rnti32 : m_sliceUeRnti[sliceIdx])
+        {
+            uint16_t rnti = static_cast<uint16_t>(rnti32);
+            uint8_t sst = NoriSlicingHelper::GetSstForRnti(rnti);
+
+            if (sst == 0)
+            {
+                continue; // unknown / not mapped
+            }
+
+            auto it = sstToSliceIdx.find(sst);
+            if (it == sstToSliceIdx.end())
+            {
+                sstToSliceIdx[sst] = sliceIdx;
+                NS_LOG_INFO("[NrRLMacSchedulerOfdma] Map SST="
+                            << static_cast<uint32_t>(sst)
+                            << " -> internal sliceIdx=" << sliceIdx);
+            }
+            else if (it->second != sliceIdx)
+            {
+                NS_LOG_WARN("[NrRLMacSchedulerOfdma] SST="
+                            << static_cast<uint32_t>(sst)
+                            << " appears in multiple slice indices (" << it->second << ","
+                            << sliceIdx
+                            << "); using the first one for quota mapping.");
+            }
+        }
     }
-    m_dedicatedRbPercSlices.resize(maxSliceId + 1);
-    m_minRbPercSlices.resize(maxSliceId + 1);
-    m_maxRbPercSlices.resize(maxSliceId + 1);
+
+    if (sstToSliceIdx.empty())
+    {
+        NS_LOG_WARN("[NrRLMacSchedulerOfdma] No SST->sliceIdx mapping available; "
+                    "slicing quotas will be ignored.");
+        return;
+    }
+
+    // Initialize per-slice quotas with safe defaults and size equal
+    // to the number of configured slices. Quotas coming from RC are
+    // then mapped SST->sliceIdx using the table above.
+    m_dedicatedRbPercSlices.assign(m_numberSlices, 0);
+    m_minRbPercSlices.assign(m_numberSlices, 0);
+    m_maxRbPercSlices.assign(m_numberSlices, 100);
 
     for (const auto& q : quotas)
     {
-        std::cout << "Setting slicing parameters for slice " << q.sliceId << ": "
-                  << q.dedicatePRBRatio << "% dedicated, " << q.minPRBRatio << "% min, "
-                  << q.maxPRBRatio << "% max" << std::endl;
+        uint8_t sst = static_cast<uint8_t>(q.sliceId);
+        auto it = sstToSliceIdx.find(sst);
+        if (it == sstToSliceIdx.end())
+        {
+            NS_LOG_WARN("[NrRLMacSchedulerOfdma] Received quota for SST="
+                        << static_cast<uint32_t>(sst)
+                        << " but no matching slice index exists; ignoring.");
+            continue;
+        }
+
+        uint32_t sliceIdx = it->second;
+
+        std::cout << "Setting slicing parameters for SST " << static_cast<uint32_t>(sst)
+                  << " (internal sliceIdx=" << sliceIdx << "): " << q.dedicatePRBRatio
+                  << "% dedicated, " << q.minPRBRatio << "% min, " << q.maxPRBRatio
+                  << "% max" << std::endl;
+
         auto dedicated = static_cast<uint32_t>(q.dedicatePRBRatio);
         auto minPRB = static_cast<uint32_t>(q.minPRBRatio);
         auto maxPRB = static_cast<uint32_t>(q.maxPRBRatio);
 
-        m_dedicatedRbPercSlices[q.sliceId] = dedicated;
-        m_minRbPercSlices[q.sliceId] = minPRB;
-        m_maxRbPercSlices[q.sliceId] = maxPRB;
+        m_dedicatedRbPercSlices[sliceIdx] = dedicated;
+        m_minRbPercSlices[sliceIdx] = minPRB;
+        m_maxRbPercSlices[sliceIdx] = maxPRB;
     }
 }
 

@@ -10,6 +10,7 @@ set(source_files
     model/oran-interface.cc
     model/ric-control-function-description.cc
     model/ric-control-message.cc
+    model/nr-mac-scheduler-ue-info-rl.cc
     model/nr-rl-mac-scheduler-ofdma.cc
     helper/indication-message-helper.cc
     helper/lte-indication-message-helper.cc
@@ -31,6 +32,7 @@ set(header_files
     model/oran-interface.h
     model/ric-control-function-description.h
     model/ric-control-message.h
+    model/nr-mac-scheduler-ue-info-rl.h
     model/nr-rl-mac-scheduler-ofdma.h
     helper/indication-message-helper.h
     helper/lte-indication-message-helper.h

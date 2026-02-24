@@ -14,6 +14,21 @@ namespace ns3
 
 NS_LOG_COMPONENT_DEFINE("NoriSlicingHelper");
 
+// Static member definition
+std::map<uint16_t, uint8_t> NoriSlicingHelper::m_rntiToSst;
+
+uint8_t
+NoriSlicingHelper::GetSstForRnti(uint16_t rnti)
+{
+    auto it = m_rntiToSst.find(rnti);
+    if (it == m_rntiToSst.end())
+    {
+        return 0; // unknown
+    }
+
+    return it->second;
+}
+
 void
 NoriSlicingHelper::ScheduleSliceMapping(Time when,
                                         bool enableRanSlicing,
@@ -77,7 +92,7 @@ NoriSlicingHelper::ConfigureSliceMapping(bool enableRanSlicing,
         NS_LOG_INFO("[NoriSlicingHelper] UE[" << i << "] has RNTI " << rnti);
     }
 
-    // RNTI-to-slice mapping
+    // RNTI-to-slice mapping (per-slice lists, still used by the scheduler)
     std::vector<std::vector<uint32_t>> sliceUeRntiMap(uesPerSlice.size());
     uint32_t currentUeIdx = 0;
 
@@ -102,6 +117,9 @@ NoriSlicingHelper::ConfigureSliceMapping(bool enableRanSlicing,
         }
     }
 
+    // Update single-source-of-truth mapping RNTI -> SST
+    RegisterSstMapping(sliceUeRntiMap);
+
     // Configure mapping in each gNB
     for (uint32_t gNbIdx = 0; gNbIdx < gNbDevs.GetN(); ++gNbIdx)
     {
@@ -124,6 +142,47 @@ NoriSlicingHelper::ConfigureSliceMapping(bool enableRanSlicing,
         {
             NS_LOG_WARN("[NoriSlicingHelper] Scheduler of gNB "
                         << gNbIdx << " is not NrRLMacSchedulerOfdma");
+        }
+    }
+}
+
+void
+NoriSlicingHelper::RegisterSstMapping(const std::vector<std::vector<uint32_t>>& sliceUeRntiMap)
+{
+    // Clear previous mapping before installing a new configuration
+    m_rntiToSst.clear();
+
+    for (size_t sliceIdx = 0; sliceIdx < sliceUeRntiMap.size(); ++sliceIdx)
+    {
+        // Semantic: slice index 0 -> SST=1, slice index 1 -> SST=2,
+        // any other index -> SST=0 ("unknown" / not represented).
+        uint8_t sst = 0;
+        if (sliceIdx == 0)
+        {
+            sst = 1;
+        }
+        else if (sliceIdx == 1)
+        {
+            sst = 2;
+        }
+        else
+        {
+            NS_LOG_WARN("[NoriSlicingHelper] Slice index " << sliceIdx
+                         << " has no SST mapping (only {1,2} supported); marking as unknown.");
+        }
+
+        for (uint32_t rnti32 : sliceUeRntiMap[sliceIdx])
+        {
+            uint16_t rnti = static_cast<uint16_t>(rnti32);
+            if (sst == 0)
+            {
+                // Keep the RNTI unmapped (sst=0) to signal "unknown".
+                continue;
+            }
+
+            m_rntiToSst[rnti] = sst;
+            NS_LOG_INFO("[NoriSlicingHelper] Register SST=" << static_cast<uint32_t>(sst)
+                        << " for RNTI=" << rnti);
         }
     }
 }
