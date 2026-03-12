@@ -227,26 +227,34 @@ int main(int argc, char* argv[])
             }
         }
 
-        // Ler parâmetros de tráfego para cada tipo
-        if (configJson["traffic"].contains("eMBB")) {
-            auto embbConfig = configJson["traffic"]["eMBB"];
-            TrafficProfile embbProfile;
-            embbProfile.dataRate = embbConfig.value("bitrateMbps", 0.0);
-            embbProfile.packetSize = embbConfig.value("packetSize", static_cast<uint16_t>(0));
-            embbProfile.onTime = embbConfig.value("onTimeMean", 1.0);
-            embbProfile.offTime = embbConfig.value("offTimeMean", 0.01);
-            trafficProfiles["eMBB"] = embbProfile;
-        }
+            // Ler parâmetros de tráfego para cada tipo (aceita qualquer chave em "traffic")
+            if (configJson.contains("traffic") && configJson["traffic"].is_object())
+            {
+                for (auto& item : configJson["traffic"].items())
+                {
+                    const std::string trafficName = item.key();
+                    const auto& trafficConfig = item.value();
 
-        if (configJson["traffic"].contains("URLLC")) {
-            auto urllcConfig = configJson["traffic"]["URLLC"];
-            TrafficProfile urllcProfile;
-            urllcProfile.dataRate = urllcConfig.value("bitrateMbps", 0.0);
-            urllcProfile.packetSize = urllcConfig.value("packetSize", static_cast<uint16_t>(0));
-            urllcProfile.onTime = urllcConfig.value("onTimeMean", 0.5);
-            urllcProfile.offTime = urllcConfig.value("offTimeMean", 0.01);
-            trafficProfiles["URLLC"] = urllcProfile;
-        }
+                    if (!trafficConfig.is_object())
+                    {
+                        continue;
+                    }
+
+                    TrafficProfile profile;
+                    profile.dataRate = trafficConfig.value("bitrateMbps", 0.0);
+                    profile.packetSize = trafficConfig.value("packetSize", static_cast<uint16_t>(0));
+                    profile.onTime = trafficConfig.value("onTimeMean", 1.0);
+                    profile.offTime = trafficConfig.value("offTimeMean", 0.01);
+                    trafficProfiles[trafficName] = profile;
+
+                    NS_LOG_INFO("Traffic profile loaded: " << trafficName);
+                }
+            }
+
+            if (trafficProfiles.empty())
+            {
+                NS_FATAL_ERROR("[nori-embb-urllc-scenario] No traffic profiles found in config.json under 'traffic'");
+            }
 
         // Expected format in config.json: "SstPerSlice": [1, 2]
         if (!configJson["slices"].contains("SstPerSlice")) {
@@ -515,10 +523,10 @@ int main(int argc, char* argv[])
     {
         int countUes = uesPerSlice[sliceId];
         
-        // Traffic type per slice from configuration (fallback to default types)
-        std::string trafficType = (sliceId < trafficTypes.size()) 
-            ? trafficTypes[sliceId] 
-            : ((sliceId == 0) ? "eMBB" : "URLLC");
+        // Traffic type per slice from configuration (fallback to first available profile)
+        std::string trafficType = (sliceId < trafficTypes.size())
+            ? trafficTypes[sliceId]
+            : trafficProfiles.begin()->first;
 
         NS_LOG_INFO("Slice " << sliceId << " configured with traffic type: " << trafficType);
 
@@ -529,11 +537,12 @@ int main(int argc, char* argv[])
             uint32_t nodeIdx = currentUeIndex++;
             uint16_t port = portBase + nodeIdx;
 
-            // Fallback to eMBB profile if traffic type is not configured
+            // Fallback to first available profile if traffic type is not configured
             std::string resolvedTrafficType = trafficType;
             if (trafficProfiles.find(resolvedTrafficType) == trafficProfiles.end()) {
-                NS_LOG_WARN("Traffic type '" << resolvedTrafficType << "' not configured. Falling back to eMBB.");
-                resolvedTrafficType = "eMBB";
+                NS_LOG_WARN("Traffic type '" << resolvedTrafficType << "' not configured. Falling back to "
+                            << trafficProfiles.begin()->first << ".");
+                resolvedTrafficType = trafficProfiles.begin()->first;
             }
 
             TrafficProfile profile = trafficProfiles[resolvedTrafficType];
