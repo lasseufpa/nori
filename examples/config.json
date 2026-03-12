@@ -1,4 +1,4 @@
-{ 
+{
   "_comment": "Configuration file for the nori-embb-urllc-scenario. All values use SI units unless otherwise noted.",
   "topology": {
     "_comment": "NR network topology.",
@@ -7,14 +7,14 @@
   },
   "simulation": {
     "_comment": "Global simulation parameters.",
-    "duration": 10
+    "duration": 5
   },
   "NR": {
     "_comment": "Physical parameters of the NR cell.",
-    "numerology": 2,
-    "bandwidthMHz": 20,
+    "numerology": 1,
+    "bandwidthMHz": 100,
     "centralFrequency": 3.5e9,
-    "txPower": 30,
+    "txPower": 50,
     "ueTxPower": 23
   },
   "traffic": {
@@ -22,16 +22,16 @@
     "eMBB": {
       "_comment": "eMBB traffic: high throughput, less strict delay constraints.",
       "packetSize": 1400,
-      "bitrateMbps": 20,
+      "bitrateMbps": 100,
       "onTimeMean": 1.0,
-      "offTimeMean": 0.01
+      "offTimeMean": 0.0
     },
     "URLLC": {
       "_comment": "URLLC traffic: lower throughput, higher reliability/low latency.",
-      "packetSize": 200,
-      "bitrateMbps": 4,
-      "onTimeMean": 0.5,
-      "offTimeMean": 0.02
+      "packetSize": 1400,
+      "bitrateMbps": 15,
+      "onTimeMean": 1.0,
+      "offTimeMean": 0.01
     }
   },
   "slices": {

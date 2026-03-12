@@ -25,6 +25,142 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("nori-embb-urllc-scenario");
 
+// Função auxiliar para imprimir estatísticas periódicas por UE
+void PrintPeriodicStats(Ptr<FlowMonitor> monitor,
+                        FlowMonitorHelper* flowmonHelper,
+                        const std::map<Ipv4Address, uint32_t>& ueIpToIndex,
+                        Ipv4Address ueNetworkAddress,
+                        Ipv4Mask ueNetworkMask,
+                        uint16_t echoPort,
+                        double simTime,
+                        double interval)
+{
+    double now = Simulator::Now().GetSeconds();
+    if (now > simTime)
+    {
+        return;
+    }
+
+    monitor->CheckForLostPackets();
+    Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier>(flowmonHelper->GetClassifier());
+    std::map<FlowId, FlowMonitor::FlowStats> statsMap = monitor->GetFlowStats();
+
+    if (statsMap.empty())
+    {
+        std::cout << "[t=" << now << "s] Nenhum fluxo ainda registrado pelo FlowMonitor." << std::endl;
+    }
+
+    // Descobrir quantidade de UEs a partir do mapa IP -> índice
+    uint32_t maxIndex = 0;
+    for (const auto& it : ueIpToIndex)
+    {
+        if (it.second > maxIndex)
+        {
+            maxIndex = it.second;
+        }
+    }
+    uint32_t ueCount = maxIndex + 1;
+
+    std::vector<uint64_t> ueTxPackets(ueCount, 0);
+    std::vector<uint64_t> ueRxPackets(ueCount, 0);
+    std::vector<uint64_t> ueRxBytes(ueCount, 0);
+    std::vector<double> ueFirstTx(ueCount, 0.0);
+    std::vector<double> ueLastRx(ueCount, 0.0);
+    std::vector<double> ueDelaySum(ueCount, 0.0);
+    std::vector<bool> ueHasFirstTx(ueCount, false);
+
+    for (const auto& it : statsMap)
+    {
+        FlowId flowId = it.first;
+        const FlowMonitor::FlowStats& stats = it.second;
+        Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(flowId);
+
+        bool ueAsSource = ueNetworkMask.IsMatch(t.sourceAddress, ueNetworkAddress);
+        bool ueAsDest = ueNetworkMask.IsMatch(t.destinationAddress, ueNetworkAddress);
+
+        if (!(ueAsSource || ueAsDest))
+        {
+            continue;
+        }
+
+        // Ignorar fluxo de teste de eco
+        if (t.sourcePort == echoPort || t.destinationPort == echoPort)
+        {
+            continue;
+        }
+
+        Ipv4Address ueAddr = ueAsSource ? t.sourceAddress : t.destinationAddress;
+        auto itIdx = ueIpToIndex.find(ueAddr);
+        if (itIdx == ueIpToIndex.end())
+        {
+            continue;
+        }
+        uint32_t idx = itIdx->second;
+        if (idx >= ueCount)
+        {
+            continue;
+        }
+
+        ueTxPackets[idx] += stats.txPackets;
+        ueRxPackets[idx] += stats.rxPackets;
+        ueRxBytes[idx] += stats.rxBytes;
+        ueDelaySum[idx] += stats.delaySum.GetSeconds();
+
+        double firstTx = stats.timeFirstTxPacket.GetSeconds();
+        double lastRx = stats.timeLastRxPacket.GetSeconds();
+
+        if (!ueHasFirstTx[idx] || firstTx < ueFirstTx[idx])
+        {
+            ueFirstTx[idx] = firstTx;
+            ueHasFirstTx[idx] = true;
+        }
+        if (stats.rxPackets > 0 && lastRx > ueLastRx[idx])
+        {
+            ueLastRx[idx] = lastRx;
+        }
+    }
+
+    std::cout << "\n[t=" << now << "s] Estatísticas por UE:" << std::endl;
+    for (uint32_t i = 0; i < ueCount; ++i)
+    {
+        double throughput = 0.0;
+        double delay = 0.0;
+        double lossRatio = 0.0;
+
+        if (ueTxPackets[i] > 0)
+        {
+            if (ueRxPackets[i] > 0 && ueHasFirstTx[i])
+            {
+                double duration = ueLastRx[i] - ueFirstTx[i];
+                if (duration <= 0.0)
+                {
+                    duration = 1e-9;
+                }
+                throughput = (ueRxBytes[i] * 8.0) / duration / 1e6; // Mbps
+                delay = (ueDelaySum[i] / ueRxPackets[i]) * 1e3;      // ms
+            }
+            lossRatio = (double)(ueTxPackets[i] - ueRxPackets[i]) * 100.0 / ueTxPackets[i];
+        }
+
+        std::cout << "  UE[" << i << "]: T-put=" << std::fixed << std::setprecision(2) << throughput
+                  << " Mbps, Delay=" << delay << " ms, Loss=" << lossRatio << " %" << std::endl;
+    }
+
+    if (now + interval <= simTime)
+    {
+        Simulator::Schedule(Seconds(interval),
+                            &PrintPeriodicStats,
+                            monitor,
+                            flowmonHelper,
+                            ueIpToIndex,
+                            ueNetworkAddress,
+                            ueNetworkMask,
+                            echoPort,
+                            simTime,
+                            interval);
+    }
+}
+
 int main(int argc, char* argv[])
 {   
     LogComponentEnable("nori-embb-urllc-scenario", LOG_LEVEL_INFO);
@@ -35,15 +171,15 @@ int main(int argc, char* argv[])
     uint16_t gNbNum = 1;
     uint16_t ueNum = 2;
     double simTime = 10.0;
-    double interSiteDistance = 10.0;
-    double centralFrequency = 28e9;
+    double interSiteDistance = 20.0;
+    double centralFrequency = 3.6e9;
     double bandwidth = 100e6;
 
     uint16_t numerology = 0;
     double txPower = 0.0;
     double ueTxPower = 0.0;
 
-    std::string ipE2TermRic = "10.244.0.246";
+    std::string ipE2TermRic = "10.244.0.188";
 
     std::vector<int> uesPerSlice;
     std::vector<uint8_t> sstPerSlice;
@@ -58,6 +194,7 @@ int main(int argc, char* argv[])
     };
     std::map<std::string, TrafficProfile> trafficProfiles;
 
+    // Caminho correto do arquivo de configuração (ajuste conforme a sua árvore de diretórios)
     std::ifstream configFile("/home/openran-br/ns-3-dev/contrib/nori/examples/config.json");
     if (configFile.is_open()) {
         nlohmann::json configJson;
@@ -151,6 +288,7 @@ int main(int argc, char* argv[])
 
     // Enable/disable RAN slicing with RL scheduler
     bool enableRanSlicing = true;
+    bool enablenori = false;
     
     CommandLine cmd;
     cmd.AddValue("enableRanSlicing", "Enable RAN Slicing with RL scheduler", enableRanSlicing);
@@ -243,8 +381,8 @@ int main(int argc, char* argv[])
     nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(1));
     nrHelper->SetUeAntennaAttribute("AntennaElement", PointerValue(CreateObject<IsotropicAntennaModel>()));
 
-    nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(8));
-    nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(8));
+    nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(1));
+    nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(1));
     nrHelper->SetGnbAntennaAttribute("AntennaElement", PointerValue(CreateObject<IsotropicAntennaModel>()));
 
     BandwidthPartInfoPtrVector allBwps;
@@ -255,7 +393,7 @@ int main(int argc, char* argv[])
     bandConf.m_numBwp = 1;
     band = ccBwpCreator.CreateOperationBandContiguousCc(bandConf);
     Ptr<NrChannelHelper> channelHelper = CreateObject<NrChannelHelper>();
-    channelHelper->ConfigureFactories("UMi", "Default", "ThreeGpp");
+    channelHelper->ConfigureFactories("UMa", "Default", "ThreeGpp");
     channelHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
     channelHelper->SetChannelConditionModelAttribute("UpdatePeriod", TimeValue(MilliSeconds(0)));
     channelHelper->AssignChannelsToBands({band});
@@ -270,9 +408,9 @@ int main(int argc, char* argv[])
     NetDeviceContainer ueDevs = nrHelper->InstallUeDevice(ueNodes, allBwps);
 
     // Enable E2 support on gNBs
-    auto e2 = CreateObject<E2TermHelper>();
-    e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
-    e2->InstallE2Term(gNbDevs);
+    // auto e2 = CreateObject<E2TermHelper>();
+    // e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
+    // e2->InstallE2Term(gNbDevs);
 
     nrHelper->AttachToClosestGnb(ueDevs, gNbDevs);
 
@@ -303,6 +441,10 @@ int main(int argc, char* argv[])
 
     // Map IP -> UE index for FlowMonitor classification
     std::map<Ipv4Address, uint32_t> ueIpToIndex;
+
+    // Rede dos UEs usada para classificação (DL/UL) e estatísticas periódicas
+    Ipv4Address ueNetworkAddress("7.0.0.0");
+    Ipv4Mask ueNetworkMask("255.0.0.0");
 
     NS_LOG_INFO("*** EPC-assigned addresses ***");
     NS_LOG_INFO("remoteHost (server): " << remoteHostAddr);
@@ -447,6 +589,19 @@ int main(int argc, char* argv[])
     FlowMonitorHelper flowmonHelper;
     Ptr<FlowMonitor> monitor = flowmonHelper.InstallAll();
 
+    // Estatísticas periódicas por UE durante a simulação (por ex. a cada 1s)
+    double statsInterval = 0.1; // segundos
+    Simulator::Schedule(Seconds(statsInterval),
+                        &PrintPeriodicStats,
+                        monitor,
+                        &flowmonHelper,
+                        ueIpToIndex,
+                        ueNetworkAddress,
+                        ueNetworkMask,
+                        echoPort,
+                        simTime,
+                        statsInterval);
+
     // Run
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
@@ -460,9 +615,6 @@ int main(int argc, char* argv[])
     double totalThroughputUrllc = 0.0, totalDelayUrllc = 0.0;
     uint32_t urllcFlows = 0;
     uint32_t ignoredFlows = 0; // Infrastructure flows (GTP/backhaul)
-
-    Ipv4Address ueNetworkAddress("7.0.0.0");
-    Ipv4Mask ueNetworkMask("255.0.0.0");
 
     std::map<FlowId, FlowMonitor::FlowStats> statsMap = monitor->GetFlowStats();
     
