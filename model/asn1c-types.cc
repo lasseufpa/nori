@@ -137,7 +137,7 @@ NrCellId::GetPointer()
 
 Snssai::Snssai(std::string sst)
 {
-    m_sNssai = (SNSSAI_t*)calloc(1, sizeof(SNSSAI_t));
+    m_sNssai = (S_NSSAI_t*)calloc(1, sizeof(S_NSSAI_t));
     m_sst = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
     m_sst->buf = (uint8_t*)calloc(1, sst.size());
     m_sst->size = sst.size();
@@ -159,17 +159,17 @@ Snssai::~Snssai()
 {
     if (m_sNssai != nullptr)
     {
-        ASN_STRUCT_FREE(asn_DEF_SNSSAI, m_sNssai);
+        ASN_STRUCT_FREE(asn_DEF_S_NSSAI, m_sNssai);
     }
 }
 
-SNSSAI_t*
+S_NSSAI_t*
 Snssai::GetPointer()
 {
     return m_sNssai;
 }
 
-SNSSAI_t
+S_NSSAI_t
 Snssai::GetValue()
 {
     return *m_sNssai;
@@ -296,95 +296,6 @@ MeasurementInfoItem_t
 MeasurementInfoItemWrap::GetValue()
 {
     return *m_measurementInfoItem;
-}
-
-RANParameterItem::RANParameterItem(RANParameter_Item_t* ranParameterItem)
-{
-    m_ranParameterItem = ranParameterItem;
-}
-
-RANParameterItem::~RANParameterItem()
-{
-    if (m_ranParameterItem != nullptr)
-    {
-        ASN_STRUCT_FREE(asn_DEF_RANParameter_Item, m_ranParameterItem);
-    }
-}
-
-RANParameter_Item_t*
-RANParameterItem::GetPointer()
-{
-    return m_ranParameterItem;
-}
-
-RANParameter_Item_t
-RANParameterItem::GetValue()
-{
-    return *m_ranParameterItem;
-}
-
-std::vector<RANParameterItem>
-RANParameterItem::ExtractRANParametersFromRANParameter(RANParameter_Item_t* ranParameterItem)
-{
-    std::vector<RANParameterItem> ranParameterList;
-
-    switch (ranParameterItem->ranParameterItem_valueType->present)
-    {
-    case RANParameter_ValueType_PR_NOTHING:
-        break;
-
-    case RANParameter_ValueType_PR_ranParameter_Element: {
-        RANParameterItem newItem = RANParameterItem(ranParameterItem);
-        RANParameter_ELEMENT_t* ranParameterElement =
-            ranParameterItem->ranParameterItem_valueType->choice.ranParameter_Element;
-        newItem.m_keyFlag = &ranParameterElement->keyFlag;
-
-        switch (ranParameterElement->ranParameter_Value.present)
-        {
-        case RANParameter_Value_PR_NOTHING:
-            newItem.m_valueType = ValueType::Nothing;
-            break;
-
-        case RANParameter_Value_PR_valueInt:
-            newItem.m_valueInt = ranParameterElement->ranParameter_Value.choice.valueInt;
-            newItem.m_valueType = ValueType::Int;
-            break;
-
-        case RANParameter_Value_PR_valueOctS:
-            newItem.m_valueStr = Create<OctetString>(
-                (void*)ranParameterElement->ranParameter_Value.choice.valueOctS.buf,
-                ranParameterElement->ranParameter_Value.choice.valueOctS.size);
-            newItem.m_valueType = ValueType::OctectString;
-            break;
-        }
-
-        ranParameterList.push_back(newItem);
-        break;
-    }
-
-    case RANParameter_ValueType_PR_ranParameter_Structure: {
-        RANParameter_STRUCTURE_t* ranParameterStructure =
-            ranParameterItem->ranParameterItem_valueType->choice.ranParameter_Structure;
-        int count = ranParameterStructure->sequence_of_ranParameters.list.count;
-        for (int i = 0; i < count; i++)
-        {
-            RANParameter_Item_t* childRanItem =
-                ranParameterStructure->sequence_of_ranParameters.list.array[i];
-
-            for (RANParameterItem extractedParameter :
-                 ExtractRANParametersFromRANParameter(childRanItem))
-            {
-                ranParameterList.push_back(extractedParameter);
-            }
-        }
-        break;
-    }
-
-    case RANParameter_ValueType_PR_ranParameter_List:
-        break;
-    }
-
-    return ranParameterList;
 }
 
 } // namespace ns3

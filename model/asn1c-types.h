@@ -18,22 +18,16 @@
 #include "ns3/object.h"
 
 #include <string>
-#include <vector>
 
 extern "C"
 {
 #include "BIT_STRING.h"
-//#include "E2SM-RC-ControlMessage-Format1.h"
 #include "MeasurementDataItem.h"
 #include "MeasurementInfoItem.h"
 #include "MeasurementRecordItem.h"
 #include "MeasurementType.h"
 #include "OCTET_STRING.h"
-//#include "RANParameter-ELEMENT.h"
-//#include "RANParameter-Item.h"
-//#include "RANParameter-STRUCTURE.h"
-//#include "RANParameter-ValueType.h"
-//#include "SNSSAI.h"
+#include "S-NSSAI.h"
 }
 
 namespace ns3
@@ -95,13 +89,13 @@ class Snssai : public SimpleRefCount<Snssai>
     Snssai(std::string sst);
     Snssai(std::string sst, std::string sd);
     ~Snssai();
-    SNSSAI_t* GetPointer();
-    SNSSAI_t GetValue();
+    S_NSSAI_t* GetPointer();
+    S_NSSAI_t GetValue();
 
   private:
     OCTET_STRING_t* m_sst;
     OCTET_STRING_t* m_sd;
-    SNSSAI_t* m_sNssai;
+    S_NSSAI_t* m_sNssai;
 };
 
 class MeasurementRecordItemWrap : public SimpleRefCount<MeasurementRecordItemWrap>
@@ -142,37 +136,6 @@ class MeasurementInfoItemWrap : public SimpleRefCount<MeasurementInfoItemWrap>
 
   private:
     MeasurementInfoItem_t* m_measurementInfoItem;
-};
-
-/**
- * Wrapper for class for RANParameter_Item_t
- */
-class RANParameterItem : public SimpleRefCount<RANParameterItem>
-{
-  public:
-    enum ValueType
-    {
-        Nothing = 0,
-        Int = 1,
-        OctectString = 2
-    };
-
-    RANParameterItem(RANParameter_Item_t* ranParameterItem);
-    ~RANParameterItem();
-    RANParameter_Item_t* GetPointer();
-    RANParameter_Item_t GetValue();
-
-    ValueType m_valueType;
-    long m_valueInt;
-    Ptr<OctetString> m_valueStr;
-
-    static std::vector<RANParameterItem> ExtractRANParametersFromRANParameter(
-        RANParameter_Item_t* ranParameterItem);
-
-  private:
-    // Main struct
-    RANParameter_Item_t* m_ranParameterItem;
-    BOOLEAN_t* m_keyFlag;
 };
 
 } // namespace ns3
