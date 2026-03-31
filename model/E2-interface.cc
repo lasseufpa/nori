@@ -4,6 +4,8 @@
 #include "kpm-indication.h"
 #include "oran-interface.h"
 
+#include "ns3/nori-slicing-helper.h"
+
 #include "ns3/attribute.h"
 #include "ns3/bandwidth-part-gnb.h"
 #include "ns3/config.h"
@@ -773,6 +775,12 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
         std::string ueImsiComplete = GetImsiString(imsi);
         uint16_t rnti = ue->GetRnti();
 
+        // Lookup SST for this UE based its RNTI
+        uint8_t sst = NoriSlicingHelper::GetSstForRnti(rnti);
+
+        NS_LOG_INFO("[E2Interface][DU] UE IMSI=" << imsi << " RNTI=" << rnti
+                                                 << " SST=" << static_cast<uint32_t>(sst));
+
         uint32_t macPduUe = m_e2DuCalculator->GetMacPduUeSpecific(rnti, m_cellId);
         macPduCellSpecific += macPduUe;
 
@@ -925,29 +933,30 @@ E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
             m_drbThrDlUeid.find(imsi) != m_drbThrDlUeid.end() ? m_drbThrDlUeid.at(imsi) : 0;
 
         indicationMessageHelper->AddDuUePmItem(ueImsiComplete,
-                                               macPduUe,
-                                               macPduInitialUe,
-                                               macQpsk,
-                                               mac16Qam,
-                                               mac64Qam,
-                                               macRetx,
-                                               macVolume,
-                                               macPrb,
-                                               macMac04,
-                                               macMac59,
-                                               macMac1014,
-                                               macMac1519,
-                                               macMac2024,
-                                               macMac2529,
-                                               macSinrBin1,
-                                               macSinrBin2,
-                                               macSinrBin3,
-                                               macSinrBin4,
-                                               macSinrBin5,
-                                               macSinrBin6,
-                                               macSinrBin7,
-                                               rlcBufferOccup,
-                                               drbThrDlUeid);
+                               macPduUe,
+                               macPduInitialUe,
+                               macQpsk,
+                               mac16Qam,
+                               mac64Qam,
+                               macRetx,
+                               macVolume,
+                               macPrb,
+                               macMac04,
+                               macMac59,
+                               macMac1014,
+                               macMac1519,
+                               macMac2024,
+                               macMac2529,
+                               macSinrBin1,
+                               macSinrBin2,
+                               macSinrBin3,
+                               macSinrBin4,
+                               macSinrBin5,
+                               macSinrBin6,
+                               macSinrBin7,
+                               rlcBufferOccup,
+                               drbThrDlUeid,
+                               static_cast<long>(sst));
 
         uePmStringDu.insert(std::make_pair(
             imsi,

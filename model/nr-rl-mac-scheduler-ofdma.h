@@ -51,8 +51,20 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
      * @param slicePRBQuota The slice PRB quota
      */
     void SetSlicingParameters(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
-
+    
+    void SetSliceUeMapping(uint32_t numSlices, const std::vector<std::vector<uint32_t>>& sliceUeRnti);
+  
   protected:
+    /**
+     * @brief Create an UE representation aware of RAN slicing (SST lookup).
+     *
+     * This overrides the RR default and instantiates NrMacSchedulerUeInfoRl
+     * so that, given an RNTI, the scheduler (and E2/KPM) can deterministically
+     * obtain the associated SST at runtime without scanning slice lists.
+     */
+    std::shared_ptr<NrMacSchedulerUeInfo> CreateUeRepresentation(
+        const NrMacCschedSapProvider::CschedUeConfigReqParameters& params) const override;
+
     BeamSymbolMap AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl) const override;
 
   private:

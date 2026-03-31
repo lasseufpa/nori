@@ -2,6 +2,7 @@ set(source_files
     model/E2-report.cc
     model/E2-interface.cc
     helper/E2-term-helper.cc
+    helper/nori-slicing-helper.cc
     model/asn1c-types.cc
     model/function-description.cc
     model/kpm-function-description.cc
@@ -9,6 +10,7 @@ set(source_files
     model/oran-interface.cc
     model/ric-control-function-description.cc
     model/ric-control-message.cc
+    model/nr-mac-scheduler-ue-info-rl.cc
     model/nr-rl-mac-scheduler-ofdma.cc
     helper/indication-message-helper.cc
     helper/lte-indication-message-helper.cc
@@ -22,6 +24,7 @@ set(header_files
     model/E2-report.h
     model/E2-interface.h
     helper/E2-term-helper.h
+    helper/nori-slicing-helper.h
     model/asn1c-types.h
     model/function-description.h
     model/kpm-function-description.h
@@ -29,6 +32,7 @@ set(header_files
     model/oran-interface.h
     model/ric-control-function-description.h
     model/ric-control-message.h
+    model/nr-mac-scheduler-ue-info-rl.h
     model/nr-rl-mac-scheduler-ofdma.h
     helper/indication-message-helper.h
     helper/lte-indication-message-helper.h

@@ -3,6 +3,7 @@ set(base_examples
     #oran-interface-example
     nori-mimo-demo
     nori-simple-rl-sched
+    nori-embb-urllc-scenario
 )
 
 foreach(

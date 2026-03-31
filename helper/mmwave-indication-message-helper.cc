@@ -89,7 +89,8 @@ MmWaveIndicationMessageHelper::AddDuUePmItem(std::string ueImsiComplete,
                                              long macSinrBin6,
                                              long macSinrBin7,
                                              long rlcBufferOccup,
-                                             double drbThrDlUeid)
+                                             double drbThrDlUeid,
+                                             long sst)
 {
     Ptr<MeasurementItemList> ueVal = Create<MeasurementItemList>(ueImsiComplete);
     if (!m_reducedPmValues)
@@ -118,10 +119,9 @@ MmWaveIndicationMessageHelper::AddDuUePmItem(std::string ueImsiComplete,
         ueVal->AddItem<long>("DRB.BufferSize.Qos.UEID", rlcBufferOccup);
     }
 
-    // This value is not requested anymore, so it has been removed from the delivery, but it will be
-    // still logged; ueVal->AddItem<double> ("DRB.UEThpDlPdcpBased.UEID", drbThrDlPdcpBasedUeid);
-
     ueVal->AddItem<double>("DRB.UEThpDl.UEID", drbThrDlUeid);
+
+    ueVal->AddItem<long>("DRB.NetworkSlicing.SST.UEID", sst);
 
     m_msgValues.m_ueIndications.insert(ueVal);
 }

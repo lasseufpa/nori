@@ -62,15 +62,15 @@ main(int argc, char* argv[])
 
     // Simulation parameters. Please don't use double to indicate seconds; use
     // ns-3 Time values which use integers to avoid portability issues.
-    Time simTime = Seconds(1000);
+    Time simTime = Seconds(30);
     Time udpAppStartTime = MilliSeconds(400);
 
     // NR parameters. We will take the input from the command line, and then we
     // will pass them inside the NR module.
-    uint16_t numerology = 0;
-    double centralFrequency = 4e9;
-    double bandwidth = 5e6;
-    double totalTxPower = 43;
+    uint16_t numerology = 1; //1;
+    double centralFrequency = 3.5e9; //4e9;
+    double bandwidth = 100e6; //5e6;
+    double totalTxPower = 43; 
 
     bool enableOfdma = true;
 
@@ -155,8 +155,8 @@ main(int argc, char* argv[])
 
     uint32_t udpPacketSizeULL;
     uint32_t udpPacketSizeBe;
-    uint32_t lambdaULL = 1000;
-    uint32_t lambdaBe = 1000;
+    uint32_t lambdaULL = 1000;//1000;
+    uint32_t lambdaBe = 1000;//1000;
 
     if (priorityTrafficScenario == 0) // saturation
     {
@@ -235,14 +235,14 @@ main(int argc, char* argv[])
                                          TypeIdValue(DirectPathBeamforming::GetTypeId()));
 
     // Antennas for all the UEs
-    nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(1));
-    nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(1));
+    nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(2));
+    nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(2));
     nrHelper->SetUeAntennaAttribute("AntennaElement",
                                     PointerValue(CreateObject<IsotropicAntennaModel>()));
 
     // Antennas for all the gNbs
-    nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(1));
-    nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(1));
+    nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(2));
+    nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(2));
     nrHelper->SetGnbAntennaAttribute("AntennaElement",
                                      PointerValue(CreateObject<IsotropicAntennaModel>()));
 
@@ -465,7 +465,7 @@ main(int argc, char* argv[])
     monitor->SetAttribute("JitterBinWidth", DoubleValue(0.001));
     monitor->SetAttribute("PacketSizeBinWidth", DoubleValue(20));
 
-    // Simulator::Stop(simTime);
+    //Simulator::Stop(simTime);
     Simulator::Run();
 
     /*
