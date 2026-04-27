@@ -96,16 +96,8 @@ class E2Interface : public Object
      */
     void SetE2RlcStatsCalculator(Ptr<NrBearerStatsCalculator> e2RlcStatsCalculator);
 
-    /**
-     * @brief Control Message Received Callback: A handler that deals with the control message
-     * received
-     * @param sub_req_pdu the subscription request PDU
-     */
-    void ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu);
-
     Ptr<NoriE2Report> GetE2DuCalculator();
 
-    
     void MLSliceInterface(double macPrb, uint64_t imsi);
 
   private:
@@ -116,7 +108,6 @@ class E2Interface : public Object
      * @param CellId NR cell ID
      * @return the RIC Indication Header
      */
-
     Ptr<KpmIndicationHeader> BuildRicIndicationHeader(std::string plmId,
                                                       std::string gnbId,
                                                       uint16_t CellId) const;
@@ -126,30 +117,6 @@ class E2Interface : public Object
      * @param imsi the IMSI
      */
     std::string GetImsiString(uint64_t imsi);
-
-    /**
-     * @brief Build RIC Indication Message for CU-UP
-     * @param plmId PLMN ID
-     * @return the RIC Indication Message
-     */
-
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuUp(std::string plmId);
-
-    /**
-     * @brief Build RIC Indication Message for CU-CP
-     * @param plmId PLMN ID
-     * @return the RIC Indication Message
-     *
-     */
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuCp(std::string plmId);
-
-    /**
-     * @brief Build RIC Indication Message for DU
-     * @param plmId PLMN ID
-     * @param nrCellId NR cell ID
-     * @return the RIC Indication Message
-     */
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId);
 
     /**
      * @brief Function to help us to flip the map
@@ -171,8 +138,7 @@ class E2Interface : public Object
     Ptr<NoriE2Report> m_e2DuCalculator;                   //<! E2 DU calculator
     uint16_t m_cellId{0};                                 //<! Cell ID
     double m_cellTxDlPackets = 0;                         //<! Number of DL packets
-    //double m_cellTxBytes = 0;                             //<! Number of DL bytes
-    std::map <uint64_t, double> m_cellTxBytes;                             //<! Number of DL bytes
+    std::map <uint64_t, double> m_cellTxBytes;            //<! Number of DL bytes
     
     double m_cellRxBytes = 0;                             //<! Number of UL bytes
     uint64_t m_startTime = 0;                             //<! Start time

@@ -17,7 +17,7 @@
 
 #include "asn1c-types.h"
 #include "encode_e2apv1.hpp"
-#include "ric-control-message.h"
+//#include "ric-control-message.h"
 
 #include "ns3/log.h"
 
@@ -28,7 +28,10 @@ extern "C"
 #include "InitiatingMessage.h"
 #include "ProtocolIE-Field.h"
 #include "RICactionType.h"
+#include "ProtocolIE-Container.h"
 #include "RICsubscriptionRequest.h"
+#include "RICactions-ToBeSetup-List.h"
+#include "E2SM-KPM-ActionDefinition.h"
 }
 
 namespace ns3
@@ -68,11 +71,11 @@ E2Termination::E2Termination(const std::string ricAddress,
 
 void
 E2Termination::RegisterFunctionDescToE2Sm(long ranFunctionId,
-                                          Ptr<FunctionDescription> ranFunctionDescription)
+                                          Ptr<KpmFunctionDescription> ranFunctionDescription)
 {
     // create an octet string and copy the e2smbuffer
     auto* rfdBuf = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
-    rfdBuf->buf = (uint8_t*)calloc(1, ranFunctionDescription->m_size);
+    rfdBuf->buf = (uint8_t*)calloc(1, ranFunctionDescription->m_size+1);
     rfdBuf->size = ranFunctionDescription->m_size;
     memcpy(rfdBuf->buf, ranFunctionDescription->m_buffer, ranFunctionDescription->m_size);
 
@@ -81,21 +84,29 @@ E2Termination::RegisterFunctionDescToE2Sm(long ranFunctionId,
 
 void
 E2Termination::RegisterKpmCallbackToE2Sm(long ranFunctionId,
-                                         Ptr<FunctionDescription> ranFunctionDescription,
-                                         SubscriptionCallback sbCb)
+                                         Ptr<KpmFunctionDescription> ranFunctionDescription,
+                                         SubscriptionCallback sbCb) // Use o typedef aqui
 {
     RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
-    m_e2sim->register_subscription_callback(ranFunctionId, sbCb);
+    
+    
+    auto ptr = sbCb.target<void(*)(E2AP_PDU_t*)>();
+    if (ptr) {
+        m_e2sim->register_subscription_callback(ranFunctionId, *ptr);
+    } else {
+    
+        m_e2sim->register_subscription_callback(ranFunctionId, sbCb.target<void(E2AP_PDU_t*)>());
+    }
 }
 
-void
-E2Termination::RegisterSmCallbackToE2Sm(long ranFunctionId,
-                                        Ptr<FunctionDescription> ranFunctionDescription,
-                                        SmCallback smCb)
-{
-    RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
-    m_e2sim->register_sm_callback(ranFunctionId, smCb);
-}
+// void
+// E2Termination::RegisterSmCallbackToE2Sm(long ranFunctionId,
+//                                         Ptr<FunctionDescription> ranFunctionDescription,
+//                                         SmCallback smCb)
+// {
+//     RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
+//     m_e2sim->register_sm_callback(ranFunctionId, smCb);
+// }
 
 void
 E2Termination::Start()
@@ -114,23 +125,25 @@ E2Termination::DoStart()
 {
     NS_LOG_FUNCTION(this);
 
-    // start e2sim main loop
-    // char second[14]; // RIC ADDRESS
-    // std::strcpy (second, m_ricAddress.c_str ());
-    // char third[6]; // RIC PORT
-    // std::strcpy (third, std::to_string (m_ricPort).c_str ());
-    // char fourth[5]; // GNB ID value
-    // std::strncpy (fourth, m_gnbId.c_str (), 4);
-    // char fifth[6]; // CLIENT PORT
-    // std::strcpy (fifth, std::to_string (m_clientPort).c_str ());
-    // char sixth[4]; //PLMN ID
-    // std::strcpy (sixth, m_plmnId.c_str ());
 
     NS_LOG_INFO("In ns3::E2Term:  GNB" << m_gnbId << ", clientPort " << m_clientPort << ", ricPort "
                                        << m_ricPort << ", PlmnID " << m_plmnId);
 
     // char* argv [] = {nullptr, &second [0], &third [0], &fourth[0], &fifth[0],&sixth[0]};
-    m_e2sim->run_loop(m_ricAddress, m_ricPort, m_clientPort, m_gnbId, m_plmnId);
+    std::string portStr = std::to_string(m_ricPort);
+
+    std::vector<char*> args;
+    
+    args.push_back(strdup("e2sim"));
+    //args.push_back(strdup("-address"));
+    args.push_back(strdup(m_ricAddress.c_str()));
+    //args.push_back(strdup("-port"));
+    args.push_back(strdup(std::to_string(m_ricPort).c_str()));
+
+    m_e2sim->run_loop(args.size(), args.data());
+
+    
+    for (char* a : args) free(a);
 }
 
 E2Termination::~E2Termination()
@@ -142,30 +155,15 @@ E2Termination::~E2Termination()
 E2Termination::RicSubscriptionRequest_rval_s
 E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
 {
-    // Intro params
     RicSubscriptionRequest_rval_s reqParams;
 
-    // Record RIC Request ID
-    // Go through RIC action to be Setup List
-    // Find first entry with REPORT action Type
-    // Record ricActionID
-    // Encode subscription response
-
-    RICsubscriptionRequest_t orig_req =
+    RICsubscriptionRequest_t *orig_req =
         sub_req_pdu->choice.initiatingMessage->value.choice.RICsubscriptionRequest;
 
-    // RICsubscriptionResponse_IEs_t *ricreqid = (RICsubscriptionResponse_IEs_t*)calloc(1,
-    // sizeof(RICsubscriptionResponse_IEs_t));
+    ProtocolIE_Container_85P0_t *ies_conteiner = (ProtocolIE_Container_85P0_t *)orig_req->protocolIEs;
 
-    int count = orig_req.protocolIEs.list.count;
-    int size = orig_req.protocolIEs.list.size;
-
-    auto** ies = (RICsubscriptionRequest_IEs_t**)orig_req.protocolIEs.list.array;
-
-    NS_LOG_DEBUG("Number of IEs " << count);
-    NS_LOG_DEBUG("Size of IEs " << size);
-
-    RICsubscriptionRequest_IEs__value_PR pres;
+    int count = ies_conteiner->list.count;
+    auto** ies_array = (RICsubscriptionRequest_IEs_t**)ies_conteiner->list.array;
 
     uint16_t reqRequestorId{};
     uint16_t reqInstanceId{};
@@ -175,84 +173,79 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
     std::vector<long> actionIdsAccept;
     std::vector<long> actionIdsReject;
 
-    // iterate over the IEs
+    // Iterar sobre os IEs
     for (int i = 0; i < count; i++)
     {
-        RICsubscriptionRequest_IEs_t* next_ie = ies[i];
-        pres = next_ie->value.present; // value of the current IE
+        RICsubscriptionRequest_IEs_t* next_ie = ies_array[i];
+        RICsubscriptionRequest_IEs__value_PR pres = next_ie->value.present; 
 
         switch (pres)
         {
-        // IE containing the RIC Request ID
         case RICsubscriptionRequest_IEs__value_PR_RICrequestID: {
-            NS_LOG_DEBUG("Processing RIC Request ID field");
-            RICrequestID_t reqId = next_ie->value.choice.RICrequestID;
-            reqRequestorId = reqId.ricRequestorID;
-            reqInstanceId = reqId.ricInstanceID;
-            NS_LOG_DEBUG("RIC Requestor ID " << reqRequestorId);
-            NS_LOG_DEBUG("RIC Instance ID " << reqInstanceId);
+            RICrequestID_t *reqId = next_ie->value.choice.RICrequestID;
+            reqRequestorId = reqId->ricRequestorID;
+            reqInstanceId = reqId->ricInstanceID;
             break;
         }
-        // IE containing the RAN Function ID
         case RICsubscriptionRequest_IEs__value_PR_RANfunctionID: {
-            NS_LOG_DEBUG("Processing RAN Function ID field");
-            ranFuncionId = next_ie->value.choice.RANfunctionID;
-            NS_LOG_DEBUG("RAN Function ID " << ranFuncionId);
+            ranFuncionId = (uint16_t)(*(next_ie->value.choice.RANfunctionID));
             break;
         }
         case RICsubscriptionRequest_IEs__value_PR_RICsubscriptionDetails: {
-            NS_LOG_DEBUG("Processing RIC Subscription Details field");
-            RICsubscriptionDetails_t subDetails = next_ie->value.choice.RICsubscriptionDetails;
+            RICsubscriptionDetails_t *subDetails = next_ie->value.choice.RICsubscriptionDetails;
 
-            // RIC Event Trigger Definition
-            RICeventTriggerDefinition_t triggerDef = subDetails.ricEventTriggerDefinition;
+            RICeventTriggerDefinition_t triggerDef = subDetails->ricEventTriggerDefinition;
+            if (triggerDef.buf != nullptr) {
+                NS_LOG_DEBUG("RIC Event Trigger Definition recebido com " << triggerDef.size << " bytes.");
+            }
 
-            // TODO How to decode this field?
-            uint8_t size = 20;
-            auto* buf = (uint8_t*)calloc(1, size);
-            memcpy(buf, &triggerDef, size);
-            NS_LOG_DEBUG("RIC Event Trigger Definition " << std::to_string(*buf));
-
-            // Sequence of actions
-            RICactions_ToBeSetup_List_t actionList = subDetails.ricAction_ToBeSetup_List;
-            // TODO We are ignoring the trigger definition
-
-            int actionCount = actionList.list.count;
-            NS_LOG_DEBUG("Number of actions " << actionCount);
-
-            auto** item_array = actionList.list.array;
+            RICactions_ToBeSetup_List_t *actionList = subDetails->ricAction_ToBeSetup_List;
+            int actionCount = actionList->list.count;
+            auto** item_array = actionList->list.array;
             bool foundAction = false;
 
-            for (int i = 0; i < actionCount; i++)
+            for (int j = 0; j < actionCount; j++)
             {
-                auto* next_item = item_array[i];
-                RICactionID_t actionId = ((RICaction_ToBeSetup_ItemIEs*)next_item)
-                                             ->value.choice.RICaction_ToBeSetup_Item.ricActionID;
-                RICactionType_t actionType =
-                    ((RICaction_ToBeSetup_ItemIEs*)next_item)
-                        ->value.choice.RICaction_ToBeSetup_Item.ricActionType;
+                auto* next_item = item_array[j];
+                auto* actionItem = ((RICaction_ToBeSetup_ItemIEs*)next_item)->value.choice.RICaction_ToBeSetup_Item;
+                
+                RICactionID_t actionId = actionItem->ricActionID;
+                RICactionType_t actionType = actionItem->ricActionType;
 
-                // We identify the first action whose type is REPORT or INSERT
-                // That is the only one accepted; all others are rejected
-                if (!foundAction &&
-                    (actionType == RICactionType_report || actionType == RICactionType_insert))
+                if (!foundAction && (actionType == RICactionType_report || actionType == RICactionType_insert))
                 {
                     reqActionId = actionId;
                     actionIdsAccept.push_back(reqActionId);
-                    NS_LOG_DEBUG("Action ID " << actionId << " accepted");
                     foundAction = true;
+                    
+                    RICactionDefinition_t* actionDefIE = actionItem->ricActionDefinition;
+                    if (actionDefIE != nullptr && actionDefIE->buf != nullptr) {
+                        E2SM_KPM_ActionDefinition_t *kpmActionDef = nullptr;
+                        asn_dec_rval_t decode_result = asn_decode(nullptr, ATS_ALIGNED_BASIC_PER, 
+                                                                  &asn_DEF_E2SM_KPM_ActionDefinition, 
+                                                                  (void **)&kpmActionDef, 
+                                                                  actionDefIE->buf, actionDefIE->size);
+
+                        if (decode_result.code == RC_OK && kpmActionDef != nullptr) {
+                            NS_LOG_DEBUG("E2SM-KPM Action Definition decoded successfully!");
+
+                            
+                           
+                            ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, kpmActionDef);
+                        } else {
+                            NS_LOG_ERROR("Fail to decode o E2SM-KPM Action Definition!");
+                        }
+                    }
                 }
                 else
                 {
-                    // reqActionId = actionId;
-                    // NS_LOG_DEBUG("Policy Action ID " << actionId << " processed");
-                    // actionIdsReject.push_back(reqActionId);
+                    
+                    actionIdsReject.push_back(actionId);
                 }
             }
             break;
         }
         default: {
-            NS_LOG_DEBUG("in case default");
             break;
         }
         }
@@ -260,8 +253,9 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
 
     NS_LOG_DEBUG("Create RIC Subscription Response");
     auto* e2ap_pdu = (E2AP_PDU*)calloc(1, sizeof(E2AP_PDU));
-    long* accept_array = &actionIdsAccept[0];
-    long* reject_array = &actionIdsReject[0];
+    
+    long* accept_array = actionIdsAccept.empty() ? nullptr : actionIdsAccept.data();
+    long* reject_array = actionIdsReject.empty() ? nullptr : actionIdsReject.data();
     int accept_size = actionIdsAccept.size();
     int reject_size = actionIdsReject.size();
 
@@ -273,7 +267,7 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
                                                             reqRequestorId,
                                                             reqInstanceId);
 
-    NS_LOG_DEBUG("Send RIC Subscription Response");
+    NS_LOG_DEBUG("send Subscription Response");
     m_e2sim->encode_and_send_sctp_data(e2ap_pdu);
 
     reqParams.requestorId = reqRequestorId;
@@ -289,4 +283,5 @@ E2Termination::SendE2Message(E2AP_PDU* pdu)
     m_e2sim->encode_and_send_sctp_data(pdu);
 }
 
-} // namespace ns3
+}
+ // namespace ns3

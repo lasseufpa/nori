@@ -18,16 +18,21 @@
 #include "e2sim.hpp"
 #include "kpm-function-description.h"
 #include "kpm-indication.h"
-#include "ric-control-function-description.h"
-#include "ric-control-message.h"
+// #include "ric-control-function-description.h"
+// #include "ric-control-message.h"
 
 #include "ns3/object.h"
+#include <functional>
+#include "ns3/type-id.h"
+
 
 namespace ns3
 {
-
+typedef std::function<void(E2AP_PDU_t*)> SubscriptionCallback;
 class E2Termination : public Object
 {
+
+
   public:
     E2Termination();
 
@@ -65,23 +70,6 @@ class E2Termination : public Object
      * Create a RAN Function Description item containing the configurations
      * for the SM, add it to the list of supported RAN functions, and
      * register a callback.
-     * Whenever a RIC Subscription Request to this RAN Function is received,
-     * the callback is triggered.
-     *
-     * @param ranFunctionId ID used to identify the KPM RAN Function
-     * @param ranFunctionDescription
-     * @param cb callback that will be triggered if the RIC subscribes to
-     *        this function
-     */
-    void RegisterKpmCallbackToE2Sm(long ranFunctionId,
-                                   Ptr<FunctionDescription> ranFunctionDescription,
-                                   SubscriptionCallback sbCb);
-
-    /**
-     * Register an E2 Service Model.
-     * Create a RAN Function Description item containing the configurations
-     * for the SM, add it to the list of supported RAN functions, and
-     * register a callback.
      * Whenever a Sm message to this RAN Function is received,
      * the callback is triggered.
      *
@@ -90,14 +78,14 @@ class E2Termination : public Object
      * @param cb callback that will be triggered if the RIC subscribes to
      *        this function
      */
-    void RegisterSmCallbackToE2Sm(long ranFunctionId,
-                                  Ptr<FunctionDescription> ranFunctionDescription,
-                                  SmCallback smCb);
+    void RegisterKpmCallbackToE2Sm(long ranFunctionId,
+                                   Ptr<KpmFunctionDescription> ranFunctionDescription,
+                                   SubscriptionCallback sbCb);
 
     enum class ServiceModelType
     {
         KPM,
-        RAN_CONTROL
+        // RAN_CONTROL
     };
 
     /**
@@ -145,14 +133,13 @@ class E2Termination : public Object
      * @param ranFunctionDescription
      */
     void RegisterFunctionDescToE2Sm(long ranFunctionId,
-                                    Ptr<FunctionDescription> ranFunctionDescription);
-
+                                   Ptr<KpmFunctionDescription> ranFunctionDescription);
     E2Sim* m_e2sim;           //!< pointer to an instance of the O-RAN E2 simulator
     std::string m_ricAddress; //!< IP address of the RIC
     uint16_t m_ricPort;       //!< port of the RIC
     uint16_t m_clientPort;    //!< local bind port
     std::string m_gnbId;      //!< GNB id
     std::string m_plmnId;     //!< PLMN Id
-    Ptr<RicControlMessage> m_ricControlMessage; //! RAN control message handler
+    // Ptr<RicControlMessage> m_ricControlMessage; //! RAN control message handler
 };
 } // namespace ns3

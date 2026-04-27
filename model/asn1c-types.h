@@ -19,6 +19,8 @@
 
 #include <string>
 
+#include "kpm-indication.h"
+
 extern "C"
 {
 #include "BIT_STRING.h"
@@ -26,8 +28,17 @@ extern "C"
 #include "MeasurementInfoItem.h"
 #include "MeasurementRecordItem.h"
 #include "MeasurementType.h"
+#include "MeasurementRecord.h"
 #include "OCTET_STRING.h"
 #include "S-NSSAI.h"
+#include "asn_SEQUENCE_OF.h"
+#include "LabelInfoItem.h"
+#include "LabelInfoList.h"
+#include "MeasurementLabel.h"
+#include "QCI.h"
+#include "FiveQI.h"
+#include "PLMN-Identity.h"
+
 }
 
 namespace ns3
@@ -116,6 +127,9 @@ class MeasurementDataItemWrap : public SimpleRefCount<MeasurementDataItemWrap>
 {
   public:
     MeasurementDataItemWrap();
+
+    MeasurementDataItemWrap(std::vector<double> values); 
+
     ~MeasurementDataItemWrap();
     MeasurementDataItem_t* GetPointer();
     MeasurementDataItem_t GetValue();
@@ -126,6 +140,8 @@ class MeasurementDataItemWrap : public SimpleRefCount<MeasurementDataItemWrap>
     MeasurementDataItem_t* m_measurementDataItem;
 };
 
+
+struct KpmMeasurementLabelValues;
 class MeasurementInfoItemWrap : public SimpleRefCount<MeasurementInfoItemWrap>
 {
   public:
@@ -133,6 +149,9 @@ class MeasurementInfoItemWrap : public SimpleRefCount<MeasurementInfoItemWrap>
     ~MeasurementInfoItemWrap();
     MeasurementInfoItem_t* GetPointer();
     MeasurementInfoItem_t GetValue();
+    
+    
+    void AddLabel(const KpmMeasurementLabelValues& labelValues);
 
   private:
     MeasurementInfoItem_t* m_measurementInfoItem;

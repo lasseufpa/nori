@@ -23,6 +23,8 @@ extern "C"
 {
 #include "RIC-EventTriggerStyle-Item.h"
 #include "RIC-ReportStyle-Item.h"
+#include "MeasurementInfo-Action-Item.h"
+#include "RANfunction-Name.h"
 }
 
 namespace ns3
@@ -70,34 +72,36 @@ void
 KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(
     E2SM_KPM_RANfunction_Description_t* ranfunc_desc)
 {
-    std::string shortNameBuffer = "ORAN-WG3-KPM";
+    std::string shortNameBuffer = "ORAN-E2SM-KPM";
     uint8_t* descriptionBuffer = (uint8_t*)"KPM monitor";
     uint8_t* oidBuffer = (uint8_t*)"OID123"; // this is optional, dummy value
 
-    Ptr<OctetString> shortName = Create<OctetString>(shortNameBuffer, shortNameBuffer.size());
+    ranfunc_desc->ranFunction_Name = (RANfunction_Name_t*)calloc(1, sizeof(RANfunction_Name_t)); 
 
-    ranfunc_desc->ranFunction_Name.ranFunction_ShortName = shortName->GetValue();
+    ranfunc_desc->ranFunction_Name->ranFunction_ShortName.size = shortNameBuffer.size();
+    ranfunc_desc->ranFunction_Name->ranFunction_ShortName.buf = (uint8_t*)calloc(1, shortNameBuffer.size()+1);
+    std::memcpy(ranfunc_desc->ranFunction_Name->ranFunction_ShortName.buf, shortNameBuffer.c_str(), shortNameBuffer.size());
 
     long* inst = (long*)calloc(1, sizeof(long));
 
     //  ranfunc_desc->ranFunction_Name.ranFunction_Description = (OCTET_STRING_t*)calloc(1,
     //  sizeof(OCTET_STRING_t));
-    ranfunc_desc->ranFunction_Name.ranFunction_Description.buf =
-        (uint8_t*)calloc(1, strlen((char*)descriptionBuffer));
-    memcpy(ranfunc_desc->ranFunction_Name.ranFunction_Description.buf,
+    ranfunc_desc->ranFunction_Name->ranFunction_Description.buf =
+        (uint8_t*)calloc(1, strlen((char*)descriptionBuffer)+1);
+    memcpy(ranfunc_desc->ranFunction_Name->ranFunction_Description.buf,
            descriptionBuffer,
            strlen((char*)descriptionBuffer));
-    ranfunc_desc->ranFunction_Name.ranFunction_Description.size = strlen((char*)descriptionBuffer);
-    ranfunc_desc->ranFunction_Name.ranFunction_Instance = inst;
+    ranfunc_desc->ranFunction_Name->ranFunction_Description.size = strlen((char*)descriptionBuffer);
+    ranfunc_desc->ranFunction_Name->ranFunction_Instance = inst;
 
     //  ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID = (OCTET_STRING_t*)calloc(1,
     //  sizeof(OCTET_STRING_t));
-    ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID.buf =
+    ranfunc_desc->ranFunction_Name->ranFunction_E2SM_OID.buf =
         (uint8_t*)calloc(1, strlen((char*)oidBuffer));
-    memcpy(ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID.buf,
+    memcpy(ranfunc_desc->ranFunction_Name->ranFunction_E2SM_OID.buf,
            oidBuffer,
            strlen((char*)oidBuffer));
-    ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID.size = strlen((char*)oidBuffer);
+    ranfunc_desc->ranFunction_Name->ranFunction_E2SM_OID.size = strlen((char*)oidBuffer);
 
     RIC_EventTriggerStyle_Item_t* trigger_style =
         (RIC_EventTriggerStyle_Item_t*)calloc(1, sizeof(RIC_EventTriggerStyle_Item_t));
@@ -113,6 +117,7 @@ KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(
     trigger_style->ric_EventTriggerStyle_Name.size = strlen((char*)eventTriggerStyleNameBuffer);
     trigger_style->ric_EventTriggerFormat_Type = 1;
 
+
     ranfunc_desc->ric_EventTriggerStyle_List =
         (E2SM_KPM_RANfunction_Description::
              E2SM_KPM_RANfunction_Description__ric_EventTriggerStyle_List*)
@@ -127,7 +132,7 @@ KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(
     report_style1->ric_ReportStyle_Type = 1;
 
     uint8_t* reportStyleNameBuffer =
-        (uint8_t*)"O-CU-CP Measurement Container for the EPC connected deployment";
+        (uint8_t*)"E2 Node Measurement";
 
     //  report_style1->ric_ReportStyle_Name = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
     report_style1->ric_ReportStyle_Name.buf =
@@ -136,8 +141,28 @@ KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(
            reportStyleNameBuffer,
            strlen((char*)reportStyleNameBuffer));
     report_style1->ric_ReportStyle_Name.size = strlen((char*)reportStyleNameBuffer);
-    report_style1->ric_ReportIndicationHeaderFormat_Type = 1;
-    report_style1->ric_ReportIndicationMessageFormat_Type = 1;
+    report_style1->ric_ActionFormat_Type = 1; //New
+    report_style1->measInfo_Action_List = (MeasurementInfo_Action_List_t*)calloc(1, sizeof(MeasurementInfo_Action_List_t));
+
+    for (size_t i = 0; i < KPM_SUPPORTED_METRICS.size(); ++i) {
+        auto* m_item = (MeasurementInfo_Action_Item_t*)calloc(1, sizeof(MeasurementInfo_Action_Item_t));
+        
+        m_item->measID = (MeasurementTypeID_t*)calloc(1, sizeof(MeasurementTypeID_t));
+        *m_item->measID = i + 1;
+        
+        // Copy metrics name 
+        OCTET_STRING_fromBuf(&m_item->measName, 
+                             KPM_SUPPORTED_METRICS[i].c_str(), 
+                             KPM_SUPPORTED_METRICS[i].length());
+
+        //Update data
+        ASN_SEQUENCE_ADD(&report_style1->measInfo_Action_List->list, m_item);
+    }
+
+
+
+    report_style1->ric_IndicationHeaderFormat_Type = 1;
+    report_style1->ric_IndicationMessageFormat_Type = 1;
     ranfunc_desc->ric_ReportStyle_List =
         (E2SM_KPM_RANfunction_Description::E2SM_KPM_RANfunction_Description__ric_ReportStyle_List*)
             calloc(1,
@@ -150,5 +175,5 @@ KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(
 
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_RANfunction_Description, ranfunc_desc));
 }
-
-} // namespace ns3
+}
+// namespace ns3

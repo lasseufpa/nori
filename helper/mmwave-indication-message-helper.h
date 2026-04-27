@@ -16,6 +16,7 @@
 #pragma once
 
 #include "indication-message-helper.h"
+#include "ns3/kpm-metrics-defs.h"
 
 namespace ns3
 {
@@ -23,73 +24,45 @@ namespace ns3
 class MmWaveIndicationMessageHelper : public IndicationMessageHelper
 {
   public:
-    MmWaveIndicationMessageHelper(IndicationMessageType type, bool isOffline, bool reducedPmValues);
-
+    MmWaveIndicationMessageHelper(bool isOffline, bool reducedPmValues);
+ 
     ~MmWaveIndicationMessageHelper();
 
-    void FillCuUpValues(std::string plmId);
+void AddCuUpUePmItem(std::string ueImsiComplete, 
+                         std::string plmId, 
+                         long txPdcpPduBytesNrRlc,
+                         long txPdcpPduNrRlc, 
+                         double pdcpThroughput);
 
-    void AddCuUpUePmItem(std::string ueImsiComplete, long txPdcpPduBytesNrRlc, long txPdcpPduNrRlc, double pdcpThroughput);
-
-    void FillCuCpValues(uint16_t numActiveUes);
-
-    void FillDuValues(std::string cellObjectId);
-
-    void AddDuUePmItem(std::string ueImsiComplete,
-               long macPduUe,
-               long macPduInitialUe,
-               long macQpsk,
-               long mac16Qam,
-               long mac64Qam,
-               long macRetx,
-               long macVolume,
-               long macPrb,
-               long macMac04,
-               long macMac59,
-               long macMac1014,
-               long macMac1519,
-               long macMac2024,
-               long macMac2529,
-               long macSinrBin1,
-               long macSinrBin2,
-               long macSinrBin3,
-               long macSinrBin4,
-               long macSinrBin5,
-               long macSinrBin6,
-               long macSinrBin7,
-               long rlcBufferOccup,
-               double drbThrDlUeid,
-               long sst);
-
-    void AddDuCellPmItem(long macPduCellSpecific,
-                         long macPduInitialCellSpecific,
-                         long macQpskCellSpecific,
-                         long mac16QamCellSpecific,
-                         long mac64QamCellSpecific,
-                         double prbUtilizationDl,
-                         long macRetxCellSpecific,
-                         long macVolumeCellSpecific,
-                         long macMac04CellSpecific,
-                         long macMac59CellSpecific,
-                         long macMac1014CellSpecific,
-                         long macMac1519CellSpecific,
-                         long macMac2024CellSpecific,
-                         long macMac2529CellSpecific,
-                         long macSinrBin1CellSpecific,
-                         long macSinrBin2CellSpecific,
-                         long macSinrBin3CellSpecific,
-                         long macSinrBin4CellSpecific,
-                         long macSinrBin5CellSpecific,
-                         long macSinrBin6CellSpecific,
-                         long macSinrBin7CellSpecific,
-                         long rlcBufferOccupCellSpecific,
-                         long activeUeDl);
-    void AddDuCellResRepPmItem(Ptr<CellResourceReport> cellResRep);
+    // Plano de Controle (Antigo CU-CP)
     void AddCuCpUePmItem(std::string ueImsiComplete,
                          long numDrb,
-                         long drbRelAct,
-                         Ptr<L3RrcMeasurements> l3RrcMeasurementServing,
-                         Ptr<L3RrcMeasurements> l3RrcMeasurementNeigh);
+                         long drbRelAct);
+
+    // Unidade Distribuída - Itens por UE (Antigo DU UE)
+    void AddDuUePmItem(std::string ueImsiComplete,
+                       uint64_t nrCellId,
+                       long macPduUe,
+                       long macPduInitialUe,
+                       long macQpsk,
+                       long mac16Qam,
+                       long mac64Qam,
+                       long macRetx,
+                       long macPrb,
+                       long macMac04, long macMac59, long macMac1014, // MCS Bins
+                       long macMac1519, long macMac2024, long macMac2529,
+                       long macSinrBin1, long macSinrBin2, long macSinrBin3, // SINR Bins
+                       long macSinrBin4, long macSinrBin5, long macSinrBin6,
+                       long macSinrBin7,
+                       long rlcBufferOccup,
+                       double drbThrDlUeid);
+
+    // Unidade Distribuída - Itens por Célula (Antigo DU Cell)
+    void AddDuCellPmItem(uint64_t nrCellId, 
+                         double prbUtilizationDl,
+                         long activeUeDl);
+
+    // void AddDuCellResRepPmItem(uint64_t nrCellId, Ptr<CellResourceReport> cellResRep);
 
   private:
 };

@@ -24,6 +24,8 @@ extern "C"
 #include "E2SM-KPM-IndicationHeader.h"
 #include "E2SM-KPM-IndicationMessage.h"
 #include "E2SM-KPM-RANfunction-Description.h"
+#include "MeasurementData.h"
+#include "MeasurementInfoList.h"
 #include "asn1c-types.h"
 }
 
@@ -87,6 +89,7 @@ struct KpmMeasurementLabelValues
     uint32_t m_qciMax;
     uint32_t m_qciMin;
     uint32_t m_arpMax;
+    std::string m_noUEID; 
 
 };
 
@@ -129,8 +132,9 @@ class KpmIndicationMessage : public SimpleRefCount<KpmIndicationMessage>
 
   private:
     static void CheckConstraints(KpmIndicationMessageValues values);
-    void FillAndEncodeIndicationMessageFormat1(E2SM_KPM_IndicationMessage_Format1_t* format1, 
+    void FillAndEncodeIndicationMessageFormat1(E2SM_KPM_IndicationMessage_Format1* format1, 
                      KpmIndicationMessageValues values);
+    void FillMeasData(MeasurementData* measData, std::vector<KpmMeasurementRecordValues> values);
     void FillAndEncodeKpmIndicationMessage(E2SM_KPM_IndicationMessage_t* descriptor,
                                            KpmIndicationMessageValues values);
     void Encode(E2SM_KPM_IndicationMessage_t* descriptor);

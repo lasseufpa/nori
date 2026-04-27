@@ -175,49 +175,42 @@ Snssai::GetValue()
     return *m_sNssai;
 }
 
-MeasurementRecordItemWrap::MeasurementRecordItemWrap()
-{
+MeasurementRecordItemWrap::MeasurementRecordItemWrap() {
     m_measurementRecordItem = (MeasurementRecordItem_t*)calloc(1, sizeof(MeasurementRecordItem_t));
     m_measurementRecordItem->present = MeasurementRecordItem_PR_noValue;
 }
 
-MeasurementRecordItemWrap::MeasurementRecordItemWrap(long value)
-    : MeasurementRecordItemWrap()
-{
+MeasurementRecordItemWrap::MeasurementRecordItemWrap(long value) : MeasurementRecordItemWrap() {
     m_measurementRecordItem->present = MeasurementRecordItem_PR_integer;
-    m_measurementRecordItem->choice.integer = static_cast<unsigned long>(value);
+    m_measurementRecordItem->choice.integer = value;
 }
 
-MeasurementRecordItemWrap::MeasurementRecordItemWrap(double value)
-    : MeasurementRecordItemWrap()
-{
+MeasurementRecordItemWrap::MeasurementRecordItemWrap(double value) : MeasurementRecordItemWrap() {
     m_measurementRecordItem->present = MeasurementRecordItem_PR_real;
     m_measurementRecordItem->choice.real = value;
 }
 
-MeasurementRecordItemWrap::~MeasurementRecordItemWrap()
-{
-    if (m_measurementRecordItem != nullptr)
-    {
-        ASN_STRUCT_FREE(asn_DEF_MeasurementRecordItem, m_measurementRecordItem);
-    }
+MeasurementRecordItemWrap::~MeasurementRecordItemWrap() {
+    if (m_measurementRecordItem) ASN_STRUCT_FREE(asn_DEF_MeasurementRecordItem, m_measurementRecordItem);
 }
 
-MeasurementRecordItem_t*
-MeasurementRecordItemWrap::GetPointer()
-{
-    return m_measurementRecordItem;
-}
+MeasurementRecordItem_t* MeasurementRecordItemWrap::GetPointer() { return m_measurementRecordItem; }
 
-MeasurementRecordItem_t
-MeasurementRecordItemWrap::GetValue()
-{
-    return *m_measurementRecordItem;
-}
-
-MeasurementDataItemWrap::MeasurementDataItemWrap()
-{
+// --- MeasurementDataItemWrap ---
+MeasurementDataItemWrap::MeasurementDataItemWrap() {
     m_measurementDataItem = (MeasurementDataItem_t*)calloc(1, sizeof(MeasurementDataItem_t));
+    
+    m_measurementDataItem->measRecord = (MeasurementRecord_t*)calloc(1, sizeof(MeasurementRecord_t));
+}
+
+MeasurementDataItemWrap::MeasurementDataItemWrap(std::vector<double> values)
+    : MeasurementDataItemWrap() 
+{
+    for (double val : values)
+    {
+        Ptr<MeasurementRecordItemWrap> recordWrap = Create<MeasurementRecordItemWrap>(val);
+        this->AddRecordItem(recordWrap);
+    }
 }
 
 MeasurementDataItemWrap::~MeasurementDataItemWrap()
@@ -227,75 +220,83 @@ MeasurementDataItemWrap::~MeasurementDataItemWrap()
         ASN_STRUCT_FREE(asn_DEF_MeasurementDataItem, m_measurementDataItem);
     }
 }
-
-MeasurementDataItem_t*
-MeasurementDataItemWrap::GetPointer()
-{
+MeasurementDataItem_t* MeasurementDataItemWrap::GetPointer() {
     return m_measurementDataItem;
 }
+MeasurementDataItem_t MeasurementDataItemWrap::GetValue() {
+    return *m_measurementDataItem;}
 
-MeasurementDataItem_t
-MeasurementDataItemWrap::GetValue()
-{
-    return *m_measurementDataItem;
-}
+void MeasurementDataItemWrap::AddRecordItem(Ptr<MeasurementRecordItemWrap> record) {
 
-void
-MeasurementDataItemWrap::AddRecordItem(Ptr<MeasurementRecordItemWrap> record)
-{
-    ASN_SEQUENCE_ADD(&m_measurementDataItem->measRecord.list, record->GetPointer());
-}
+    ASN_SEQUENCE_ADD(&m_measurementDataItem->measRecord->list, record->GetPointer());}
 
-void
-MeasurementDataItemWrap::SetIncompleteFlag(bool isIncomplete)
-{
-    if (isIncomplete)
-    {
-        if (m_measurementDataItem->incompleteFlag == nullptr)
-        {
+void MeasurementDataItemWrap::SetIncompleteFlag(bool isIncomplete) {
+    if (isIncomplete) {
+        if (!m_measurementDataItem->incompleteFlag) 
             m_measurementDataItem->incompleteFlag = (long*)calloc(1, sizeof(long));
-        }
-        *m_measurementDataItem->incompleteFlag = MeasurementDataItem__incompleteFlag_true;
+        *m_measurementDataItem->incompleteFlag = 0;
         return;
     }
-
-    if (m_measurementDataItem->incompleteFlag != nullptr)
-    {
+    if (m_measurementDataItem->incompleteFlag) {
         free(m_measurementDataItem->incompleteFlag);
         m_measurementDataItem->incompleteFlag = nullptr;
     }
 }
 
-MeasurementInfoItemWrap::MeasurementInfoItemWrap(std::string metricName)
-{
+
+MeasurementInfoItemWrap::MeasurementInfoItemWrap(std::string metricName) {
     m_measurementInfoItem = (MeasurementInfoItem_t*)calloc(1, sizeof(MeasurementInfoItem_t));
-
-    m_measurementInfoItem->measType.present = MeasurementType_PR_measName;
-    m_measurementInfoItem->measType.choice.measName.buf = (uint8_t*)calloc(1, metricName.size());
-    m_measurementInfoItem->measType.choice.measName.size = metricName.size();
-    std::memcpy(m_measurementInfoItem->measType.choice.measName.buf,
-                metricName.c_str(),
-                metricName.size());
+    
+    
+    m_measurementInfoItem->measType = (MeasurementType_t*)calloc(1, sizeof(MeasurementType_t));
+    
+    m_measurementInfoItem->measType->present = MeasurementType_PR_measName;
+    m_measurementInfoItem->measType->choice.measName.buf = (uint8_t*)calloc(1, metricName.size());
+    m_measurementInfoItem->measType->choice.measName.size = metricName.size();
+    std::memcpy(m_measurementInfoItem->measType->choice.measName.buf, metricName.c_str(), metricName.size());
 }
 
-MeasurementInfoItemWrap::~MeasurementInfoItemWrap()
+MeasurementInfoItemWrap::~MeasurementInfoItemWrap() {
+    if (m_measurementInfoItem) ASN_STRUCT_FREE(asn_DEF_MeasurementInfoItem, m_measurementInfoItem);
+}
+
+MeasurementInfoItem_t* MeasurementInfoItemWrap::GetPointer() { return m_measurementInfoItem; }
+
+
+void MeasurementInfoItemWrap::AddLabel(const KpmMeasurementLabelValues& labelValues)
 {
-    if (m_measurementInfoItem != nullptr)
-    {
-        ASN_STRUCT_FREE(asn_DEF_MeasurementInfoItem, m_measurementInfoItem);
+    if (m_measurementInfoItem->labelInfoList == nullptr) {
+        m_measurementInfoItem->labelInfoList = (LabelInfoList_t*)calloc(1, sizeof(LabelInfoList_t));
     }
-}
 
-MeasurementInfoItem_t*
-MeasurementInfoItemWrap::GetPointer()
-{
-    return m_measurementInfoItem;
-}
 
-MeasurementInfoItem_t
-MeasurementInfoItemWrap::GetValue()
-{
-    return *m_measurementInfoItem;
-}
+    LabelInfoItem_t* labelItem = (LabelInfoItem_t*)calloc(1, sizeof(LabelInfoItem_t));
 
+
+    if (!labelValues.m_plmId.empty()) {
+        labelItem->measLabel->plmnID = (PLMN_Identity_t*)calloc(1, sizeof(PLMN_Identity_t));
+        labelItem->measLabel->plmnID->size = labelValues.m_plmId.size();
+        labelItem->measLabel->plmnID->buf = (uint8_t*)calloc(1, labelItem->measLabel->plmnID->size);
+        std::memcpy(labelItem->measLabel->plmnID->buf, labelValues.m_plmId.c_str(), labelItem->measLabel->plmnID->size);
+    }
+
+    //5QI
+    if (labelValues.m_fiveQi > 0) {
+        labelItem->measLabel->fiveQI = (FiveQI_t*)calloc(1, sizeof(FiveQI_t));
+        *labelItem->measLabel->fiveQI = labelValues.m_fiveQi;
+    }
+
+    //QCI
+    if (labelValues.m_qci > 0) {
+        labelItem->measLabel->qCI = (QCI_t*)calloc(1, sizeof(QCI_t));
+        *labelItem->measLabel->qCI = labelValues.m_qci;
+    }
+
+   //S-NSSAI
+    Ptr<Snssai> slice = Create<Snssai>(std::to_string(labelValues.m_sNssai));
+    labelItem->measLabel->sliceID = slice->GetPointer();
+
+    // UE labels
+    ASN_SEQUENCE_ADD(&m_measurementInfoItem->labelInfoList->list, labelItem);
+}
 } // namespace ns3

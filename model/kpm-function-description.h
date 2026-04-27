@@ -15,37 +15,35 @@
 
 #pragma once
 
-#include "function-description.h"
-
 #include "ns3/object.h"
+#include "kpm-metrics-defs.h" 
 
 extern "C"
 {
 #include "E2SM-KPM-IndicationHeader.h"
 #include "E2SM-KPM-IndicationMessage.h"
 #include "E2SM-KPM-RANfunction-Description.h"
-#include "OCUUP-PF-Container.h"
-#include "PF-Container.h"
-#include "PF-ContainerListItem.h"
-#include "RAN-Container.h"
 #include "asn1c-types.h"
+#include "RIC-EventTriggerStyle-Item.h"
+#include "RIC-ReportStyle-Item.h"
+#include "MeasurementInfo-Action-List.h"
+#include "MeasurementInfo-Action-Item.h"
 }
 
 namespace ns3
 {
 
-class KpmFunctionDescription : public FunctionDescription
+class KpmFunctionDescription : public SimpleRefCount<KpmFunctionDescription>
 {
   public:
     KpmFunctionDescription();
     ~KpmFunctionDescription();
 
+    // Get the encoded KPM function description, ready to be sent in E2AP messages.
+    void* m_buffer;
+    size_t m_size;
+
   private:
-    /**
-     * Encodes the RAN Function Description item for the KPM Service Model.
-     *
-     * @param kpmFunctionDescription the RAN Function Description item
-     */
     void FillAndEncodeKpmFunctionDescription(E2SM_KPM_RANfunction_Description_t* descriptor);
     void Encode(E2SM_KPM_RANfunction_Description_t* descriptor);
 };

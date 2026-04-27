@@ -1,9 +1,9 @@
 set(base_examples
     nori-sample
     #oran-interface-example
-    nori-mimo-demo
-    nori-simple-rl-sched
-    nori-embb-urllc-scenario
+    #nori-mimo-demo
+    #nori-simple-rl-sched
+    #nori-embb-urllc-scenario
 )
 
 foreach(

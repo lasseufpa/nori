@@ -26,6 +26,16 @@
 #include "ns3/type-id.h"
 #include "ns3/uinteger.h"
 
+static ns3::Ptr<ns3::E2Interface> g_e2InterfaceForCallback = nullptr;
+
+void E2SimProxyCallback (E2AP_PDU_t* pdu) {
+    if (g_e2InterfaceForCallback) {
+        g_e2InterfaceForCallback->FunctionServiceSubscriptionCallback(pdu);
+    }
+}
+
+
+
 namespace ns3
 {
 
@@ -141,19 +151,17 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
 
     // Connect E2 termination to E2 messages via KPM subscription callback
     Ptr<KpmFunctionDescription> kpmFd = Create<KpmFunctionDescription>();
-    e2Term->RegisterKpmCallbackToE2Sm(200,
-                                      kpmFd,
-                                      std::bind(&E2Interface::FunctionServiceSubscriptionCallback,
-                                                e2Messages,
-                                                std::placeholders::_1));
+    
+    g_e2InterfaceForCallback = e2Messages;
+    e2Term->RegisterKpmCallbackToE2Sm(200, kpmFd, E2SimProxyCallback);
 
     
-    auto ricFd = Create<RicControlFunctionDescription>();
-    e2Term->RegisterSmCallbackToE2Sm(300,
-                                     ricFd,
-                                     std::bind(&E2Interface::ControlMessageReceivedCallback,
-                                               e2Messages,
-                                               std::placeholders::_1));
+    //  auto ricFd = Create<RicControlFunctionDescription>();
+    // e2Term->RegisterSmCallbackToE2Sm(300,
+    //                                  ricFd,
+    //                                  std::bind(&E2Interface::ControlMessageReceivedCallback,
+    //                                            e2Messages,
+    //                                            std::placeholders::_1));
 
     Simulator::Schedule(MicroSeconds(0), &E2Termination::Start, e2Term);
 

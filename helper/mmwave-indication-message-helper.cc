@@ -18,201 +18,136 @@
 namespace ns3
 {
 
-MmWaveIndicationMessageHelper::MmWaveIndicationMessageHelper(IndicationMessageType type,
+MmWaveIndicationMessageHelper::MmWaveIndicationMessageHelper(
                                                              bool isOffline,
                                                              bool reducedPmValues)
-    : IndicationMessageHelper(type, isOffline, reducedPmValues)
+    : IndicationMessageHelper(isOffline, reducedPmValues)
 {
 }
 
 void
 MmWaveIndicationMessageHelper::AddCuUpUePmItem(std::string ueImsiComplete,
+                                               std::string plmId, // Adicionado como parâmetro
                                                long txPdcpPduBytesNrRlc,
                                                long txPdcpPduNrRlc,
                                                double pdcpThroughput)
 {
-    Ptr<MeasurementItemList> ueVal = Create<MeasurementItemList>(ueImsiComplete);
+    KpmMeasurementLabelValues labels;
+    labels.m_plmId = plmId;
+    labels.m_noUEID = ueImsiComplete; // Vínculo com o Usuário
+
     if (!m_reducedPmValues)
     {
-        // UE-specific PDCP PDU volume transmitted to NR gNB (Unit is Kbits)
-        ueVal->AddItem<long>("QosFlow.PdcpPduVolumeDL_Filter.UEID", txPdcpPduBytesNrRlc);
-
-        // UE-specific number of PDCP PDUs split with NR gNB
-        ueVal->AddItem<long>("DRB.PdcpPduNbrDl.Qos.UEID", txPdcpPduNrRlc);
-
-        ueVal->AddItem<float>("DRB.PdcpSduBitRateDl.UEID", pdcpThroughput);
+        AddMetricValue(KPM_SUPPORTED_METRICS[PDCP_VOL_DL], (double)txPdcpPduBytesNrRlc, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[PDCP_PDU_NBR], (double)txPdcpPduNrRlc, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[PDCP_THP_DL], pdcpThroughput, labels);
     }
-
-    m_msgValues.m_ueIndications.insert(ueVal);
 }
 
-void
-MmWaveIndicationMessageHelper::FillCuUpValues(std::string plmId)
-{
-    FillBaseCuUpValues(plmId);
-}
-
-void
-MmWaveIndicationMessageHelper::FillCuCpValues(uint16_t numActiveUes)
-{
-    FillBaseCuCpValues(numActiveUes);
-}
-
-void
-MmWaveIndicationMessageHelper::FillDuValues(std::string cellObjectId)
-{
-    m_msgValues.m_cellObjectId = cellObjectId;
-    m_msgValues.m_pmContainerValues = m_duValues;
-}
 
 void
 MmWaveIndicationMessageHelper::AddDuUePmItem(std::string ueImsiComplete,
+                                             uint64_t nrCellId, 
                                              long macPduUe,
                                              long macPduInitialUe,
                                              long macQpsk,
                                              long mac16Qam,
                                              long mac64Qam,
                                              long macRetx,
-                                             [[maybe_unused]] long macVolume,
+                                             // CORREÇÃO 1: Removido o 'macVolume' daqui!
                                              long macPrb,
-                                             long macMac04,
-                                             long macMac59,
-                                             long macMac1014,
-                                             long macMac1519,
-                                             long macMac2024,
-                                             long macMac2529,
-                                             long macSinrBin1,
-                                             long macSinrBin2,
-                                             long macSinrBin3,
-                                             long macSinrBin4,
-                                             long macSinrBin5,
-                                             long macSinrBin6,
+                                             long macMac04, long macMac59, long macMac1014,
+                                             long macMac1519, long macMac2024, long macMac2529,
+                                             long macSinrBin1, long macSinrBin2, long macSinrBin3,
+                                             long macSinrBin4, long macSinrBin5, long macSinrBin6,
                                              long macSinrBin7,
                                              long rlcBufferOccup,
-                                             double drbThrDlUeid,
-                                             long sst)
+                                             double drbThrDlUeid)
 {
-    Ptr<MeasurementItemList> ueVal = Create<MeasurementItemList>(ueImsiComplete);
+    KpmMeasurementLabelValues labels;
+    labels.m_noUEID = ueImsiComplete; 
+    labels.m_nrCellId = nrCellId;
+
     if (!m_reducedPmValues)
     {
-        ueVal->AddItem<long>("TB.TotNbrDl.1.UEID", macPduUe);
-        ueVal->AddItem<long>("TB.TotNbrDlInitial.UEID", macPduInitialUe);
-        ueVal->AddItem<long>("TB.TotNbrDlInitial.Qpsk.UEID", macQpsk);
-        ueVal->AddItem<long>("TB.TotNbrDlInitial.16Qam.UEID", mac16Qam);
-        ueVal->AddItem<long>("TB.TotNbrDlInitial.64Qam.UEID", mac64Qam);
-        ueVal->AddItem<long>("TB.ErrTotalNbrDl.1.UEID", macRetx);
-        //ueVal->AddItem<long>("QosFlow.PdcpPduVolumeDL_Filter.UEID", macVolume);
-        ueVal->AddItem<long>("RRU.PrbUsedDl.UEID", (long)std::ceil(macPrb));
-        ueVal->AddItem<long>("CARR.PDSCHMCSDist.Bin1.UEID", macMac04);
-        ueVal->AddItem<long>("CARR.PDSCHMCSDist.Bin2.UEID", macMac59);
-        ueVal->AddItem<long>("CARR.PDSCHMCSDist.Bin3.UEID", macMac1014);
-        ueVal->AddItem<long>("CARR.PDSCHMCSDist.Bin4.UEID", macMac1519);
-        ueVal->AddItem<long>("CARR.PDSCHMCSDist.Bin5.UEID", macMac2024);
-        ueVal->AddItem<long>("CARR.PDSCHMCSDist.Bin6.UEID", macMac2529);
-        ueVal->AddItem<long>("L1M.RS-SINR.Bin34.UEID", macSinrBin1);
-        ueVal->AddItem<long>("L1M.RS-SINR.Bin46.UEID", macSinrBin2);
-        ueVal->AddItem<long>("L1M.RS-SINR.Bin58.UEID", macSinrBin3);
-        ueVal->AddItem<long>("L1M.RS-SINR.Bin70.UEID", macSinrBin4);
-        ueVal->AddItem<long>("L1M.RS-SINR.Bin82.UEID", macSinrBin5);
-        ueVal->AddItem<long>("L1M.RS-SINR.Bin94.UEID", macSinrBin6);
-        ueVal->AddItem<long>("L1M.RS-SINR.Bin127.UEID", macSinrBin7);
-        ueVal->AddItem<long>("DRB.BufferSize.Qos.UEID", rlcBufferOccup);
+        AddMetricValue(KPM_SUPPORTED_METRICS[TB_TOT_NBR_DL], (double)macPduUe, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[TB_TOT_NBR_DL_INIT], (double)macPduInitialUe, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[TB_INIT_QPSK], (double)macQpsk, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[TB_INIT_16QAM], (double)mac16Qam, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[TB_INIT_64QAM], (double)mac64Qam, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[TB_ERR_RETX], (double)macRetx, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[RRU_PRB_UE], (double)std::ceil(macPrb), labels);
+
+        AddMetricValue(KPM_SUPPORTED_METRICS[MCS_BIN_1], (double)macMac04, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[MCS_BIN_2], (double)macMac59, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[MCS_BIN_3], (double)macMac1014, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[MCS_BIN_4], (double)macMac1519, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[MCS_BIN_5], (double)macMac2024, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[MCS_BIN_6], (double)macMac2529, labels);
+
+        // CORREÇÃO 2: Adicionado o 'R' em SINR_BIN
+        AddMetricValue(KPM_SUPPORTED_METRICS[SINR_BIN_1], (double)macSinrBin1, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[SINR_BIN_2], (double)macSinrBin2, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[SINR_BIN_3], (double)macSinrBin3, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[SINR_BIN_4], (double)macSinrBin4, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[SINR_BIN_5], (double)macSinrBin5, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[SINR_BIN_6], (double)macSinrBin6, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[SINR_BIN_7], (double)macSinrBin7, labels);
+        
+        AddMetricValue("DRB.BufferSize.Qos.UEID", (double)rlcBufferOccup, labels);
     }
 
-    ueVal->AddItem<double>("DRB.UEThpDl.UEID", drbThrDlUeid);
-
-    ueVal->AddItem<long>("DRB.NetworkSlicing.SST.UEID", sst);
-
-    m_msgValues.m_ueIndications.insert(ueVal);
+    AddMetricValue(KPM_SUPPORTED_METRICS[DRB_THP_UE], drbThrDlUeid, labels);
 }
 
 void
-MmWaveIndicationMessageHelper::AddDuCellPmItem(long macPduCellSpecific,
-                                               long macPduInitialCellSpecific,
-                                               long macQpskCellSpecific,
-                                               long mac16QamCellSpecific,
-                                               long mac64QamCellSpecific,
+MmWaveIndicationMessageHelper::AddDuCellPmItem(uint64_t nrCellId, 
                                                double prbUtilizationDl,
-                                               long macRetxCellSpecific,
-                                               long macVolumeCellSpecific,
-                                               long macMac04CellSpecific,
-                                               long macMac59CellSpecific,
-                                               long macMac1014CellSpecific,
-                                               long macMac1519CellSpecific,
-                                               long macMac2024CellSpecific,
-                                               long macMac2529CellSpecific,
-                                               long macSinrBin1CellSpecific,
-                                               long macSinrBin2CellSpecific,
-                                               long macSinrBin3CellSpecific,
-                                               long macSinrBin4CellSpecific,
-                                               long macSinrBin5CellSpecific,
-                                               long macSinrBin6CellSpecific,
-                                               long macSinrBin7CellSpecific,
-                                               long rlcBufferOccupCellSpecific,
                                                long activeUeDl)
 {
-    Ptr<MeasurementItemList> cellVal = Create<MeasurementItemList>();
+    KpmMeasurementLabelValues labels;
+    labels.m_nrCellId = nrCellId;
 
-    if (!m_reducedPmValues)
-    {
-        cellVal->AddItem<long>("TB.TotNbrDl.1", macPduCellSpecific);
-        cellVal->AddItem<long>("TB.TotNbrDlInitial", macPduInitialCellSpecific);
-    }
-
-    cellVal->AddItem<long>("TB.TotNbrDlInitial.Qpsk", macQpskCellSpecific);
-    cellVal->AddItem<long>("TB.TotNbrDlInitial.16Qam", mac16QamCellSpecific);
-    cellVal->AddItem<long>("TB.TotNbrDlInitial.64Qam", mac64QamCellSpecific);
-    cellVal->AddItem<long>("RRU.PrbUsedDl", (long)std::ceil(prbUtilizationDl));
-
-    if (!m_reducedPmValues)
-    {
-        cellVal->AddItem<long>("TB.ErrTotalNbrDl.1", macRetxCellSpecific);
-        cellVal->AddItem<long>("QosFlow.PdcpPduVolumeDL_Filter", macVolumeCellSpecific);
-        cellVal->AddItem<long>("CARR.PDSCHMCSDist.Bin1", macMac04CellSpecific);
-        cellVal->AddItem<long>("CARR.PDSCHMCSDist.Bin2", macMac59CellSpecific);
-        cellVal->AddItem<long>("CARR.PDSCHMCSDist.Bin3", macMac1014CellSpecific);
-        cellVal->AddItem<long>("CARR.PDSCHMCSDist.Bin4", macMac1519CellSpecific);
-        cellVal->AddItem<long>("CARR.PDSCHMCSDist.Bin5", macMac2024CellSpecific);
-        cellVal->AddItem<long>("CARR.PDSCHMCSDist.Bin6", macMac2529CellSpecific);
-        cellVal->AddItem<long>("L1M.RS-SINR.Bin34", macSinrBin1CellSpecific);
-        cellVal->AddItem<long>("L1M.RS-SINR.Bin46", macSinrBin2CellSpecific);
-        cellVal->AddItem<long>("L1M.RS-SINR.Bin58", macSinrBin3CellSpecific);
-        cellVal->AddItem<long>("L1M.RS-SINR.Bin70", macSinrBin4CellSpecific);
-        cellVal->AddItem<long>("L1M.RS-SINR.Bin82", macSinrBin5CellSpecific);
-        cellVal->AddItem<long>("L1M.RS-SINR.Bin94", macSinrBin6CellSpecific);
-        cellVal->AddItem<long>("L1M.RS-SINR.Bin127", macSinrBin7CellSpecific);
-        cellVal->AddItem<long>("DRB.BufferSize.Qos", rlcBufferOccupCellSpecific);
-    }
-
-    cellVal->AddItem<long>("DRB.MeanActiveUeDl", activeUeDl);
-
-    m_msgValues.m_cellMeasurementItems = cellVal;
+    AddMetricValue(KPM_SUPPORTED_METRICS[PRB_UTIL_CELL], (double)std::ceil(prbUtilizationDl), labels);
+    AddMetricValue(KPM_SUPPORTED_METRICS[ACTIVE_UES_CELL], (double)activeUeDl, labels);
 }
 
-void
-MmWaveIndicationMessageHelper::AddDuCellResRepPmItem(Ptr<CellResourceReport> cellResRep)
-{
-    m_duValues->m_cellResourceReportItems.insert(cellResRep);
-}
+// void
+// MmWaveIndicationMessageHelper::AddDuCellResRepPmItem(uint64_t nrCellId, Ptr<CellResourceReport> cellResRep)
+// {
+//     // 1. Criar a Label da Célula
+//     KpmMeasurementLabelValues labels;
+//     labels.m_nrCellId = nrCellId;
 
+//     // 2. Extrair os dados do objeto CellResourceReport
+//     // Supondo que o objeto tenha um método para pegar o uso total de PRB
+//     double prbUsage = cellResRep->GetTotalPrbUsage(); 
+
+//     // 3. Enviar como uma métrica de rádio padrão (definida no seu kpm-metrics-defs.h)
+//     AddMetricValue(KPM_SUPPORTED_METRICS[RRU_PRB_USED_CELL], prbUsage, labels);
+
+    
+//     for (auto const& sliceReport : cellResRep->GetSliceReports()) {
+//         KpmMeasurementLabelValues sliceLabels = labels;
+//         sliceLabels.m_sNssai = sliceReport.GetSnssai();
+//         AddMetricValue("RRU.PrbUsedDl.Slice", sliceReport.GetUsage(), sliceLabels);
+//     }
+
+// }
 void
 MmWaveIndicationMessageHelper::AddCuCpUePmItem(std::string ueImsiComplete,
                                                long numDrb,
-                                               long drbRelAct,
-                                               Ptr<L3RrcMeasurements> l3RrcMeasurementServing,
-                                               Ptr<L3RrcMeasurements> l3RrcMeasurementNeigh)
+                                               long drbRelAct)
 {
-    Ptr<MeasurementItemList> ueVal = Create<MeasurementItemList>(ueImsiComplete);
+    KpmMeasurementLabelValues labels;
+    labels.m_noUEID = ueImsiComplete;
+
     if (!m_reducedPmValues)
     {
-        ueVal->AddItem<long>("DRB.EstabSucc.5QI.UEID", numDrb);
-        ueVal->AddItem<long>("DRB.RelActNbr.5QI.UEID", drbRelAct); // not modeled in the simulator
+        // Usando o mapeamento do arquivo de métricas
+        AddMetricValue(KPM_SUPPORTED_METRICS[DRB_ESTAB_SUCCESS], (double)numDrb, labels);
+        AddMetricValue(KPM_SUPPORTED_METRICS[DRB_REL_ACT], (double)drbRelAct, labels);
     }
-
-    ueVal->AddItem<Ptr<L3RrcMeasurements>>("HO.SrcCellQual.RS-SINR.UEID", l3RrcMeasurementServing);
-    ueVal->AddItem<Ptr<L3RrcMeasurements>>("HO.TrgtCellQual.RS-SINR.UEID", l3RrcMeasurementNeigh);
-
-    m_msgValues.m_ueIndications.insert(ueVal);
 }
 
 MmWaveIndicationMessageHelper::~MmWaveIndicationMessageHelper()

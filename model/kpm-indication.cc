@@ -102,8 +102,8 @@ KpmIndicationHeader::FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHead
 
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationHeader_Format1, ind_header));
 
-    descriptor->present = E2SM_KPM_IndicationHeader_PR_indicationHeader_Format1;
-    descriptor->choice.indicationHeader_Format1 = ind_header;
+    descriptor->indicationHeader_formats.present = E2SM_KPM_IndicationHeader__indicationHeader_formats_PR_indicationHeader_Format1;
+    descriptor->indicationHeader_formats.choice.indicationHeader_Format1 = ind_header;
 
     Encode(descriptor);
     //ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_IndicationHeader_Format1, ind_header);
@@ -165,24 +165,6 @@ KpmIndicationMessage::Encode(E2SM_KPM_IndicationMessage_t* descriptor)
 }
 
 
-void
-KpmIndicationMessage::FillMeasData(MeasurementData_t* measData, std::vector<KpmMeasurementRecordValues> values){
-    {
-    for (const auto& record : values) {
-        auto* dataItem = CreateMeasurementDataItem(record.m_values);
-        ASN_SEQUENCE_ADD(&measData->list, dataItem);
-    }
-}
-}
-
-static GranularityPeriod_t* CreateGranularityPeriod(uint32_t value) {
-    if (value == 0) return nullptr;
-
-    auto* gp = (GranularityPeriod_t*)calloc(1, sizeof(GranularityPeriod_t));
-    *gp = value; 
-    return gp;
-}
-
 
 
 void
@@ -190,10 +172,10 @@ KpmIndicationMessage::FillAndEncodeKpmIndicationMessage(E2SM_KPM_IndicationMessa
                                                         KpmIndicationMessageValues values)
 {
 
-    descriptor->present = E2SM_KPM_IndicationMessage_PR_indicationMessage_Format1; //Define the format 1
+    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_formats_PR_indicationMessage_Format1; //Define the format 1
 
     auto* format1 = (E2SM_KPM_IndicationMessage_Format1_t*)calloc(1, sizeof(E2SM_KPM_IndicationMessage_Format1_t));
-    descriptor->choice.indicationMessage_Format1 = format1;
+    descriptor->indicationMessage_formats.choice.indicationMessage_Format1 = format1;
 
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationMessage_Format1, format1));
 
@@ -208,19 +190,31 @@ KpmIndicationMessage::FillAndEncodeKpmIndicationMessage(E2SM_KPM_IndicationMessa
 }
 
 void
-KpmIndicationMessage::FillAndEncodeIndicationMessageFormat1(E2SM_KPM_IndicationMessage_Format1_t* format1, KpmIndicaionMessageValues values)
+KpmIndicationMessage::FillAndEncodeIndicationMessageFormat1(E2SM_KPM_IndicationMessage_Format1* format1, KpmIndicationMessageValues values)
 {
 
 //Meas Data values
     for (const auto& recordValue : values.m_measData) {
-        auto* dataItem = CreateMeasurementDataItem(recordValue.m_values);
-        ASN_SEQUENCE_ADD(&format1->measData.list, dataItem);
+        Ptr<MeasurementDataItemWrap> dataItemWrap = Create<MeasurementDataItemWrap>(recordValue.m_values);
+        
+        if (dataItemWrap->GetPointer() != nullptr) {
+
+            ASN_SEQUENCE_ADD(&format1->measData->list, dataItemWrap->GetPointer());
+        }
     }
 //MeasInfoList
     for (const auto& infoValue : values.m_measInfoList) {
-        auto* (const auto& infoValue: values.m_measInfoList); //call the wrapper asn1c-types
 
-        ASN_SEQUENCE_ADD(&format1->measInfoList.list, infoItem);
+
+        Ptr<MeasurementInfoItemWrap> infoWrap = Create<MeasurementInfoItemWrap>(infoValue.m_measName);
+
+        infoWrap->AddLabel(infoValue.m_labels);
+
+        auto* infoItem = infoWrap->GetPointer(); //call the wrapper asn1c-types
+
+        if (infoItem) {
+            ASN_SEQUENCE_ADD(&format1->measInfoList->list, infoItem);
+        }
     }
 
 //Granularity Period

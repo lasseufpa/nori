@@ -23,17 +23,13 @@ namespace ns3
 class IndicationMessageHelper : public Object
 {
   public:
-    enum class IndicationMessageType
-    {
-        CuCp = 0,
-        CuUp = 1,
-        Du = 2
-    };
-    IndicationMessageHelper(IndicationMessageType type, bool isOffline, bool reducedPmValues);
+    IndicationMessageHelper(bool isOffline, bool reducedPmValues);
 
     ~IndicationMessageHelper();
 
     Ptr<KpmIndicationMessage> CreateIndicationMessage();
+    void AddMetricValue(std::string metricName, double value, KpmMeasurementLabelValues labels = {});
+
 
     const bool& IsOffline() const
     {
@@ -41,17 +37,11 @@ class IndicationMessageHelper : public Object
     }
 
   protected:
-    void FillBaseCuUpValues(std::string plmId);
 
-    void FillBaseCuCpValues(uint16_t numActiveUes);
-
-    IndicationMessageType m_type;
     bool m_offline;
     bool m_reducedPmValues;
     KpmIndicationMessage::KpmIndicationMessageValues m_msgValues;
-    Ptr<OCuUpContainerValues> m_cuUpValues;
-    Ptr<OCuCpContainerValues> m_cuCpValues;
-    Ptr<ODuContainerValues> m_duValues;
+
 };
 
 } // namespace ns3
