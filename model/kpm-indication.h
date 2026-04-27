@@ -8,7 +8,10 @@
  *
  *
  *
- * Author: Andrea Lacava <thecave003@gmail.com>
+ * Author: Andrey Adailso <andreyadailsom@gmail.com>
+ *         João Albuquerque <Allbu>
+ *         Raissa Costa <RaissaCCosta>
+ *         Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
  *         Michele Polese <michele.polese@gmail.com>
  */
