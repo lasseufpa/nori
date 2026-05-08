@@ -11,7 +11,19 @@ set(source_files
     )
 
 include_directories(/usr/local/include/e2sim)
-find_library(E2SIM_LIB NAMES e2sim_shared e2sim PATHS /usr/local/lib)
+
+# Tentativa de encontrar a biblioteca em locais comuns, incluindo caminhos multiarch
+find_library(E2SIM_LIB 
+             NAMES e2sim_shared e2sim
+             PATHS /usr/local/lib /usr/local/lib/x86_64-linux-gnu /usr/lib /usr/lib/x86_64-linux-gnu
+             NO_DEFAULT_PATH)
+
+if(NOT E2SIM_LIB)
+    message(FATAL_ERROR "E2SIM_LIB NOT FOUND! Checked /usr/local/lib, /usr/lib and multiarch paths.")
+endif()
+
+message(STATUS "Found E2SIM_LIB: ${E2SIM_LIB}")
+
 set(header_files
     model/E2-report.h
     model/E2-interface.h

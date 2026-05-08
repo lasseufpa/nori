@@ -265,7 +265,8 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
                                                             accept_size,
                                                             reject_size,
                                                             reqRequestorId,
-                                                            reqInstanceId);
+                                                            reqInstanceId,
+                                                            ranFuncionId);
 
     NS_LOG_DEBUG("send Subscription Response");
     m_e2sim->encode_and_send_sctp_data(e2ap_pdu);
