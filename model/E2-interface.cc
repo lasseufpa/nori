@@ -149,7 +149,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     if (cuUp)
     {
         // Create CU-UP
-        auto header = BuildRicIndicationHeader(plmId, gnbId, m_cellId);
+        auto header = BuildRicIndicationHeader();
         auto cuUpMsg = BuildRicIndicationMessageCuUp(plmId);
 
         // Send CU-UP only if offline logging is disabled
@@ -177,7 +177,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     if (m_sendCuCp)
     {
         // Create and send CU-CP
-        Ptr<KpmIndicationHeader> header = BuildRicIndicationHeader(plmId, gnbId, m_cellId);
+        Ptr<KpmIndicationHeader> header = BuildRicIndicationHeader();
         Ptr<KpmIndicationMessage> cuCpMsg = BuildRicIndicationMessageCuCp(plmId);
 
         // Send CU-CP only if offline logging is disabled
@@ -205,7 +205,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     if (m_sendDu)
     {
         // Create DU
-        Ptr<KpmIndicationHeader> header = BuildRicIndicationHeader(plmId, gnbId, m_cellId);
+        Ptr<KpmIndicationHeader> header = BuildRicIndicationHeader();
         Ptr<KpmIndicationMessage> duMsg = BuildRicIndicationMessageDu(plmId, m_cellId);
 
         // Send DU only if offline logging is disabled
@@ -1157,32 +1157,18 @@ E2Interface::FlipMap(const std::map<uint16_t, long double>& src)
 }
 
 Ptr<KpmIndicationHeader>
-E2Interface ::BuildRicIndicationHeader(std::string plmId,
-                                       std::string gnbId,
-                                       uint16_t nrCellId) const
+E2Interface ::BuildRicIndicationHeader() const
 {
-    // if (!m_forceE2FileLogging)
-    //{
     KpmIndicationHeader::KpmRicIndicationHeaderValues headerValues;
-    headerValues.m_plmId = plmId;
-    headerValues.m_gnbId = gnbId;
-    headerValues.m_nrCellId = nrCellId;
     auto time = Simulator::Now();
     uint64_t timestamp = m_startTime + (uint64_t)time.GetMilliSeconds();
-    NS_LOG_DEBUG("NR plmid " << plmId << " gnbId " << gnbId << " nrCellId " << nrCellId);
     NS_LOG_DEBUG("Timestamp " << timestamp);
     headerValues.m_timestamp = timestamp;
 
     Ptr<KpmIndicationHeader> header =
-        Create<KpmIndicationHeader>(KpmIndicationHeader::GlobalE2nodeType::gNB, headerValues);
+        Create<KpmIndicationHeader>(headerValues);
     return header;
-    /**
-    }
-    else
-    {
-        return nullptr;
-    }
-     */
+
 }
 
 void

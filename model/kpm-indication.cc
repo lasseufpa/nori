@@ -21,29 +21,8 @@
 
 extern "C"
 {
-#include "CUUPMeasurement-Container.h"
-#include "CellObjectID.h"
-#include "CellResourceReportListItem.h"
-#include "E2SM-KPM-IndicationHeader-Format1.h"
+#include "E2SM-KPM-Indication_Hearder-Format1.h
 #include "E2SM-KPM-IndicationMessage-Format1.h"
-#include "EPC-CUUP-PM-Format.h"
-#include "EPC-DU-PM-Container.h"
-#include "GlobalE2node-ID.h"
-#include "GlobalE2node-eNB-ID.h"
-#include "GlobalE2node-en-gNB-ID.h"
-#include "GlobalE2node-gNB-ID.h"
-#include "GlobalE2node-ng-eNB-ID.h"
-#include "MeasurementInfoList.h"
-#include "NRCGI.h"
-#include "PM-Containers-Item.h"
-#include "PM-Info-Item.h"
-#include "PerQCIReportListItem.h"
-#include "PerQCIReportListItemFormat.h"
-#include "PerUE-PM-Item.h"
-#include "PlmnID-Item.h"
-#include "RIC-EventTriggerStyle-Item.h"
-#include "RIC-ReportStyle-Item.h"
-#include "ServedPlmnPerCellListItem.h"
 #include "TimeStamp.h"
 }
 
@@ -52,10 +31,8 @@ namespace ns3
 
 NS_LOG_COMPONENT_DEFINE("KpmIndication");
 
-KpmIndicationHeader::KpmIndicationHeader(GlobalE2nodeType nodeType,
-                                         KpmRicIndicationHeaderValues values)
+KpmIndicationHeader::KpmIndicationHeader(KpmRicIndicationHeaderValues values)
 {
-    m_nodeType = nodeType;
     auto* descriptor = new E2SM_KPM_IndicationHeader_t;
     FillAndEncodeKpmRicIndicationHeader(descriptor, values);
     delete descriptor;
@@ -98,107 +75,45 @@ KpmIndicationHeader::FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHead
         (E2SM_KPM_IndicationHeader_Format1_t*)calloc(1,
                                                      sizeof(E2SM_KPM_IndicationHeader_Format1_t));
 
-    Ptr<OctetString> plmnid = Create<OctetString>(values.m_plmId, 3);
-    Ptr<BitString> cellId_bstring;
-
-    auto* globalE2nodeIdBuf = (GlobalE2node_ID*)calloc(1, sizeof(GlobalE2node_ID));
-    ind_header->id_GlobalE2node_ID = *globalE2nodeIdBuf;
-
-    switch (m_nodeType)
-    {
-    case gNB: {
-        static int sizeGnb = 4; // 3GPP Specs
-
-        cellId_bstring = Create<BitString>(values.m_gnbId, sizeGnb);
-
-        ind_header->id_GlobalE2node_ID.present = GlobalE2node_ID_PR_gNB;
-        auto* globalE2node_gNB_ID =
-            (GlobalE2node_gNB_ID_t*)calloc(1, sizeof(GlobalE2node_gNB_ID_t));
-        globalE2node_gNB_ID->global_gNB_ID.plmn_id = plmnid->GetValue();
-        globalE2node_gNB_ID->global_gNB_ID.gnb_id.present = GNB_ID_Choice_PR_gnb_ID;
-        globalE2node_gNB_ID->global_gNB_ID.gnb_id.choice.gnb_ID = cellId_bstring->GetValue();
-        ind_header->id_GlobalE2node_ID.choice.gNB = globalE2node_gNB_ID;
-    }
-    break;
-
-    case eNB: {
-        static int sizeEnb =
-            3; // 3GPP TS 36.413 version 14.8.0 Release 14, Section 9.2.1.37 Global eNB ID
-        static int unsedSizeEnb = 4;
-
-        cellId_bstring = Create<BitString>(values.m_gnbId, sizeEnb, unsedSizeEnb);
-
-        ind_header->id_GlobalE2node_ID.present = GlobalE2node_ID_PR_eNB;
-        auto* globalE2node_eNB_ID =
-            (GlobalE2node_eNB_ID_t*)calloc(1, sizeof(GlobalE2node_eNB_ID_t));
-        globalE2node_eNB_ID->global_eNB_ID.pLMN_Identity = plmnid->GetValue();
-        globalE2node_eNB_ID->global_eNB_ID.eNB_ID.present = ENB_ID_PR_macro_eNB_ID;
-        globalE2node_eNB_ID->global_eNB_ID.eNB_ID.choice.macro_eNB_ID = cellId_bstring->GetValue();
-        ind_header->id_GlobalE2node_ID.choice.eNB = globalE2node_eNB_ID;
-    }
-    break;
-
-    case ng_eNB: {
-        static int sizeEnb =
-            3; // 3GPP TS 36.413 version 14.8.0 Release 14, Section 9.2.1.37 Global eNB ID
-        static int unsedSizeEnb = 4;
-
-        cellId_bstring = Create<BitString>(values.m_gnbId, sizeEnb, unsedSizeEnb);
-
-        ind_header->id_GlobalE2node_ID.present = GlobalE2node_ID_PR_ng_eNB;
-        auto* globalE2node_ng_eNB_ID =
-            (GlobalE2node_ng_eNB_ID_t*)calloc(1, sizeof(GlobalE2node_ng_eNB_ID_t));
-
-        globalE2node_ng_eNB_ID->global_ng_eNB_ID.plmn_id = plmnid->GetValue();
-        globalE2node_ng_eNB_ID->global_ng_eNB_ID.enb_id.present = ENB_ID_Choice_PR_enb_ID_macro;
-        globalE2node_ng_eNB_ID->global_ng_eNB_ID.enb_id.choice.enb_ID_macro =
-            cellId_bstring->GetValue();
-        ind_header->id_GlobalE2node_ID.choice.ng_eNB = globalE2node_ng_eNB_ID;
-    }
-    break;
-
-    case en_gNB: {
-        static int sizeGnb = 4; // 3GPP Specs
-        cellId_bstring = Create<BitString>(values.m_gnbId, sizeGnb);
-
-        ind_header->id_GlobalE2node_ID.present = GlobalE2node_ID_PR_en_gNB;
-        auto* globalE2node_en_gNB_ID =
-            (GlobalE2node_en_gNB_ID_t*)calloc(1, sizeof(GlobalE2node_en_gNB_ID_t));
-        globalE2node_en_gNB_ID->global_en_gNB_ID.pLMN_Identity = plmnid->GetValue();
-        globalE2node_en_gNB_ID->global_en_gNB_ID.gNB_ID.present = ENGNB_ID_PR_gNB_ID;
-        globalE2node_en_gNB_ID->global_en_gNB_ID.gNB_ID.choice.gNB_ID = cellId_bstring->GetValue();
-        ind_header->id_GlobalE2node_ID.choice.en_gNB = globalE2node_en_gNB_ID;
-    }
-    break;
-
-    default:
-        NS_FATAL_ERROR(
-            "Unrecognized node type for KpmRicIndicationHeader, value passed: " << m_nodeType);
-        break;
-    }
-
     NS_LOG_DEBUG("Timestamp received: " << values.m_timestamp);
     long bigEndianTimestamp = htobe64(values.m_timestamp);
     NS_LOG_DEBUG("Timestamp inverted: " << bigEndianTimestamp);
 
     Ptr<OctetString> ts = Create<OctetString>((void*)&bigEndianTimestamp, TIMESTAMP_LIMIT_SIZE);
-    // NS_LOG_INFO (xer_fprint (stderr, &asn_DEF_OCTET_STRING, ts->GetPointer() ));
+    
 
-    // Ptr<OctetString> ts2 = Create<OctetString> ((void *) &values.m_timestamp,
-    // TIMESTAMP_LIMIT_SIZE); NS_LOG_INFO (xer_fprint (stderr, &asn_DEF_OCTET_STRING,
-    // ts2->GetPointer()));
+    ind_header->colletStartTime= ts->GetValue();
 
-    ind_header->collectionStartTime = ts->GetValue();
+    //TODO: adicioanr ifs paara dar suporte aos parametros opcionais (vamos usar?)
+    
+    if  (!values.m_fileFormatVersion.empty()){
+        ind_header->fileFormatVersion = (PrintableString_t*)calloc(1, sizeof(PrintableString_t));
+        OCTET_STRING_fromString(ind_header->fileFormatVersion, values.m_fileFormatVersion.c_str());
+    }
+    if (!values.m_senderName.empty()){
+        ind_header->senderName = (PrintableString_t*)calloc(1, sizeof(PrintableString_t));
+        OCTET_STRING_fromString(ind_header->senderName, values.m_senderName.c_str());
+    }
+    if (!values.m_senderType.empty()){
+        ind_header->senderType = (PrintableString_t*)calloc(1, sizeof(PrintableString_t));
+        OCTET_STRING_fromString(ind_header->senderType, values.m_senderType.c_str());
+    }
+    if (!values.m_vendorName.empty()){
+        ind_header->vendorName = (PrintableString_t*)calloc(1, sizeof(PrintableString_t));
+        OCTET_STRING_fromString(ind_header->vendorName, values.m_vendorName.c_str());
+    }
 
+            
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationHeader_Format1, ind_header));
 
-    descriptor->present = E2SM_KPM_IndicationHeader_PR_indicationHeader_Format1;
-    descriptor->choice.indicationHeader_Format1 = ind_header;
+    descriptor->indicationHeader_formats.present = E2SM_KPM_IndiciationHeader__indicationHeader_Formats_PR_indicationHeader_Format1;
+    descriptor->inficationHeader_formats.choice.indicationHeader_Format1 = ind_header;
+
+    //descriptor->present = E2SM_KPM_IndicationHeader_PR_indicationHeader_Format1;
+    //descriptor->choice.indicationHeader_Format1 = ind_header;
 
     Encode(descriptor);
     ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_IndicationHeader_Format1, ind_header);
-    free(globalE2nodeIdBuf);
-    // TraceMessage (&asn_DEF_E2SM_KPM_IndicationHeader, header, "RIC Indication Header");
 }
 
 KpmIndicationMessage::KpmIndicationMessage(KpmIndicationMessageValues values)

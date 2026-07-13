@@ -22,14 +22,9 @@
 extern "C"
 {
 #include "E2SM-KPM-IndicationHeader.h"
+#include "ESM-KPM-IndicationHeader-Format1.h"
 #include "E2SM-KPM-IndicationMessage.h"
 #include "E2SM-KPM-RANfunction-Description.h"
-#include "OCUCP-PF-Container.h"
-#include "OCUUP-PF-Container.h"
-#include "ODU-PF-Container.h"
-#include "PF-Container.h"
-#include "PF-ContainerListItem.h"
-#include "RAN-Container.h"
 #include "asn1c-types.h"
 }
 
@@ -39,78 +34,27 @@ namespace ns3
 class KpmIndicationHeader : public SimpleRefCount<KpmIndicationHeader>
 {
   public:
-    enum GlobalE2nodeType
-    {
-        gNB = 0,
-        eNB = 1,
-        ng_eNB = 2,
-        en_gNB = 3
-    };
-
     const int TIMESTAMP_LIMIT_SIZE = 8;
 
-    /**
-     * Holds the values to be used to fill the RIC Indication header
-     */
-    struct KpmRicIndicationHeaderValues
+    struct KpmRicIndicationHearderValues
     {
-        // E2SM-KPM Indication Header Format 1
-        // KPM Node ID IE
-        std::string m_gnbId; //!< gNB ID bit string
-        // TODO not supported
-        // uint64_t m_cuUpId; //!< gNB-CU-UP ID, integer [0, 2^36-1], optional
-
-        // Cell Global ID (NR CGI) IE
-        uint16_t m_nrCellId; //!< NR, bit string
-
-        // PLMN ID IE
-        std::string m_plmId; //!< PLMN identity, octet string, 3 bytes
-
-        // Slice ID (S-NSSAI) IE // TODO not supported
-        // std::string m_sst; //!< SNSSAI sST, 1 byte
-        // std::string m_sd; //!< SNSSAI sD, 3 bytes, optional
-
-        // FiveQI IE // TODO not supported
-        // uint8_t m_fiveqi; //!< fiveQI, integer [0, 255], optional
-
-        // QCI IE // TODO not supported
-        // long m_qci; //!< QCI, integer [0, 255], optional
-
-        // TODO this value is placed in a fiels which seems not to be defined
-        // in the specs. See line 301 in encode_kpm.cpp
-        // the field is called gNB_DU_ID
-        // it should be part of KPM Node ID IE
-        // m_duId
-
-        // TODO this value is placed in a fiels which seems not to be defined
-        // in the specs. See line 290 in encode_kpm.cpp, the field is called
-        // gNB_Name
-        // m_cuUpName
-
-        // CollectionTimeStamp
-        uint64_t m_timestamp;
+      uint64_t m_timestamp;
+      std::string m_fileFormatVersion;
+      std::string m_senderName;
+      std::string m_senderType;
+      std::string m_vendorName;
     };
 
-    KpmIndicationHeader(GlobalE2nodeType nodeType, KpmRicIndicationHeaderValues values);
+    KpmIndicationHeader(KpmRicIndicationHearderValues values);
     ~KpmIndicationHeader();
+
     void* m_buffer;
     size_t m_size;
 
   private:
-    /**
-     * Fills the KPM INDICATION Header descriptor
-     * This function fills the RIC Indication Header with the provided
-     * values
-     *
-     * @param descriptor object representing the KPM INDICATION Header
-     * @param values struct holding the values to be used to fill the header
-     */
-    void FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHeader_t* descriptor,
-                                             KpmRicIndicationHeaderValues values);
-
+    void FillAndEncodeIndicationHearder(E2SM_KPM_IndicationHeader_t* descriptor, KpmRicIndicationHearderValues values);
     void Encode(E2SM_KPM_IndicationHeader_t* descriptor);
 
-    GlobalE2nodeType m_nodeType;
 };
 
 class MeasurementItemList : public SimpleRefCount<MeasurementItemList>

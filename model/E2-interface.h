@@ -111,16 +111,10 @@ class E2Interface : public Object
   private:
     /**
      * @brief Build RIC Indication Header
-     * @param plmId PLMN ID
-     * @param gnbId gNB ID
-     * @param CellId NR cell ID
      * @return the RIC Indication Header
      */
-
-    Ptr<KpmIndicationHeader> BuildRicIndicationHeader(std::string plmId,
-                                                      std::string gnbId,
-                                                      uint16_t CellId) const;
-
+    Ptr<KpmIndicationHeader> BuildRicIndicationHeader() const;
+    
     /**
      * @brief Get the IMSI string
      * @param imsi the IMSI
