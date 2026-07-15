@@ -222,12 +222,70 @@ KpmIndicationMessage::Encode(E2SM_KPM_IndicationMessage_t* descriptor)
     m_size = encodedMsg.result.encoded;
 }
 
-void KpmIndicationMessage::FillAndEncodeFormat1(){
-    //TODO: Implement the logic to fill and encode the KpmIndicationMessage in Format 1
+void KpmIndicationMessage::FillAndEncodeFormat1(E2SM_KPM_IndicationMessage_t* descriptor, KpmIndicationMessageValues values){
+    auto* format1 = (E2SM_KPM_IndicationMessage_Format1_t*)calloc(1, sizeof(E2SM_KPM_IndicationMessage_Format1_t));
+    if (!values.m_measNames.empty()){
+        auto* measInfoList = (MeasurementInfoList_t*)calloc(1, sizeof(MeasurementInfoList_t));
+        for (const auto& name : values.m_measNames){
+            MeasurementInfoItem_t* infoItem = CreateMeasurementInfoItemName(name);
+            ASN_SEQUENCE_ADD(&measInfoList->list, infoItem);
+        }
+        format1->measInfoList = measInfoList;
+    }
+
+    auto* dataItem = (MeasurementDataItem_t*)calloc(1, sizeof(MeasurementDataItem_t));
+    for (auto* recordItem : values.m_measRecords){
+        ASN_SEQUENCE_ADD(&dataItem->measRecord.list, recordItem);
+    }
+    ASN_SEQUENCE_ADD(&format1->measData.list, dataItem);
+
+    if (values.m_granulPeriod > 0){
+        auto* granul = (GranularityPeriod_t*)calloc(1, sizeof(GranularityPeriod_t));
+        *granul = values.m_granulPeriod;
+        format1->granulPeriod = granul;
+    }
+
+    NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationMessage_Format1, format1));
+
+    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_Formats_PR_indicationMessage_Format1;
+    descriptor->indicationMessage_formats.choice.indicationMessage_Format1 = format1;
+
+    Encode(descriptor);
+    ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_IndicationMessage_Format1, format1);
 }
 
-void KpmIndicationMessage::FillAndEncodeFormat3(){
-    //TODO: Implement the logic to fill and encode the KpmIndicationMessage in Format 3
+void KpmIndicationMessage::FillAndEncodeFormat3(E2SM_KPM_IndicationMessage_t* descriptor, KpmIndicationMessageValues values){
+    auto* format3 = (E2SM_KPM_IndicationMessage_Format3_t*)calloc(1, sizeof(E2SM_KPM_IndicationMessage_Format3_t));
+    for (auto& ueReport : values.m_ueReports){
+        auto* reportItem = (UEMeasurementReportItem_t*)calloc(1, sizeof(UEMeasurementReportItem_t));
+
+        NS_ABORT_IF(ueReport.m_ueId.empty(), "UEID must not be null for format 3.");
+        reportItem->ueID = *ueReport.m_ueId;
+
+        if(!ueReport.m_measNames.empty()){
+            auto* measInfoList = (MeasurementInfoList_t*)calloc(1, sizeof(MeasurementInfoList_t));
+            for (const auto& name : ueReport.m_measNames){
+                MeasurementInfoItem_t* infoItem = CreateMeasurementInfoItemName(name);
+                ASN_SEQUENCE_ADD(&measInfoList->list, infoItem);
+            }
+            reportItem->measReportList = measInfoList;
+        }
+
+        auto* dataItem = (MeasurementDataItem_t*)calloc(1, sizeof(MeasurementDataItem_t));
+        for (auto* recordItem : ueReport.m_measRecords){
+            ASN_SEQUENCE_ADD(&dataItem->measRecord.list, recordItem);
+        }
+        ASN_SEQUENCE_ADD(&reportItem->measData.list, dataItem);
+        ASN_SEQUENCE_ADD(&format3->ueMeasReportList.list, reportItem);
+    }
+    
+    NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationMessage_Format3, format3));
+
+    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_Formats_PR_indicationMessage_Format3
+    descriptor->indicationMessage_formats.choice.indicationMessage_Format3 = format3;
+
+    Encode(descriptor);
+    ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_IndicationMessage_Format3, format3);
 }
 
 } // namespace ns3
