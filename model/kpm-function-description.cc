@@ -21,6 +21,9 @@
 
 extern "C"
 {
+#include "MeasurementInfo-Action-Item.h"
+#include "MeasurementInfo-Action-List.h"
+#include "MeasurementTypeName.h"
 #include "RIC-EventTriggerStyle-Item.h"
 #include "RIC-ReportStyle-Item.h"
 }
@@ -66,85 +69,90 @@ KpmFunctionDescription::Encode(E2SM_KPM_RANfunction_Description_t* descriptor)
     m_size = encodedMsg.result.encoded;
 }
 
+
 void
-KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(
-    E2SM_KPM_RANfunction_Description_t* ranfunc_desc)
+KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(E2SM_KPM_RANfunction_Description_t* ranfunc_desc)
 {
-    std::string shortNameBuffer = "ORAN-WG3-KPM";
-    uint8_t* descriptionBuffer = (uint8_t*)"KPM monitor";
-    uint8_t* oidBuffer = (uint8_t*)"OID123"; // this is optional, dummy value
+    const std::string shortName = "ORAN-E2SM-KPM";
+    const std::string description = "KPM Service Model v3.00";
+    const std::string oid = "1.3.6.1.4.1.53148.1.3.2.2";
 
-    Ptr<OctetString> shortName = Create<OctetString>(shortNameBuffer, shortNameBuffer.size());
-
-    ranfunc_desc->ranFunction_Name.ranFunction_ShortName = shortName->GetValue();
+    OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_ShortName, shortName.c_str());
+    OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_Description, description.c_str());
+    OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_OID, oid.c_str());
 
     long* inst = (long*)calloc(1, sizeof(long));
-
-    //  ranfunc_desc->ranFunction_Name.ranFunction_Description = (OCTET_STRING_t*)calloc(1,
-    //  sizeof(OCTET_STRING_t));
-    ranfunc_desc->ranFunction_Name.ranFunction_Description.buf =
-        (uint8_t*)calloc(1, strlen((char*)descriptionBuffer));
-    memcpy(ranfunc_desc->ranFunction_Name.ranFunction_Description.buf,
-           descriptionBuffer,
-           strlen((char*)descriptionBuffer));
-    ranfunc_desc->ranFunction_Name.ranFunction_Description.size = strlen((char*)descriptionBuffer);
+    *inst = 0;
     ranfunc_desc->ranFunction_Name.ranFunction_Instance = inst;
 
-    //  ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID = (OCTET_STRING_t*)calloc(1,
-    //  sizeof(OCTET_STRING_t));
-    ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID.buf =
-        (uint8_t*)calloc(1, strlen((char*)oidBuffer));
-    memcpy(ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID.buf,
-           oidBuffer,
-           strlen((char*)oidBuffer));
-    ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID.size = strlen((char*)oidBuffer);
+    // RIC Event Trigger Style List
+    ranfunc_desc->ric_EventTriggerStyle_List_List = (E2SM_KPMfunction_Description::
+        E2SM_KPM_RANfunction_Description__ric_EventTriggerStyle_List*)
+        calloc(1, sizeof(E2SM_KPMfunction_Description::E2SM_KPM_RANfunction_Description__ric_EventTriggerStyle_List));
 
-    RIC_EventTriggerStyle_Item_t* trigger_style =
-        (RIC_EventTriggerStyle_Item_t*)calloc(1, sizeof(RIC_EventTriggerStyle_Item_t));
+    auto* trigger_style = (RIC_EventTriggerStyle_Item_t*)calloc(1, sizeof(RIC_EventTriggerStyle_Item_t));
     trigger_style->ric_EventTriggerStyle_Type = 1;
-    uint8_t* eventTriggerStyleNameBuffer = (uint8_t*)"Periodic report";
-    //  trigger_style->ric_EventTriggerStyle_Name = (OCTET_STRING_t*)calloc(1,
-    //  sizeof(OCTET_STRING_t));
-    trigger_style->ric_EventTriggerStyle_Name.buf =
-        (uint8_t*)calloc(1, strlen((char*)eventTriggerStyleNameBuffer));
-    memcpy(trigger_style->ric_EventTriggerStyle_Name.buf,
-           eventTriggerStyleNameBuffer,
-           strlen((char*)eventTriggerStyleNameBuffer));
-    trigger_style->ric_EventTriggerStyle_Name.size = strlen((char*)eventTriggerStyleNameBuffer);
+    OCTET_STRING_fromString(&trigger_style->ric_EventTriggerStyle_Description, "Periodic report");
     trigger_style->ric_EventTriggerFormat_Type = 1;
+    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_EventTriggerStyle_List->List, trigger_style);
 
-    ranfunc_desc->ric_EventTriggerStyle_List =
-        (E2SM_KPM_RANfunction_Description::
-             E2SM_KPM_RANfunction_Description__ric_EventTriggerStyle_List*)
-            calloc(1,
-                   sizeof(E2SM_KPM_RANfunction_Description::
-                              E2SM_KPM_RANfunction_Description__ric_EventTriggerStyle_List));
-
-    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_EventTriggerStyle_List->list, trigger_style);
-
-    RIC_ReportStyle_Item_t* report_style1 =
-        (RIC_ReportStyle_Item_t*)calloc(1, sizeof(RIC_ReportStyle_Item_t));
-    report_style1->ric_ReportStyle_Type = 1;
-
-    uint8_t* reportStyleNameBuffer =
-        (uint8_t*)"O-CU-CP Measurement Container for the EPC connected deployment";
-
-    //  report_style1->ric_ReportStyle_Name = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
-    report_style1->ric_ReportStyle_Name.buf =
-        (uint8_t*)calloc(1, strlen((char*)reportStyleNameBuffer));
-    memcpy(report_style1->ric_ReportStyle_Name.buf,
-           reportStyleNameBuffer,
-           strlen((char*)reportStyleNameBuffer));
-    report_style1->ric_ReportStyle_Name.size = strlen((char*)reportStyleNameBuffer);
-    report_style1->ric_ReportIndicationHeaderFormat_Type = 1;
-    report_style1->ric_ReportIndicationMessageFormat_Type = 1;
+    // RIC Report Style List
     ranfunc_desc->ric_ReportStyle_List =
         (E2SM_KPM_RANfunction_Description::E2SM_KPM_RANfunction_Description__ric_ReportStyle_List*)
-            calloc(1,
-                   sizeof(E2SM_KPM_RANfunction_Description::
-                              E2SM_KPM_RANfunction_Description__ric_ReportStyle_List));
+        calloc(1,sizeof(E2SM_KPM_RANfunction_Description::E2SM_KPM_RANfunction_Description__ric_ReportStyle_List));
 
-    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_ReportStyle_List->list, report_style1);
+    std::vector<std::string> style1Metrics = {
+        "DRB.PdcpSduVolumeDL",         // Total PDCP SDU volume DL (replaces TB.TotNbrDl.1)
+        "DRB.PdcpSduVolumeUL",         // Total PDCP SDU volume UL
+        "RRU.PrbUsedDl",               // Used PRBs DL
+        "RRU.PrbUsedUl",               // Used PRBs UL
+        "RRU.PrbAvailDl",              // Available PRBs DL
+        "RRU.PrbAvailUl",              // Available PRBs UL
+        "RRU.PrbTotDl",                // Total PRBs DL
+        "RRU.PrbTotUl",                // Total PRBs UL
+        "DRB.MeanActiveUeDl",          // Mean active UEs DL
+        "DRB.MeanActiveUeUl",          // Mean active UEs UL
+        "TB.TotNbrDlInitial",          // Total DL initial transmissions
+        "TB.TotNbrDlInitial.Qpsk",     // DL initial transmissions QPSK
+        "TB.TotNbrDlInitial.16Qam",    // DL initial transmissions 16QAM
+        "TB.TotNbrDlInitial.64Qam",    // DL initial transmissions 64QAM
+        "RRC.ConnMean",                // Mean RRC connections (replaces numActiveUes)
+    };
+
+    RIC_ReportStyle_Item_t* reportStyle1 = CreateReportStyleItem(
+        1,                                                       // ric_ReportStyle_Type
+        "E2 Node Measurement",                                   // ric_ReportStyle_Name
+        1,                                                       // ric_ActionFormat_Type
+        1,                                                       //ric_IndicationHeaderFormat_Type
+        1,                                                       // ric_IndicationMessageFormat_Type
+        style1Metrics
+    );
+
+    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_ReportStyle_List->List, reportStyle1);
+
+    std::vector<std::string> style4Metrics = {
+        "DRB.UEThpDl",                        // UE throughput DL
+        "DRB.UEThpUl",                        // UE throughput UL
+        "QosFlow.PdcpPduVolumeDL_Filter",      // QoS flow PDCP PDU volume DL
+        "QosFlow.PdcpPduVolumeUL_Filter",      // QoS flow PDCP PDU volume UL
+        "DRB.PdcpPduNbrDl.Qos",               // PDCP PDU number DL per QoS
+        "DRB.PdcpPduNbrUl.Qos",               // PDCP PDU number UL per QoS
+        "HO.SrcCellQual.RS-SINR",             // Handover source cell SINR
+        "L1M.RS-SINR",                         // L1 measurement RS-SINR
+        "DRB.BufferSize.Qos",                  // Buffer size per QoS
+        "DRB.NetworkSlicing.SST",              // Network slicing SST (custom)
+    };
+
+    RIC_ReportStyle_Item_t* reportStyle4 = CreateReportStyleItem(
+        4,                                                       // ric_ReportStyle_Type
+        "Common Condition-based, UE-level E2 Node Measurement",  // ric_ReportStyle_Name
+        4,                                                       // ric_ActionFormat_Type
+        1,                                                       // ric_IndicationHeaderFormat_Type
+        3,                                                       // ric_IndicationMessageFormat_Type (Format 3 = UE level)
+        style4Metrics
+    );
+
+    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_ReportStyle_List->List, reportStyle4);
 
     Encode(ranfunc_desc);
 

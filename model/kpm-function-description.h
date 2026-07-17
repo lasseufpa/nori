@@ -21,13 +21,9 @@
 
 extern "C"
 {
-#include "E2SM-KPM-IndicationHeader.h"
-#include "E2SM-KPM-IndicationMessage.h"
-#include "E2SM-KPM-RANfunction-Description.h"
-#include "OCUUP-PF-Container.h"
-#include "PF-Container.h"
-#include "PF-ContainerListItem.h"
-#include "RAN-Container.h"
+#include "ESM-KPM-RANfunction-Description.h"
+#include "MeasurementInfo-Action-Item.h"
+#include "MeasurementInfo-Action-List.h"
 #include "asn1c-types.h"
 }
 
