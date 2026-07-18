@@ -69,6 +69,34 @@ KpmFunctionDescription::Encode(E2SM_KPM_RANfunction_Description_t* descriptor)
     m_size = encodedMsg.result.encoded;
 }
 
+// Helper to add a MeasurementInfo-Action-Item to a list.
+static void AddMeasInfoActionItem(MeausrementInfo_Action_List_t* list, const stf::string& measName){
+    auto* item = (MeasurementInfo_Action_Item_t*)calloc(1, sizeof(MeasurementInfo_Action_Item_t));
+    OCTET_STRING_fromString(&item->measName, measName.c_str());
+    ASN_SEQUENCE_ADD(&list->list, item);
+}
+
+// Helper to create and fill a RIC_ReportStyle_Item with its metric list.
+static RIC_ReportStyle_Item_t* CreateReportStyleItem(long styleType,
+                                                    const std::string& styleName,
+                                                    long actionFormatType,
+                                                    long indicationHearderFormatType,
+                                                    long indicationMessageFormatType,
+                                                    const std::vector<std::string>& measNames)
+{
+    auto* style = (RIC_ReportStyle_Item_t*)calloc(1, sizeof(RIC_ReportStyle_Item_t));
+    style->ric_ReportStyle_Type = styleType;
+    OCTET_STRING_fromString(&style->ric_ReportStyle_Name, styleName.c_str());
+
+    style->ric_ActionFormat_Type = actionFormatType;
+    style->ric_IndicationHeaderFormat_Type = indicationHearderFormatType;
+    style->ric_IndicationMessageFormat_Type = indicationMessageFormatType;
+
+    for (const auto& name : measNames){
+        AddMeasInfoActionItem(&style->measInfo_Action_List, name);
+    }
+    return style;
+}
 
 void
 KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(E2SM_KPM_RANfunction_Description_t* ranfunc_desc)
