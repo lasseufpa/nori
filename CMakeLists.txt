@@ -1,42 +1,23 @@
 set(source_files
-    model/E2-report.cc
-    model/E2-interface.cc
-    helper/E2-term-helper.cc
-    helper/nori-slicing-helper.cc
-    model/asn1c-types.cc
-    model/function-description.cc
-    model/kpm-function-description.cc
-    model/kpm-indication.cc
     model/oran-interface.cc
-    model/ric-control-function-description.cc
-    model/ric-control-message.cc
-    model/nr-mac-scheduler-ue-info-rl.cc
-    model/nr-rl-mac-scheduler-ofdma.cc
-    helper/indication-message-helper.cc
-    helper/lte-indication-message-helper.cc
-    helper/mmwave-indication-message-helper.cc
+    # model/e2sim-mod.cc
+    # model/nori-e2-agent.cc
+    # model/nori-encode-e2ap.cc
     )
 
 include_directories(/usr/local/include/e2sim)
+
+#Desativa a necessidade do oer
+
+add_definitions(-DASN_DISABLE_OER_SUPPORT)
+
 set(E2SIM_LIBRARIES "/usr/local/lib/libe2sim.a")
 
 set(header_files
-    model/E2-report.h
-    model/E2-interface.h
-    helper/E2-term-helper.h
-    helper/nori-slicing-helper.h
-    model/asn1c-types.h
-    model/function-description.h
-    model/kpm-function-description.h
-    model/kpm-indication.h
     model/oran-interface.h
-    model/ric-control-function-description.h
-    model/ric-control-message.h
-    model/nr-mac-scheduler-ue-info-rl.h
-    model/nr-rl-mac-scheduler-ofdma.h
-    helper/indication-message-helper.h
-    helper/lte-indication-message-helper.h
-    helper/mmwave-indication-message-helper.h
+    model/e2sim-mod.h
+    # model/nori-e2-agent.h
+    # model/nori-encode-e2ap.h
     )
 
     build_lib(
