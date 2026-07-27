@@ -21,6 +21,8 @@
 #include "ns3/object.h"
 
 #include <set>
+#include <string>
+#include <vector>
 
 extern "C"
 {
@@ -57,7 +59,7 @@ class KpmIndicationHeader : public SimpleRefCount<KpmIndicationHeader>
   public:
     const int TIMESTAMP_LIMIT_SIZE = 8;
 
-    struct KpmRicIndicationHearderValues
+    struct KpmRicIndicationHeaderValues
     {
       uint64_t m_timestamp;
       std::string m_fileFormatVersion;
@@ -66,25 +68,24 @@ class KpmIndicationHeader : public SimpleRefCount<KpmIndicationHeader>
       std::string m_vendorName;
     };
 
-    KpmIndicationHeader(KpmRicIndicationHearderValues values);
+    KpmIndicationHeader(KpmRicIndicationHeaderValues values);
     ~KpmIndicationHeader();
 
     void* m_buffer;
     size_t m_size;
 
   private:
-    void FillAndEncodeIndicationHearder(E2SM_KPM_IndicationHeader_t* descriptor, KpmRicIndicationHearderValues values);
+    void FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHeader_t* descriptor, KpmRicIndicationHeaderValues values);
     void Encode(E2SM_KPM_IndicationHeader_t* descriptor);
-
 };
 
-MeasurementRecordItem_t* CreateMeasurementRecordInteger(unsigned long value);
+MeasurementRecordItem_t* CreateMeasurementRecordItemInteger(unsigned long value);
 
-MeasurementRecordItem_t* CreateMeasurementRecordReal(double value);
+MeasurementRecordItem_t* CreateMeasurementRecordItemReal(double value);
 
-MeasurementRecordItem_t* CreateMeasurementRecordNoValue();
+MeasurementRecordItem_t* CreateMeasurementRecordItemNoValue();
 
-MeasurementRecordItem_t* CreateMeassurementRecordItemNoValue(const std::string& measName);
+MeasurementInfoItem_t* CreateMeasurementInfoItemName(const std::string& measName);
 
 class KpmIndicationMessage : public SimpleRefCount<KpmIndicationMessage>
 {
@@ -95,15 +96,16 @@ class KpmIndicationMessage : public SimpleRefCount<KpmIndicationMessage>
         FORMAT3 = 3
     };
 
-    struct UeReportValues{
-      UEID_t* ueId = nullptr; //!< UE ID
-      std::vector<std::string> measNames;
-      std::vector<MeasurementREcordItem_t*> measRecordItems;   
-    }
+    struct UeReportValues
+    {
+        UEID_t* m_ueId = nullptr;
+        std::vector<std::string> m_measNames;
+        std::vector<MeasurementRecordItem_t*> m_measRecordItems;
+    };
 
     struct KpmIndicationMessageValues
     {
-        MessageFormat m_format; = MessageFormat::FORMAT1;
+        MessageFormat m_format = MessageFormat::FORMAT1;
 
         std::vector<std::string> m_measNames;
         std::vector<MeasurementRecordItem_t*> m_measRecordItems;
@@ -123,4 +125,5 @@ class KpmIndicationMessage : public SimpleRefCount<KpmIndicationMessage>
     void FillAndEncodeFormat3(E2SM_KPM_IndicationMessage_t* descriptor, KpmIndicationMessageValues values);
     void Encode(E2SM_KPM_IndicationMessage_t* descriptor);
 };
+
 } // namespace ns3

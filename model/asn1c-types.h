@@ -3,6 +3,7 @@
  * Copyright (c) 2022 Northeastern University
  * Copyright (c) 2022 Sapienza, University of Rome
  * Copyright (c) 2022 University of Padova
+ * Copyright (c) 2026 LASSE/UFPA - Universidade Federal do Pará
  *
  * SPDX-License-Identifier: GPL-2.0-only
  *
@@ -11,6 +12,7 @@
  * Author: Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
  *         Michele Polese <michele.polese@gmail.com>
+ *         Andrey Adailso <andreyadailsom@gmail.com>
  */
 
 #pragma once
@@ -33,7 +35,6 @@ extern "C"
 #include "MeasResultServMO.h"
 #include "MeasResultServMOList.h"
 #include "OCTET_STRING.h"
-#include "PM-Info-Item.h"
 #include "RANParameter-ELEMENT.h"
 #include "RANParameter-Item.h"
 #include "RANParameter-STRUCTURE.h"
@@ -303,30 +304,7 @@ class L3RrcMeasurements : public SimpleRefCount<L3RrcMeasurements>
     int m_measItemsCounter;
 };
 
-/**
- * Wrapper for class for PM_Info_Item_t
- */
-class MeasurementItem : public SimpleRefCount<MeasurementItem>
-{
-  public:
-    MeasurementItem(std::string name, long value);
-    MeasurementItem(std::string name, double value);
-    MeasurementItem(std::string name, Ptr<L3RrcMeasurements> value);
-    ~MeasurementItem();
-    PM_Info_Item_t* GetPointer();
-    PM_Info_Item_t GetValue();
 
-  private:
-    MeasurementItem(std::string name);
-    void CreateMeasurementValue(MeasurementValue_PR measurementValue_PR);
-    // Main struct to be compiled
-    PM_Info_Item_t* m_measurementItem;
-
-    // Accessory structs that we must track to release memory after use
-    MeasurementTypeName_t* m_measName;
-    MeasurementValue_t* m_pmVal;
-    MeasurementType_t* m_pmType;
-};
 
 /**
  * Wrapper for class for RANParameter_Item_t

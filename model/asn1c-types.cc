@@ -3,6 +3,7 @@
  * Copyright (c) 2022 Northeastern University
  * Copyright (c) 2022 Sapienza, University of Rome
  * Copyright (c) 2022 University of Padova
+ * Copyright (c) 2026 LASSE/UFPA - Universidade Federal do Pará
  *
  * SPDX-License-Identifier: GPL-2.0-only
  *
@@ -11,6 +12,7 @@
  * Author: Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
  *         Michele Polese <michele.polese@gmail.com>
+ *         Andrey Adailso <andreyadailsom@gmail.com>
  */
 
 #include "asn1c-types.h"
@@ -793,79 +795,7 @@ L3RrcMeasurements::ThreeGppMapSinr(double sinr)
     return outputSinr;
 }
 
-MeasurementItem::MeasurementItem(std::string name)
-{
-    m_measurementItem = (PM_Info_Item_t*)calloc(1, sizeof(PM_Info_Item_t));
-    m_pmType = (MeasurementType_t*)calloc(1, sizeof(MeasurementType_t));
-    m_measurementItem->pmType = *m_pmType;
 
-    m_measName = (MeasurementTypeName_t*)calloc(1, sizeof(MeasurementTypeName_t));
-    m_measName->buf = (uint8_t*)calloc(1, sizeof(OCTET_STRING));
-    m_measName->size = name.length();
-    memcpy(m_measName->buf, name.c_str(), m_measName->size);
-
-    m_measurementItem->pmType.choice.measName = *m_measName;
-    m_measurementItem->pmType.present = MeasurementType_PR_measName;
-}
-
-MeasurementItem::MeasurementItem(std::string name, long value)
-    : MeasurementItem(name)
-{
-    NS_LOG_FUNCTION(this << name << "long" << value);
-    this->CreateMeasurementValue(MeasurementValue_PR_valueInt);
-    m_measurementItem->pmVal.choice.valueInt = value;
-}
-
-MeasurementItem::MeasurementItem(std::string name, double value)
-    : MeasurementItem(name)
-{
-    NS_LOG_FUNCTION(this << name << "double" << value);
-    this->CreateMeasurementValue(MeasurementValue_PR_valueReal);
-    m_measurementItem->pmVal.choice.valueReal = value;
-}
-
-MeasurementItem::MeasurementItem(std::string name, Ptr<L3RrcMeasurements> value)
-    : MeasurementItem(name)
-{
-    NS_LOG_FUNCTION(this << name << "L3 RRC" << value);
-    this->CreateMeasurementValue(MeasurementValue_PR_valueRRC);
-    m_measurementItem->pmVal.choice.valueRRC = value->GetPointer();
-}
-
-void
-MeasurementItem::CreateMeasurementValue(MeasurementValue_PR measurementValue_PR)
-{
-    m_pmVal = ((MeasurementValue_t*)calloc(1, sizeof(MeasurementValue_t)));
-    m_measurementItem->pmVal = *m_pmVal;
-    m_measurementItem->pmVal.present = measurementValue_PR;
-}
-
-MeasurementItem::~MeasurementItem()
-{
-    NS_LOG_FUNCTION(this);
-    if (m_pmVal != NULL)
-        ASN_STRUCT_FREE(asn_DEF_MeasurementValue, m_pmVal);
-
-    if (m_measName != NULL)
-    {
-        free(m_measName);
-    }
-
-    if (m_pmType != NULL)
-        ASN_STRUCT_FREE(asn_DEF_MeasurementType, m_pmType);
-}
-
-PM_Info_Item_t*
-MeasurementItem::GetPointer()
-{
-    return m_measurementItem;
-}
-
-PM_Info_Item_t
-MeasurementItem::GetValue()
-{
-    return *m_measurementItem;
-}
 
 RANParameterItem::RANParameterItem(RANParameter_Item_t* ranParameterItem)
 {

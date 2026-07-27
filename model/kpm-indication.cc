@@ -100,13 +100,10 @@ KpmIndicationHeader::FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHead
     NS_LOG_DEBUG("Timestamp inverted: " << bigEndianTimestamp);
 
     Ptr<OctetString> ts = Create<OctetString>((void*)&bigEndianTimestamp, TIMESTAMP_LIMIT_SIZE);
-    
 
-    ind_header->colletStartTime= ts->GetValue();
+    ind_header->colletStartTime = ts->GetValue();
 
-    //TODO: adicioanr ifs paara dar suporte aos parametros opcionais (vamos usar?)
-    
-    if  (!values.m_fileFormatVersion.empty()){
+    if (!values.m_fileFormatVersion.empty()){
         ind_header->fileFormatVersion = (PrintableString_t*)calloc(1, sizeof(PrintableString_t));
         OCTET_STRING_fromString(ind_header->fileFormatVersion, values.m_fileFormatVersion.c_str());
     }
@@ -123,14 +120,10 @@ KpmIndicationHeader::FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHead
         OCTET_STRING_fromString(ind_header->vendorName, values.m_vendorName.c_str());
     }
 
-            
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationHeader_Format1, ind_header));
 
-    descriptor->indicationHeader_formats.present = E2SM_KPM_IndiciationHeader__indicationHeader_Formats_PR_indicationHeader_Format1;
-    descriptor->inficationHeader_formats.choice.indicationHeader_Format1 = ind_header;
-
-    //descriptor->present = E2SM_KPM_IndicationHeader_PR_indicationHeader_Format1;
-    //descriptor->choice.indicationHeader_Format1 = ind_header;
+    descriptor->indicationHeader_formats.present = E2SM_KPM_IndicationHeader__indicationHeader_Formats_PR_indicationHeader_Format1;
+    descriptor->indicationHeader_formats.choice.indicationHeader_Format1 = ind_header;
 
     Encode(descriptor);
     ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_IndicationHeader_Format1, ind_header);
@@ -138,33 +131,27 @@ KpmIndicationHeader::FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHead
 
 // ================ KpmIndicationMessage ================
 
-MeasurementRecordItem_t* CreateMeasurementRecordInteger(unsigned long value){
+MeasurementRecordItem_t* CreateMeasurementRecordItemInteger(unsigned long value){
     auto* item = (MeasurementRecordItem_t*)calloc(1, sizeof(MeasurementRecordItem_t));
     item->present = MeasurementRecordItem_PR_integer;
     item->choice.integer = value;
     return item;
 }
 
-MeasurementRecordItem_t* CreateMeasurementRecordReal(double value){
+MeasurementRecordItem_t* CreateMeasurementRecordItemReal(double value){
     auto* item = (MeasurementRecordItem_t*)calloc(1, sizeof(MeasurementRecordItem_t));
     item->present = MeasurementRecordItem_PR_real;
     item->choice.real = value;
     return item;
 }
 
-MeasurementRecordItem_t* CreateMeasurementRecordNoValue(){
+MeasurementRecordItem_t* CreateMeasurementRecordItemNoValue(){
     auto* item = (MeasurementRecordItem_t*)calloc(1, sizeof(MeasurementRecordItem_t));
     item->present = MeasurementRecordItem_PR_noValue;
     return item;
 }
 
-MeasurementRecordItem_t* CreateMeassurementRecordItemNoValue(const std::string& measName){
-    auto* item = (MeasurementRecordItem_t*)calloc(1, sizeof(MeasurementRecordItem_t));
-    item->present = MeasurementRecordItem_PR_noValue;
-    return item;
-}
-
-MeasurementRecordItem_t* CreateMeasurementInfoItemName(const std::string& measName){
+MeasurementInfoItem_t* CreateMeasurementInfoItemName(const std::string& measName){
     auto* infoItem = (MeasurementInfoItem_t*)calloc(1, sizeof(MeasurementInfoItem_t));
 
     // Set measurement type to measName
@@ -237,14 +224,14 @@ void KpmIndicationMessage::FillAndEncodeFormat1(E2SM_KPM_IndicationMessage_t* de
     }
 
     auto* dataItem = (MeasurementDataItem_t*)calloc(1, sizeof(MeasurementDataItem_t));
-    for (auto* recordItem : values.m_measRecords){
+    for (auto* recordItem : values.m_measRecordItems){
         ASN_SEQUENCE_ADD(&dataItem->measRecord.list, recordItem);
     }
     ASN_SEQUENCE_ADD(&format1->measData.list, dataItem);
 
-    if (values.m_granulPeriod > 0){
+    if (values.m_granularityPeriod > 0){
         auto* granul = (GranularityPeriod_t*)calloc(1, sizeof(GranularityPeriod_t));
-        *granul = values.m_granulPeriod;
+        *granul = values.m_granularityPeriod;
         format1->granulPeriod = granul;
     }
 
@@ -262,7 +249,7 @@ void KpmIndicationMessage::FillAndEncodeFormat3(E2SM_KPM_IndicationMessage_t* de
     for (auto& ueReport : values.m_ueReports){
         auto* reportItem = (UEMeasurementReportItem_t*)calloc(1, sizeof(UEMeasurementReportItem_t));
 
-        NS_ABORT_IF(ueReport.m_ueId.empty(), "UEID must not be null for format 3.");
+        NS_ABORT_IF(ueReport.m_ueId == nullptr, "UEID must not be null for format 3.");
         reportItem->ueID = *ueReport.m_ueId;
 
         if(!ueReport.m_measNames.empty()){
@@ -275,7 +262,7 @@ void KpmIndicationMessage::FillAndEncodeFormat3(E2SM_KPM_IndicationMessage_t* de
         }
 
         auto* dataItem = (MeasurementDataItem_t*)calloc(1, sizeof(MeasurementDataItem_t));
-        for (auto* recordItem : ueReport.m_measRecords){
+        for (auto* recordItem : ueReport.m_measRecordItems){
             ASN_SEQUENCE_ADD(&dataItem->measRecord.list, recordItem);
         }
         ASN_SEQUENCE_ADD(&reportItem->measData.list, dataItem);
@@ -284,7 +271,7 @@ void KpmIndicationMessage::FillAndEncodeFormat3(E2SM_KPM_IndicationMessage_t* de
     
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationMessage_Format3, format3));
 
-    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_Formats_PR_indicationMessage_Format3
+    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_Formats_PR_indicationMessage_Format3;
     descriptor->indicationMessage_formats.choice.indicationMessage_Format3 = format3;
 
     Encode(descriptor);

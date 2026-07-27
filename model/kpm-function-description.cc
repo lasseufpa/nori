@@ -73,7 +73,7 @@ KpmFunctionDescription::Encode(E2SM_KPM_RANfunction_Description_t* descriptor)
 }
 
 // Helper to add a MeasurementInfo-Action-Item to a list.
-static void AddMeasInfoActionItem(MeausrementInfo_Action_List_t* list, const stf::string& measName){
+static void AddMeasInfoActionItem(MeausrementInfo_Action_List_t* list, const std::string& measName){
     auto* item = (MeasurementInfo_Action_Item_t*)calloc(1, sizeof(MeasurementInfo_Action_Item_t));
     OCTET_STRING_fromString(&item->measName, measName.c_str());
     ASN_SEQUENCE_ADD(&list->list, item);
@@ -117,15 +117,15 @@ KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(E2SM_KPM_RANfunction
     ranfunc_desc->ranFunction_Name.ranFunction_Instance = inst;
 
     // RIC Event Trigger Style List
-    ranfunc_desc->ric_EventTriggerStyle_List_List = (E2SM_KPMfunction_Description::
+    ranfunc_desc->ric_EventTriggerStyle_List = (E2SM_KPM_RANfunction_Description::
         E2SM_KPM_RANfunction_Description__ric_EventTriggerStyle_List*)
-        calloc(1, sizeof(E2SM_KPMfunction_Description::E2SM_KPM_RANfunction_Description__ric_EventTriggerStyle_List));
+        calloc(1, sizeof(E2SM_KPM_RANfunction_Description::E2SM_KPM_RANfunction_Description__ric_EventTriggerStyle_List));
 
     auto* trigger_style = (RIC_EventTriggerStyle_Item_t*)calloc(1, sizeof(RIC_EventTriggerStyle_Item_t));
     trigger_style->ric_EventTriggerStyle_Type = 1;
-    OCTET_STRING_fromString(&trigger_style->ric_EventTriggerStyle_Description, "Periodic report");
+    OCTET_STRING_fromString(&trigger_style->ric_EventTriggerStyle_Name, "Periodic report");
     trigger_style->ric_EventTriggerFormat_Type = 1;
-    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_EventTriggerStyle_List->List, trigger_style);
+    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_EventTriggerStyle_List->list, trigger_style);
 
     // RIC Report Style List
     ranfunc_desc->ric_ReportStyle_List =
@@ -159,7 +159,7 @@ KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(E2SM_KPM_RANfunction
         style1Metrics
     );
 
-    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_ReportStyle_List->List, reportStyle1);
+    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_ReportStyle_List->list, reportStyle1);
 
     std::vector<std::string> style4Metrics = {
         "DRB.UEThpDl",                        // UE throughput DL
