@@ -137,7 +137,6 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     NS_LOG_FUNCTION(this);
     NS_LOG_DEBUG("Building and sending report message for nodeB: " << m_netDev);
     auto e2Term = m_netDev->GetObject<E2Termination>();
-    // eNB/gNB needs to have an E2 termination
     NS_ASSERT(e2Term != nullptr);
 
     // nodeB PLMN ID
@@ -146,97 +145,62 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     // Check if the nodeB is a gNB or eNB
     auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
     NS_ASSERT(gnbNode);
-    // node cell ID
     m_cellId = gnbNode->GetCellId();
-    NS_ASSERT(plmId == "111" && m_cellId != 0);
     std::string gnbId = std::to_string(m_cellId);
     NS_LOG_DEBUG("PLMN ID: " << plmId << " gNB cell ID: " << gnbId);
-    bool cuUp = true;
-
-    if (cuUp)
+    
+    // ---- Node-Level Message (Report Style 1, Format 1) ----
     {
-        // Create CU-UP
         auto header = BuildRicIndicationHeader();
-        auto cuUpMsg = BuildRicIndicationMessageCuUp(plmId);
+        auto nodeMsg = BuildNodeLevelIndicationMessage(plmId, m_cellId);
 
-        // Send CU-UP only if offline logging is disabled
-        if (header != nullptr && cuUpMsg != nullptr)
+        if (header != nullptr && nodeMsg != nullptr)
         {
-            NS_LOG_DEBUG("Send NR CU-UP");
-            auto pdu_cuup_ue = new E2AP_PDU;
+            NS_LOG_DEBUG("Send KPM v3 Node-Level");
+            auto pdu = new E2AP_PDU;
             encoding::generate_e2apv1_indication_request_parameterized(
-                pdu_cuup_ue,
+                pdu,
                 params.requestorId,
                 params.instanceId,
                 params.ranFuncionId,
                 params.actionId,
-                1,                           // TODO sequence number
-                (uint8_t*)header->m_buffer,  // buffer containing the encoded header
-                header->m_size,              // size of the encoded header
-                (uint8_t*)cuUpMsg->m_buffer, // buffer containing the encoded message
-                cuUpMsg->m_size);            // size of the encoded message
-            e2Term->SendE2Message(pdu_cuup_ue);
-            delete pdu_cuup_ue;
+                1,
+                (uint8_t*)header->m_buffer,
+                header->m_size,
+                (uint8_t*)nodeMsg->m_buffer,
+                nodeMsg->m_size);
+            e2Term->SendE2Message(pdu);
+            delete pdu;
         }
     }
 
-    bool m_sendCuCp = true;
-    if (m_sendCuCp)
+    // ---- UE-Level Message (Report Style 4, Format 3) ----
     {
-        // Create and send CU-CP
-        Ptr<KpmIndicationHeader> header = BuildRicIndicationHeader();
-        Ptr<KpmIndicationMessage> cuCpMsg = BuildRicIndicationMessageCuCp(plmId);
+        auto header = BuildRicIndicationHeader();
+        auto ueMsg = BuildUeLevelIndicationMessage(plmId, m_cellId);
 
-        // Send CU-CP only if offline logging is disabled
-        if (header != nullptr && cuCpMsg != nullptr)
+        if (header != nullptr && ueMsg != nullptr)
         {
-            NS_LOG_DEBUG("Send NR CU-CP");
-            auto pdu_cucp_ue = new E2AP_PDU;
+            NS_LOG_DEBUG("Send KPM v3 UE-Level");
+            auto pdu = new E2AP_PDU;
             encoding::generate_e2apv1_indication_request_parameterized(
-                pdu_cucp_ue,
+                pdu,
                 params.requestorId,
                 params.instanceId,
                 params.ranFuncionId,
                 params.actionId,
-                1,                           // TODO sequence number
-                (uint8_t*)header->m_buffer,  // buffer containing the encoded header
-                header->m_size,              // size of the encoded header
-                (uint8_t*)cuCpMsg->m_buffer, // buffer containing the encoded message
-                cuCpMsg->m_size);            // size of the encoded message
-            m_e2term->SendE2Message(pdu_cucp_ue);
-            delete pdu_cucp_ue;
+                2,
+                (uint8_t*)header->m_buffer,
+                header->m_size,
+                (uint8_t*)ueMsg->m_buffer,
+                ueMsg->m_size);
+            m_e2term->SendE2Message(pdu);
+            delete pdu;
         }
     }
 
-    bool m_sendDu = true;
-    if (m_sendDu)
-    {
-        // Create DU
-        Ptr<KpmIndicationHeader> header = BuildRicIndicationHeader();
-        Ptr<KpmIndicationMessage> duMsg = BuildRicIndicationMessageDu(plmId, m_cellId);
-
-        // Send DU only if offline logging is disabled
-        if (header != nullptr && duMsg != nullptr)
-        {
-            NS_LOG_DEBUG("Send NR DU");
-            auto pdu_du_ue = new E2AP_PDU;
-            encoding::generate_e2apv1_indication_request_parameterized(
-                pdu_du_ue,
-                params.requestorId,
-                params.instanceId,
-                params.ranFuncionId,
-                params.actionId,
-                1,                          // TODO sequence number
-                (uint8_t*)header->m_buffer, // buffer containing the encoded header
-                header->m_size,             // size of the encoded header
-                (uint8_t*)duMsg->m_buffer,  // buffer containing the encoded message
-                duMsg->m_size);             // size of the encoded message
-            m_e2term->SendE2Message(pdu_du_ue);
-            delete pdu_du_ue;
-        }
-    }
-    // Use without context for thread safety; Need to study why using context it makes safe
-    Simulator::ScheduleWithContext(1,
+    uint32_t nodeId = m_netDev->GetNode()->GetId();
+    Simulator::ScheduleWithContext(nodeId,
                                    Seconds(m_e2Periodicity),
                                    &E2Interface::BuildAndSendReportMessage,
                                    this,
@@ -351,169 +315,6 @@ E2Interface::SetE2RlcStatsCalculator(Ptr<NrBearerStatsCalculator> e2RlcStatsCalc
     m_e2RlcStatsCalculator = e2RlcStatsCalculator;
 }
 
-Ptr<KpmIndicationMessage>
-E2Interface::BuildRicIndicationMessageCuUp(std::string plmId)
-{
-    /**
-     * Force logging and reduced pmvalues not avaliable
-     */
-    Ptr<MmWaveIndicationMessageHelper> indicationMessageHelper =
-        Create<MmWaveIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::CuUp,
-                                              false,
-                                              false);
-
-    // get <rnti, NrUeManager> map of connected UEs
-    ObjectMapValue ueManager;
-    m_rrc->GetAttribute("UeMap", ueManager);
-
-    // gNB-wide PDCP volume in downlink
-    double cellDlTxVolume = 0;
-    // rx bytes in downlink
-    double cellDlRxVolume = 0;
-
-    // sum of the per-user average latency
-    double perUserAverageLatencySum = 0;
-
-    std::unordered_map<uint64_t, std::string> uePmString{};
-
-    for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
-    {
-        auto ue = DynamicCast<NrUeManager>(ueObject->second);
-        uint64_t imsi = ue->GetImsi();
-
-        std::string ueImsiComplete = GetImsiString(imsi);
-
-        /**
-         * NOTE: save current values in a temporary variable which will be used
-         * to update the frame stats. Ex:
-         * flow [1]: 1000 bytes -> in this frame window using GetDlTxData()
-         * totalFlow of the entire simulation += 1000 bytes
-         * flow [2]: 2000 bytes -> in this frame window, where:
-         * flow [2] = actual frame  - (flow [1])
-         * totalFlow = 2000 bytes
-         *
-         * So, we can generalize this to:
-         * flow [n] = actual frame - (totalFlow)
-         */
-        // m_e2PdcpStatsCalculator->ResetResults();
-
-        // double rxDlPackets = m_e2PdcpStatsCalculator->GetDlRxPackets(imsi, 4); // LCID 3 is used
-        // for data
-        // Get the tx packets in DL flow
-        long txDlPackets = m_e2PdcpStatsCalculator->GetDlTxPackets(imsi, 4) -
-                           m_cellTxDlPackets; // LCID 3 is used for data
-        m_cellTxDlPackets += txDlPackets;
-        // Get the tx kbits
-        double actualTotalTxBytes = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3);
-        if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
-        {
-            m_cellTxBytes.insert(std::make_pair(imsi, 0));
-        }
-        double txBytes = (actualTotalTxBytes - m_cellTxBytes[imsi]); // in kbit, not byte
-
-        NS_LOG_DEBUG("Actual value of TX bytes: " << (actualTotalTxBytes) << " - " << m_cellTxBytes[imsi]
-                                                  << ", Result = " << txBytes);
-        // Save the current value to validate the tx bits in this frame window
-        m_cellTxBytes[imsi] += txBytes;
-
-        // Get the rx kbit
-        double actualTotalRxBytes = m_e2PdcpStatsCalculator->GetDlRxData(imsi, 4) * (8 / 1e3);
-        double rxBytes = (actualTotalRxBytes - m_cellRxBytes); // in kbit, not byte
-        NS_LOG_DEBUG("Actual value of RX bytes: " << (actualTotalRxBytes) << " - " << m_cellRxBytes
-                                                  << ", Result = " << rxBytes);
-        // Save the current value to validate the rx bits in this frame window
-        m_cellRxBytes += rxBytes;
-
-        // Cell volume metrics
-        cellDlTxVolume += txBytes;
-        cellDlRxVolume += rxBytes;
-
-        long txPdcpPduNrRlc = 0;
-        double txPdcpPduBytesNrRlc = 0;
-
-        // Get std::map<uint8_t, ns3::Ptr<ns3::NrDataRadioBearerInfo>> ns3::NrUeManager::m_drbMap
-        ObjectMapValue drbMap;
-        ue->GetAttribute("DataRadioBearerMap", drbMap);
-        auto rnti = ue->GetRnti();
-        // All the drbs report in the same callback function, all the PDU information is being
-        // summed in the ReportTxPDU.
-        // Tx PDUs in the reporting period, only get in this time window
-        // and then reset it
-        txPdcpPduNrRlc += m_txPDU[rnti];
-        txPdcpPduBytesNrRlc += m_txPDUBytes[rnti];
-        // Reset counting in the frame time
-        m_txPDU[rnti] = 0;
-        m_txPDUBytes[rnti] = 0;
-
-        NS_LOG_DEBUG("Number of Tx PDCP PDU in NR RLC: " << txPdcpPduNrRlc
-                                                         << ", in bytes: " << txPdcpPduBytesNrRlc);
-        // Use kbit instead of byte
-        txPdcpPduBytesNrRlc *= 8 / 1e3;
-
-        // compute mean latency based on PDCP statistics
-        /** TODO: Actually, it returns the average latency and i don't know how to reset it */
-        [[maybe_unused]] auto stats = m_e2PdcpStatsCalculator->GetDlDelayStats(imsi, 4);
-        double pdcpLatency = m_e2PdcpStatsCalculator->GetDlDelay(imsi, 4) / 1e5; // unit: x 0.1 ms
-        perUserAverageLatencySum += pdcpLatency;
-
-        double pdcpThroughput = txBytes / m_e2Periodicity;                    // unit kbps
-        std::cout << "imsi: " << imsi <<" -> " << pdcpThroughput << " kbps" << std::endl;
-        
-        [[maybe_unused]] double pdcpThroughputRx = rxBytes / m_e2Periodicity; // unit kbps
-
-        if (m_drbThrDlPdcpBasedComputationUeid.find(imsi) !=
-            m_drbThrDlPdcpBasedComputationUeid.end())
-        {
-            m_drbThrDlPdcpBasedComputationUeid.at(imsi) += pdcpThroughputRx;
-        }
-        else
-        {
-            m_drbThrDlPdcpBasedComputationUeid[imsi] = pdcpThroughputRx;
-        }
-
-        // compute bitrate based on RLC statistics, decoupled from pdcp throughput
-        double rlcLatency = m_e2RlcStatsCalculator->GetDlDelay(imsi, 4) / 1e9; // unit: s
-        double pduStats =
-            m_e2RlcStatsCalculator->GetDlPduSizeStats(imsi, 4)[0] * 8.0 / 1e3; // unit kbit
-
-        double rlcBitrate = (rlcLatency == 0) ? 0 : pduStats / rlcLatency; // unit kbit/s
-
-        m_drbThrDlUeid[imsi] = rlcBitrate;
-
-        NS_LOG_DEBUG("[" << Simulator::Now().GetSeconds() << "s]"
-                         << "Cell id: " << m_cellId << " connected UE with IMSI " << imsi
-                         << " ueImsiString " << ueImsiComplete << " txDlPackets " << txDlPackets
-                         << " txDlPacketsNr " << txPdcpPduNrRlc << " txBytes " << txBytes
-                         << " rxBytes " << rxBytes << " txDlBytesNr " << txPdcpPduBytesNrRlc
-                         << " pdcpLatency " << pdcpLatency << " pdcpThroughput " << pdcpThroughput
-                         << " rlcBitrate " << rlcBitrate);
-
-        if (!indicationMessageHelper->IsOffline())
-        {
-            indicationMessageHelper->AddCuUpUePmItem(ueImsiComplete,
-                                                     txPdcpPduBytesNrRlc,
-                                                     txPdcpPduNrRlc,
-                                                     pdcpThroughput);
-        }
-
-        uePmString.insert(std::make_pair(imsi,
-                                         ",,,," + std::to_string(txPdcpPduBytesNrRlc) + "," +
-                                             std::to_string(txPdcpPduNrRlc) + "," +
-                                             std::to_string(pdcpThroughput)));
-    }
-
-    if (!indicationMessageHelper->IsOffline())
-    {
-        indicationMessageHelper->FillCuUpValues(plmId);
-    }
-
-    NS_LOG_DEBUG("[" << Simulator::Now().GetSeconds() << "s]"
-                     << " in cell ID: " << m_cellId
-                     << " with this DL TX cell volume: " << cellDlTxVolume);
-
-    return indicationMessageHelper->CreateIndicationMessage();
-}
-
 std::string
 E2Interface::GetImsiString(uint64_t imsi)
 {
@@ -563,593 +364,6 @@ E2Interface::ReportTxPDU(uint16_t rnti, uint8_t lcid, uint32_t packetSize)
     }
 }
 
-Ptr<KpmIndicationMessage>
-E2Interface::BuildRicIndicationMessageCuCp(std::string plmId)
-{
-    Ptr<MmWaveIndicationMessageHelper> indicationMessageHelper =
-        Create<MmWaveIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::CuCp,
-                                              false,
-                                              false);
-    ObjectMapValue ueManager;
-    m_rrc->GetAttribute("UeMap", ueManager);
-
-    std::unordered_map<uint64_t, std::string> uePmString{};
-
-    for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
-    {
-        NS_LOG_DEBUG("CU-CP message in UE:" << ueObject->first);
-        auto ue = DynamicCast<NrUeManager>(ueObject->second);
-        uint64_t imsi = ue->GetImsi();
-        std::string ueImsiComplete = GetImsiString(imsi);
-
-        Ptr<MeasurementItemList> ueVal = Create<MeasurementItemList>(ueImsiComplete);
-
-        ObjectMapValue drbMap;
-        ue->GetAttribute("DataRadioBearerMap", drbMap);
-        long numDrb = drbMap.GetN();
-
-        /**
-         * NOTE: no reduced PM values in the current version
-        if (!m_reducedPmValues)
-        {
-            ueVal->AddItem<long>("DRB.EstabSucc.5QI.UEID", numDrb);
-            ueVal->AddItem<long>("DRB.RelActNbr.5QI.UEID", 0); // not modeled in the simulator
-        }
-        */
-
-        // create L3 RRC reports
-
-        // for the same cell
-        auto rnti = ue->GetRnti();
-        // Already in dB
-        double sinrThisCell = m_l3sinrMap[rnti][m_cellId];
-        NS_LOG_DEBUG("This cell SINR: " << sinrThisCell << "DRB num: " << numDrb);
-
-        double convertedSinr = L3RrcMeasurements::ThreeGppMapSinr(sinrThisCell);
-
-        Ptr<L3RrcMeasurements> l3RrcMeasurementServing;
-        if (!indicationMessageHelper->IsOffline())
-        {
-            l3RrcMeasurementServing =
-                L3RrcMeasurements::CreateL3RrcUeSpecificSinrServing(m_cellId,
-                                                                    m_cellId,
-                                                                    convertedSinr);
-        }
-        NS_LOG_INFO("[" << Simulator::Now().GetSeconds() << "]"
-                        << " gNB cell ID: " << m_cellId << " UE " << imsi << " L3 serving SINR "
-                        << sinrThisCell << " L3 serving SINR 3gpp " << convertedSinr << ", numDrb: "
-                        << numDrb << ", L3 RRC serving: " << l3RrcMeasurementServing);
-
-        std::string servingStr = std::to_string(numDrb) + "," + std::to_string(0) + "," +
-                                 std::to_string(m_cellId) + "," + std::to_string(imsi) + "," +
-                                 std::to_string(sinrThisCell) + "," + std::to_string(convertedSinr);
-
-        Ptr<L3RrcMeasurements> l3RrcMeasurementNeigh;
-        if (!indicationMessageHelper->IsOffline())
-        {
-            l3RrcMeasurementNeigh = L3RrcMeasurements::CreateL3RrcUeSpecificSinrNeigh();
-        }
-        double sinr;
-        std::string neighStr;
-
-        // invert key and value in sortFlipMap, then sort by value
-        std::multimap<long double, uint16_t> sortFlipMap = FlipMap(m_l3sinrMap[rnti]);
-        // new sortFlipMap structure sortFlipMap < sinr, cellId >
-        // The assumption is that the first cell in the scenario is always NR
-        uint16_t nNeighbours = E2SM_REPORT_MAX_NEIGH;
-        if (m_l3sinrMap[rnti].size() < nNeighbours)
-        {
-            nNeighbours = m_l3sinrMap[rnti].size() - 1;
-        }
-        int itIndex = 0;
-        // Save only the first E2SM_REPORT_MAX_NEIGH SINR for each UE which represent the best
-        // values among all the SINRs detected by all the cells
-        for (auto it = --sortFlipMap.end(); it != --sortFlipMap.begin() && itIndex < nNeighbours;
-             it--)
-        {
-            uint16_t cellId = it->second;
-            NS_LOG_DEBUG("Sort flipMap cellId: " << cellId << " m_cellId: " << m_cellId);
-            if (cellId != m_cellId)
-            {
-                sinr = it->first; // now SINR is a key due to the sort of the map
-                convertedSinr = L3RrcMeasurements::ThreeGppMapSinr(sinr);
-                if (!indicationMessageHelper->IsOffline())
-                {
-                    l3RrcMeasurementNeigh->AddNeighbourCellMeasurement(cellId, convertedSinr);
-                }
-                NS_LOG_INFO(Simulator::Now().GetSeconds()
-                            << " enbdev " << m_cellId << " UE " << imsi << " L3 neigh " << cellId
-                            << " SINR " << sinr << " sinr encoded " << convertedSinr
-                            << " first insert");
-                neighStr += "," + std::to_string(cellId) + "," + std::to_string(sinr) + "," +
-                            std::to_string(convertedSinr);
-                itIndex++;
-            }
-        }
-        for (int i = nNeighbours; i < E2SM_REPORT_MAX_NEIGH; i++)
-        {
-            neighStr += ",,,";
-        }
-
-        uePmString.insert(std::make_pair(imsi, servingStr + neighStr));
-
-        if (!indicationMessageHelper->IsOffline())
-        {
-            indicationMessageHelper->AddCuCpUePmItem(ueImsiComplete,
-                                                     numDrb,
-                                                     0,
-                                                     l3RrcMeasurementServing,
-                                                     l3RrcMeasurementNeigh);
-        }
-    }
-
-    if (!indicationMessageHelper->IsOffline())
-    {
-        // Fill CuCp specific fields
-        indicationMessageHelper->FillCuCpValues(ueManager.GetN()); // Number of Active UEs
-    }
-
-    /**
-     *
-    if (m_forceE2FileLogging)
-    {
-        std::ofstream csv{};
-        csv.open(m_cuCpFileName.c_str(), std::ios_base::app);
-        if (!csv.is_open())
-        {
-            NS_FATAL_ERROR("Can't open file " << m_cuCpFileName.c_str());
-        }
-
-        NS_LOG_DEBUG("m_cuCpFileName open " << m_cuCpFileName);
-
-        // the string is timestamp, ueImsiComplete, numActiveUes, DRB.EstabSucc.5QI.UEID (numDrb),
-        // DRB.RelActNbr.5QI.UEID (0), L3 serving Id (m_cellId), UE (imsi), L3 serving SINR, L3
-        // serving SINR 3gpp, L3 neigh Id (cellId), L3 neigh Sinr, L3 neigh SINR 3gpp
-        // (convertedSinr) The values for L3 neighbour cells are repeated for each neighbour (7
-        // times in this implementation)
-
-        uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
-
-        for (auto ue : ueMap)
-        {
-            uint64_t imsi = ue.second->GetImsi();
-            std::string ueImsiComplete = GetImsiString(imsi);
-
-            auto uePms = uePmString.find(imsi)->second;
-
-            std::string to_print = std::to_string(timestamp) + "," + ueImsiComplete + "," +
-                                   std::to_string(ueMap.size()) + "," + uePms + "\n";
-
-            NS_LOG_DEBUG(to_print);
-
-            csv << to_print;
-        }
-        csv.close();
-        return nullptr;
-    }
-    else
-    {
-     */
-    return indicationMessageHelper->CreateIndicationMessage();
-    //}
-}
-
-Ptr<KpmIndicationMessage>
-E2Interface::BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId)
-{
-    Ptr<MmWaveIndicationMessageHelper> indicationMessageHelper =
-        Create<MmWaveIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::Du,
-                                              false,
-                                              false);
-
-    ObjectMapValue ueManager;
-    m_rrc->GetAttribute("UeMap", ueManager);
-
-    uint32_t macPduCellSpecific = 0;
-    uint32_t macPduInitialCellSpecific = 0;
-    uint32_t macVolumeCellSpecific = 0;
-    uint32_t macQpskCellSpecific = 0;
-    uint32_t mac16QamCellSpecific = 0;
-    uint32_t mac64QamCellSpecific = 0;
-    uint32_t macRetxCellSpecific = 0;
-    uint32_t macMac04CellSpecific = 0;
-    uint32_t macMac59CellSpecific = 0;
-    uint32_t macMac1014CellSpecific = 0;
-    uint32_t macMac1519CellSpecific = 0;
-    uint32_t macMac2024CellSpecific = 0;
-    uint32_t macMac2529CellSpecific = 0;
-
-    uint32_t macSinrBin1CellSpecific = 0;
-    uint32_t macSinrBin2CellSpecific = 0;
-    uint32_t macSinrBin3CellSpecific = 0;
-    uint32_t macSinrBin4CellSpecific = 0;
-    uint32_t macSinrBin5CellSpecific = 0;
-    uint32_t macSinrBin6CellSpecific = 0;
-    uint32_t macSinrBin7CellSpecific = 0;
-
-    uint32_t rlcBufferOccupCellSpecific = 0;
-
-    uint32_t macPrbsCellSpecific = 0;
-
-    m_cellId = nrCellId;
-
-    std::unordered_map<uint64_t, std::string> uePmStringDu{};
-
-    for (auto ueMap = ueManager.Begin(); ueMap != ueManager.End(); ueMap++)
-    {
-        auto ue = DynamicCast<NrUeManager>(ueMap->second);
-        uint64_t imsi = ue->GetImsi();
-        std::string ueImsiComplete = GetImsiString(imsi);
-        uint16_t rnti = ue->GetRnti();
-
-        // Lookup SST for this UE based its RNTI
-        uint8_t sst = NoriSlicingHelper::GetSstForRnti(rnti);
-
-        NS_LOG_INFO("[E2Interface][DU] UE IMSI=" << imsi << " RNTI=" << rnti
-                                                 << " SST=" << static_cast<uint32_t>(sst));
-
-        uint32_t macPduUe = m_e2DuCalculator->GetMacPduUeSpecific(rnti, m_cellId);
-        macPduCellSpecific += macPduUe;
-
-        uint32_t macPduInitialUe =
-            m_e2DuCalculator->GetMacPduInitialTransmissionUeSpecific(rnti, m_cellId);
-        macPduInitialCellSpecific += macPduInitialUe;
-
-        uint32_t macVolume = m_e2DuCalculator->GetMacVolumeUeSpecific(rnti, m_cellId);
-        macVolumeCellSpecific += macVolume;
-
-        uint32_t macQpsk = m_e2DuCalculator->GetMacPduQpskUeSpecific(rnti, m_cellId);
-        macQpskCellSpecific += macQpsk;
-
-        uint32_t mac16Qam = m_e2DuCalculator->GetMacPdu16QamUeSpecific(rnti, m_cellId);
-        mac16QamCellSpecific += mac16Qam;
-
-        uint32_t mac64Qam = m_e2DuCalculator->GetMacPdu64QamUeSpecific(rnti, m_cellId);
-        mac64QamCellSpecific += mac64Qam;
-
-        uint32_t macRetx = m_e2DuCalculator->GetMacPduRetransmissionUeSpecific(rnti, m_cellId);
-        macRetxCellSpecific += macRetx;
-
-        // Numerator = (Sum of number of symbols across all rows (TTIs) group by cell ID and UE ID
-        // within a given time window)
-        double macNumberOfSymbols =
-            m_e2DuCalculator->GetMacNumberOfSymbolsUeSpecific(rnti, m_cellId);
-
-        auto slotPeriod = DynamicCast<NrGnbNetDevice>(m_netDev)->GetPhy(0)->GetSlotPeriod();
-
-        ObjectMapValue ccMapObject;
-        DynamicCast<NrGnbNetDevice>(m_netDev)->GetAttribute("BandwidthPartMap", ccMapObject);
-
-        // Denominator = (Periodicity of the report time window in ms*number of TTIs per ms*14)
-        Time reportingWindow =
-            Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
-        double denominatorPrb =
-            std::ceil(reportingWindow.GetNanoSeconds() / slotPeriod.GetNanoSeconds()) * 14;
-
-        NS_LOG_DEBUG("macNumberOfSymbols " << macNumberOfSymbols << " denominatorPrb "
-                                           << denominatorPrb);
-
-        // Average Number of PRBs allocated for the UE = (NR/DR)*139 (where 139 is the total number
-        // of PRBs available per NR cell, given numerology 2 with 60 kHz SCS)
-        double macPrb = 0;
-        if (denominatorPrb != 0)
-        {
-            macPrb = macNumberOfSymbols / denominatorPrb *
-                     139; // TODO fix this for different numerologies
-        }
-        macPrbsCellSpecific += macPrb;
-
-        uint32_t macMac04 = m_e2DuCalculator->GetMacMcs04UeSpecific(rnti, m_cellId);
-        macMac04CellSpecific += macMac04;
-
-        uint32_t macMac59 = m_e2DuCalculator->GetMacMcs59UeSpecific(rnti, m_cellId);
-        macMac59CellSpecific += macMac59;
-
-        uint32_t macMac1014 = m_e2DuCalculator->GetMacMcs1014UeSpecific(rnti, m_cellId);
-        macMac1014CellSpecific += macMac1014;
-
-        uint32_t macMac1519 = m_e2DuCalculator->GetMacMcs1519UeSpecific(rnti, m_cellId);
-        macMac1519CellSpecific += macMac1519;
-
-        uint32_t macMac2024 = m_e2DuCalculator->GetMacMcs2024UeSpecific(rnti, m_cellId);
-        macMac2024CellSpecific += macMac2024;
-
-        uint32_t macMac2529 = m_e2DuCalculator->GetMacMcs2529UeSpecific(rnti, m_cellId);
-        macMac2529CellSpecific += macMac2529;
-
-        uint32_t macSinrBin1 = m_e2DuCalculator->GetMacSinrBin1UeSpecific(rnti, m_cellId);
-        macSinrBin1CellSpecific += macSinrBin1;
-
-        uint32_t macSinrBin2 = m_e2DuCalculator->GetMacSinrBin2UeSpecific(rnti, m_cellId);
-        macSinrBin2CellSpecific += macSinrBin2;
-
-        uint32_t macSinrBin3 = m_e2DuCalculator->GetMacSinrBin3UeSpecific(rnti, m_cellId);
-        macSinrBin3CellSpecific += macSinrBin3;
-
-        uint32_t macSinrBin4 = m_e2DuCalculator->GetMacSinrBin4UeSpecific(rnti, m_cellId);
-        macSinrBin4CellSpecific += macSinrBin4;
-
-        uint32_t macSinrBin5 = m_e2DuCalculator->GetMacSinrBin5UeSpecific(rnti, m_cellId);
-        macSinrBin5CellSpecific += macSinrBin5;
-
-        uint32_t macSinrBin6 = m_e2DuCalculator->GetMacSinrBin6UeSpecific(rnti, m_cellId);
-        macSinrBin6CellSpecific += macSinrBin6;
-
-        uint32_t macSinrBin7 = m_e2DuCalculator->GetMacSinrBin7UeSpecific(rnti, m_cellId);
-        macSinrBin7CellSpecific += macSinrBin7;
-        /**
-         * TODO: Implement the RLC buffer occupancy (GetTxbuffersize())
-         *
-         */
-        // get buffer occupancy info
-        uint32_t rlcBufferOccup = 0;
-        ObjectMapValue drbMap;
-        ue->GetAttribute("DataRadioBearerMap", drbMap);
-        for (auto dr = drbMap.Begin(); dr != drbMap.End(); dr++)
-        {
-            PointerValue nrPtr;
-            NS_ABORT_MSG_IF(dr->second == nullptr, "DRB is null");
-            auto dataRadio = dr->second;
-            dataRadio->GetAttribute("NrPdcp", nrPtr);
-            [[maybe_unused]] auto nrRlc = nrPtr.Get<NrRlc>();
-            Ptr<NrRlcAm> rlcAm = DynamicCast<NrRlcAm>(nrRlc);
-            if (rlcAm)
-            {
-                // rlcAm->TraceConnectWithoutContext("TxBufferState",
-                //     MakeCallback([](uint32_t size) {
-                //         NS_LOG_UNCOND("Buffer size (bytes): " << size);
-                //     }));bufferSta
-            }
-        }
-
-        /**
-         *
-        auto rlcMap = ue.second->GetRlcMap(); // secondary-connected RLCs
-        for (auto drb : rlcMap)
-        {
-            auto rlc = drb.second->m_rlc;
-            rlcBufferOccup += GetRlcBufferOccupancy(rlc);
-        }
-         */
-        rlcBufferOccupCellSpecific += rlcBufferOccup;
-
-        NS_LOG_DEBUG(Simulator::Now().GetSeconds()
-                     << " " << m_cellId << " cell, connected UE with IMSI " << imsi << " rnti "
-                     << rnti << " macPduUe " << macPduUe << " macPduInitialUe " << macPduInitialUe
-                     << " macVolume " << macVolume << " macQpsk " << macQpsk << " mac16Qam "
-                     << mac16Qam << " mac64Qam " << mac64Qam << " macRetx " << macRetx << " macPrb "
-                     << macPrb << " macMac04 " << macMac04 << " macMac59 " << macMac59
-                     << " macMac1014 " << macMac1014 << " macMac1519 " << macMac1519
-                     << " macMac2024 " << macMac2024 << " macMac2529 " << macMac2529
-                     << " macSinrBin1 " << macSinrBin1 << " macSinrBin2 " << macSinrBin2
-                     << " macSinrBin3 " << macSinrBin3 << " macSinrBin4 " << macSinrBin4
-                     << " macSinrBin5 " << macSinrBin5 << " macSinrBin6 " << macSinrBin6
-                     << " macSinrBin7 " << macSinrBin7 << " rlcBufferOccup " << rlcBufferOccup);
-
-        // UE-specific Downlink IP combined EN-DC throughput from NR gNb. Unit is kbps. Pdcp based
-        // computation This value is not requested anymore, so it has been removed from the
-        // delivery, but it will be still logged;
-        double drbThrDlPdcpBasedUeid = m_drbThrDlPdcpBasedComputationUeid.find(imsi) !=
-                                               m_drbThrDlPdcpBasedComputationUeid.end()
-                                           ? m_drbThrDlPdcpBasedComputationUeid.at(imsi)
-                                           : 0;
-
-        // UE-specific Downlink IP combined EN-DC throughput from NR gNb. Unit is kbps. Rlc based
-        // computation
-        double drbThrDlUeid =
-            m_drbThrDlUeid.find(imsi) != m_drbThrDlUeid.end() ? m_drbThrDlUeid.at(imsi) : 0;
-
-        indicationMessageHelper->AddDuUePmItem(ueImsiComplete,
-                               macPduUe,
-                               macPduInitialUe,
-                               macQpsk,
-                               mac16Qam,
-                               mac64Qam,
-                               macRetx,
-                               macVolume,
-                               macPrb,
-                               macMac04,
-                               macMac59,
-                               macMac1014,
-                               macMac1519,
-                               macMac2024,
-                               macMac2529,
-                               macSinrBin1,
-                               macSinrBin2,
-                               macSinrBin3,
-                               macSinrBin4,
-                               macSinrBin5,
-                               macSinrBin6,
-                               macSinrBin7,
-                               rlcBufferOccup,
-                               drbThrDlUeid,
-                               static_cast<long>(sst));
-
-        uePmStringDu.insert(std::make_pair(
-            imsi,
-            std::to_string(macPduUe) + "," + std::to_string(macPduInitialUe) + "," +
-                std::to_string(macQpsk) + "," + std::to_string(mac16Qam) + "," +
-                std::to_string(mac64Qam) + "," + std::to_string(macRetx) + "," +
-                std::to_string(macVolume) + "," + std::to_string(macPrb) + "," +
-                std::to_string(macMac04) + "," + std::to_string(macMac59) + "," +
-                std::to_string(macMac1014) + "," + std::to_string(macMac1519) + "," +
-                std::to_string(macMac2024) + "," + std::to_string(macMac2529) + "," +
-                std::to_string(macSinrBin1) + "," + std::to_string(macSinrBin2) + "," +
-                std::to_string(macSinrBin3) + "," + std::to_string(macSinrBin4) + "," +
-                std::to_string(macSinrBin5) + "," + std::to_string(macSinrBin6) + "," +
-                std::to_string(macSinrBin7) + "," + std::to_string(rlcBufferOccup) + ',' +
-                std::to_string(drbThrDlUeid) + ',' + std::to_string(drbThrDlPdcpBasedUeid)));
-
-        // ML Slice Interface
-        MLSliceInterface(macPrb, imsi);
-        // reset UE
-        m_e2DuCalculator->ResetPhyTracesForRntiCellId(rnti, m_cellId);
-    }
-
-    m_drbThrDlPdcpBasedComputationUeid.clear();
-    m_drbThrDlUeid.clear();
-
-    // Denominator = (Total number of rows (TTIs) within a given time window* 14)
-    // Numerator = (Sum of number of symbols across all rows (TTIs) group by cell ID within a given
-    // time window) * 139 Average Number of PRBs allocated for the UE = (NR/DR) (where 139 is the
-    // total number of PRBs available per NR cell, given numerology 2 with 60 kHz SCS)
-    double prbUtilizationDl = macPrbsCellSpecific;
-
-    NS_LOG_INFO(
-        Simulator::Now().GetSeconds()
-        << " " << m_cellId << " cell, connected UEs number " << ueManager.GetN()
-        << " macPduCellSpecific " << macPduCellSpecific << " macPduInitialCellSpecific "
-        << macPduInitialCellSpecific << " macVolumeCellSpecific " << macVolumeCellSpecific
-        << " macQpskCellSpecific " << macQpskCellSpecific << " mac16QamCellSpecific "
-        << mac16QamCellSpecific << " mac64QamCellSpecific " << mac64QamCellSpecific
-        << " macRetxCellSpecific " << macRetxCellSpecific << " macPrbsCellSpecific "
-        << macPrbsCellSpecific //<< " " << macNumberOfSymbolsCellSpecific << " " << denominatorPrb
-        << " macMac04CellSpecific " << macMac04CellSpecific << " macMac59CellSpecific "
-        << macMac59CellSpecific << " macMac1014CellSpecific " << macMac1014CellSpecific
-        << " macMac1519CellSpecific " << macMac1519CellSpecific << " macMac2024CellSpecific "
-        << macMac2024CellSpecific << " macMac2529CellSpecific " << macMac2529CellSpecific
-        << " macSinrBin1CellSpecific " << macSinrBin1CellSpecific << " macSinrBin2CellSpecific "
-        << macSinrBin2CellSpecific << " macSinrBin3CellSpecific " << macSinrBin3CellSpecific
-        << " macSinrBin4CellSpecific " << macSinrBin4CellSpecific << " macSinrBin5CellSpecific "
-        << macSinrBin5CellSpecific << " macSinrBin6CellSpecific " << macSinrBin6CellSpecific
-        << " macSinrBin7CellSpecific " << macSinrBin7CellSpecific);
-
-    long dlAvailablePrbs = 139; // TODO this is for the current configuration, make it configurable
-    long ulAvailablePrbs = 139; // TODO this is for the current configuration, make it configurable
-    long qci = 1;
-    long dlPrbUsage = std::min((long)(prbUtilizationDl / dlAvailablePrbs * 100),
-                               (long)100); // percentage of used PRBs
-    long ulPrbUsage = 0;                   // TODO for future implementation
-
-    if (!indicationMessageHelper->IsOffline())
-    {
-        indicationMessageHelper->AddDuCellPmItem(macPduCellSpecific,
-                                                 macPduInitialCellSpecific,
-                                                 macQpskCellSpecific,
-                                                 mac16QamCellSpecific,
-                                                 mac64QamCellSpecific,
-                                                 prbUtilizationDl,
-                                                 macRetxCellSpecific,
-                                                 macVolumeCellSpecific,
-                                                 macMac04CellSpecific,
-                                                 macMac59CellSpecific,
-                                                 macMac1014CellSpecific,
-                                                 macMac1519CellSpecific,
-                                                 macMac2024CellSpecific,
-                                                 macMac2529CellSpecific,
-                                                 macSinrBin1CellSpecific,
-                                                 macSinrBin2CellSpecific,
-                                                 macSinrBin3CellSpecific,
-                                                 macSinrBin4CellSpecific,
-                                                 macSinrBin5CellSpecific,
-                                                 macSinrBin6CellSpecific,
-                                                 macSinrBin7CellSpecific,
-                                                 rlcBufferOccupCellSpecific,
-                                                 ueManager.GetN());
-
-        Ptr<CellResourceReport> cellResRep = Create<CellResourceReport>();
-        cellResRep->m_plmId = plmId;
-        cellResRep->m_nrCellId = nrCellId;
-        cellResRep->dlAvailablePrbs = dlAvailablePrbs;
-        cellResRep->ulAvailablePrbs = ulAvailablePrbs;
-
-        Ptr<ServedPlmnPerCell> servedPlmnPerCell = Create<ServedPlmnPerCell>();
-        servedPlmnPerCell->m_plmId = plmId;
-        servedPlmnPerCell->m_nrCellId = nrCellId;
-
-        Ptr<EpcDuPmContainer> epcDuVal = Create<EpcDuPmContainer>();
-        epcDuVal->m_qci = qci;
-        epcDuVal->m_dlPrbUsage = dlPrbUsage;
-        epcDuVal->m_ulPrbUsage = ulPrbUsage;
-
-        servedPlmnPerCell->m_perQciReportItems.insert(epcDuVal);
-        cellResRep->m_servedPlmnPerCellItems.insert(servedPlmnPerCell);
-
-        indicationMessageHelper->AddDuCellResRepPmItem(cellResRep);
-        indicationMessageHelper->FillDuValues(plmId + std::to_string(nrCellId));
-    }
-
-    bool generateData = false;
-    m_duFileName = "metrics_du.csv";
-
-    if (generateData)
-    {
-        std::ofstream csv{};
-        csv.open(m_duFileName.c_str(), std::ios_base::app);
-        if (!csv.is_open())
-        {
-            NS_FATAL_ERROR("Can't open file " << m_duFileName.c_str());
-        }
-
-        // Check if the file is empty to write the header
-        csv.seekp(0, std::ios::end);
-        if (csv.tellp() == 0)
-        {
-            csv << "timestamp,plmId,nrCellId,dlAvailablePrbs,ulAvailablePrbs,qci,dlPrbUsage,"
-                   "ulPrbUsage,"
-                   "macPduCellSpecific,macPduInitialCellSpecific,macQpskCellSpecific,"
-                   "mac16QamCellSpecific,"
-                   "mac64QamCellSpecific,prbUtilizationDl,macRetxCellSpecific,"
-                   "macVolumeCellSpecific,"
-                   "macMac04CellSpecific,macMac59CellSpecific,macMac1014CellSpecific,"
-                   "macMac1519CellSpecific,"
-                   "macMac2024CellSpecific,macMac2529CellSpecific,macSinrBin1CellSpecific,"
-                   "macSinrBin2CellSpecific,"
-                   "macSinrBin3CellSpecific,macSinrBin4CellSpecific,macSinrBin5CellSpecific,"
-                   "macSinrBin6CellSpecific,"
-                   "macSinrBin7CellSpecific,rlcBufferOccupCellSpecific,numActiveUes,ueImsiComplete,"
-                   "macPduUe,macPduInitialUe,macQpsk,mac16Qam,mac64Qam,macRetx,macVolume,macPrb,"
-                   "macMac04,"
-                   "macMac59,macMac1014,macMac1519,macMac2024,macMac2529,macSinrBin1,macSinrBin2,"
-                   "macSinrBin3,"
-                   "macSinrBin4,macSinrBin5,macSinrBin6,macSinrBin7,rlcBufferOccup,drbThrDlUeid,"
-                   "drbThrDlPdcpBasedUeid\n";
-        }
-
-        uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
-
-        std::string to_print_cell =
-            std::to_string(timestamp) + "," + plmId + "," + std::to_string(nrCellId) + "," +
-            std::to_string(dlAvailablePrbs) + "," + std::to_string(ulAvailablePrbs) + "," +
-            std::to_string(qci) + "," + std::to_string(dlPrbUsage) + "," +
-            std::to_string(ulPrbUsage) + "," + std::to_string(macPduCellSpecific) + "," +
-            std::to_string(macPduInitialCellSpecific) + "," + std::to_string(macQpskCellSpecific) +
-            "," + std::to_string(mac16QamCellSpecific) + "," +
-            std::to_string(mac64QamCellSpecific) + "," +
-            std::to_string((long)std::ceil(prbUtilizationDl)) + "," +
-            std::to_string(macRetxCellSpecific) + "," + std::to_string(macVolumeCellSpecific) +
-            "," + std::to_string(macMac04CellSpecific) + "," +
-            std::to_string(macMac59CellSpecific) + "," + std::to_string(macMac1014CellSpecific) +
-            "," + std::to_string(macMac1519CellSpecific) + "," +
-            std::to_string(macMac2024CellSpecific) + "," + std::to_string(macMac2529CellSpecific) +
-            "," + std::to_string(macSinrBin1CellSpecific) + "," +
-            std::to_string(macSinrBin2CellSpecific) + "," +
-            std::to_string(macSinrBin3CellSpecific) + "," +
-            std::to_string(macSinrBin4CellSpecific) + "," +
-            std::to_string(macSinrBin5CellSpecific) + "," +
-            std::to_string(macSinrBin6CellSpecific) + "," +
-            std::to_string(macSinrBin7CellSpecific) + "," +
-            std::to_string(rlcBufferOccupCellSpecific) + "," + std::to_string(ueManager.GetN());
-
-        m_rrc->GetAttribute("UeMap", ueManager);
-
-        for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
-        {
-            auto ue = DynamicCast<NrUeManager>(ueObject->second);
-            uint64_t imsi = ue->GetImsi();
-            std::string ueImsiComplete = GetImsiString(imsi);
-
-            auto uePms = uePmStringDu.find(imsi)->second;
-
-            std::string to_print = to_print_cell + "," + ueImsiComplete + "," + uePms + "\n";
-
-            csv << to_print;
-        }
-        csv.close();
-    }
-    return indicationMessageHelper->CreateIndicationMessage();
-}
-
 std::multimap<long double, uint16_t>
 E2Interface::FlipMap(const std::map<uint16_t, long double>& src)
 {
@@ -1176,6 +390,238 @@ E2Interface ::BuildRicIndicationHeader() const
         Create<KpmIndicationHeader>(headerValues);
     return header;
 
+}
+
+Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::string plmId, uint16_t nrCellId){
+    
+    auto helper = Create<NoriIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::NodeLevel, false, false);
+
+    helper->SetGranularityPeriod((unsigned long)(m_e2Periodicity * 1000));
+    ObjectMapValue ueManager;
+    m_rrc->GetAttribute("UeMap", ueManager);
+
+    // --- Aggregate cell-level DU metrics
+    uint32_t macPduCellSpecific = 0;
+    uint32_t macPduInitialCellSpecific = 0;
+    uint32_t macQpskCellSpecific = 0;
+    uint32_t mac16QamCellSpecific = 0;
+    uint32_t mac64QamCellSpecific = 0;
+    uint32_t macRetxCellSpecific = 0;
+    uint32_t macVolumeCellSpecific = 0;
+    uint32_t macPrbsCellSpecific = 0;
+
+    uint32_t macSinrBin1Cell = 0, macSinrBin2Cell = 0, macSinrBin3Cell = 0,
+             macSinrBin4Cell = 0, macSinrBin5Cell = 0, macSinrBin6Cell = 0,
+             macSinrBin7Cell = 0;
+
+    uint32_t macMac04Cell = 0, macMac59Cell = 0, macMac1014Cell = 0,
+             macMac1519Cell = 0, macMac2024Cell = 0, macMac2529Cell = 0;
+
+    uint32_t rlcBufferOccupCell = 0;
+    double cellDlTxVolume = 0;
+
+    m_cellId = nrCellId;
+
+    for (auto ueMap = ueManager.Begin(); ueMap != ueManager.End(); ueMap++)
+    {
+        auto ue = DynamicCast<NrUeManager>(ueMap->second);
+        uint64_t imsi = ue->GetImsi();
+        uint16_t rnti = ue->GetRnti();
+
+        // --- CU-UP: aggregate PDCP volume ---
+        double actualTotalTxBytes = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3);
+        if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
+            m_cellTxBytes.insert(std::make_pair(imsi, 0));
+        double txBytes = actualTotalTxBytes - m_cellTxBytes[imsi];
+        m_cellTxBytes[imsi] += txBytes;
+        cellDlTxVolume += txBytes;
+
+        // --- TX PDU counting reset for this frame ---
+        m_txPDU[rnti] = 0;
+        m_txPDUBytes[rnti] = 0;
+
+        // --- DU: aggregate per-UE MAC stats ---
+        macPduCellSpecific += m_e2DuCalculator->GetMacPduUeSpecific(rnti, m_cellId);
+        macPduInitialCellSpecific += m_e2DuCalculator->GetMacPduInitialTransmissionUeSpecific(rnti, m_cellId);
+        macVolumeCellSpecific += m_e2DuCalculator->GetMacVolumeUeSpecific(rnti, m_cellId);
+        macQpskCellSpecific += m_e2DuCalculator->GetMacPduQpskUeSpecific(rnti, m_cellId);
+        mac16QamCellSpecific += m_e2DuCalculator->GetMacPdu16QamUeSpecific(rnti, m_cellId);
+        mac64QamCellSpecific += m_e2DuCalculator->GetMacPdu64QamUeSpecific(rnti, m_cellId);
+        macRetxCellSpecific += m_e2DuCalculator->GetMacPduRetransmissionUeSpecific(rnti, m_cellId);
+
+        double macSymbols = m_e2DuCalculator->GetMacNumberOfSymbolsUeSpecific(rnti, m_cellId);
+        auto slotPeriod = DynamicCast<NrGnbNetDevice>(m_netDev)->GetPhy(0)->GetSlotPeriod();
+        Time reportingWindow = Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
+        double denomPrb = std::ceil(reportingWindow.GetNanoSeconds() / slotPeriod.GetNanoSeconds()) * 14;
+        double macPrb = (denomPrb != 0) ? macSymbols / denomPrb * 139 : 0;
+        macPrbsCellSpecific += macPrb;
+
+        macMac04Cell   += m_e2DuCalculator->GetMacMcs04UeSpecific(rnti, m_cellId);
+        macMac59Cell   += m_e2DuCalculator->GetMacMcs59UeSpecific(rnti, m_cellId);
+        macMac1014Cell += m_e2DuCalculator->GetMacMcs1014UeSpecific(rnti, m_cellId);
+        macMac1519Cell += m_e2DuCalculator->GetMacMcs1519UeSpecific(rnti, m_cellId);
+        macMac2024Cell += m_e2DuCalculator->GetMacMcs2024UeSpecific(rnti, m_cellId);
+        macMac2529Cell += m_e2DuCalculator->GetMacMcs2529UeSpecific(rnti, m_cellId);
+
+        macSinrBin1Cell += m_e2DuCalculator->GetMacSinrBin1UeSpecific(rnti, m_cellId);
+        macSinrBin2Cell += m_e2DuCalculator->GetMacSinrBin2UeSpecific(rnti, m_cellId);
+        macSinrBin3Cell += m_e2DuCalculator->GetMacSinrBin3UeSpecific(rnti, m_cellId);
+        macSinrBin4Cell += m_e2DuCalculator->GetMacSinrBin4UeSpecific(rnti, m_cellId);
+        macSinrBin5Cell += m_e2DuCalculator->GetMacSinrBin5UeSpecific(rnti, m_cellId);
+        macSinrBin6Cell += m_e2DuCalculator->GetMacSinrBin6UeSpecific(rnti, m_cellId);
+        macSinrBin7Cell += m_e2DuCalculator->GetMacSinrBin7UeSpecific(rnti, m_cellId);
+    }
+
+    // TODO: make configurable
+    long dlAvailablePrbs = 139;
+    long ulAvailablePrbs = 139;
+
+    // ===== Add all node-level metrics =====
+    helper->AddNodeMeasurementInteger("DRB.PdcpSduVolumeDL", (unsigned long)cellDlTxVolume);
+    helper->AddNodeMeasurementInteger("RRU.PrbUsedDl", (unsigned long)std::ceil(macPrbsCellSpecific));
+    helper->AddNodeMeasurementInteger("RRU.PrbAvailDl", (unsigned long)dlAvailablePrbs);
+    helper->AddNodeMeasurementInteger("RRU.PrbAvailUl", (unsigned long)ulAvailablePrbs);
+    helper->AddNodeMeasurementInteger("TB.TotNbrDlInitial", macPduInitialCellSpecific);
+    helper->AddNodeMeasurementInteger("TB.TotNbrDlInitial.Qpsk", macQpskCellSpecific);
+    helper->AddNodeMeasurementInteger("TB.TotNbrDlInitial.16Qam", mac16QamCellSpecific);
+    helper->AddNodeMeasurementInteger("TB.TotNbrDlInitial.64Qam", mac64QamCellSpecific);
+    helper->AddNodeMeasurementInteger("TB.ErrTotalNbrDl.1", macRetxCellSpecific);
+    helper->AddNodeMeasurementInteger("QosFlow.PdcpPduVolumeDL_Filter", macVolumeCellSpecific);
+    helper->AddNodeMeasurementInteger("DRB.MeanActiveUeDl", ueManager.GetN());
+    helper->AddNodeMeasurementInteger("RRC.ConnMean", ueManager.GetN());
+
+    // MCS distribution
+    helper->AddNodeMeasurementInteger("CARR.PDSCHMCSDist.Bin1", macMac04Cell);
+    helper->AddNodeMeasurementInteger("CARR.PDSCHMCSDist.Bin2", macMac59Cell);
+    helper->AddNodeMeasurementInteger("CARR.PDSCHMCSDist.Bin3", macMac1014Cell);
+    helper->AddNodeMeasurementInteger("CARR.PDSCHMCSDist.Bin4", macMac1519Cell);
+    helper->AddNodeMeasurementInteger("CARR.PDSCHMCSDist.Bin5", macMac2024Cell);
+    helper->AddNodeMeasurementInteger("CARR.PDSCHMCSDist.Bin6", macMac2529Cell);
+
+    // SINR distribution
+    helper->AddNodeMeasurementInteger("L1M.RS-SINR.Bin34", macSinrBin1Cell);
+    helper->AddNodeMeasurementInteger("L1M.RS-SINR.Bin46", macSinrBin2Cell);
+    helper->AddNodeMeasurementInteger("L1M.RS-SINR.Bin58", macSinrBin3Cell);
+    helper->AddNodeMeasurementInteger("L1M.RS-SINR.Bin70", macSinrBin4Cell);
+    helper->AddNodeMeasurementInteger("L1M.RS-SINR.Bin82", macSinrBin5Cell);
+    helper->AddNodeMeasurementInteger("L1M.RS-SINR.Bin94", macSinrBin6Cell);
+    helper->AddNodeMeasurementInteger("L1M.RS-SINR.Bin127", macSinrBin7Cell);
+
+    helper->AddNodeMeasurementInteger("DRB.BufferSize.Qos", rlcBufferOccupCell);
+
+    NS_LOG_INFO(Simulator::Now().GetSeconds() << " " << m_cellId
+                << " cell, node-level message with " << ueManager.GetN() << " UEs");
+
+    return helper->CreateIndicationMessage();
+}
+
+Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string plmId, uint16_t nrCellId){
+
+    auto helper = Create<NoriIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::UeLevel, false, false);
+
+    ObjectMapValue ueManager;
+    m_rrc->GetAttribute("UeMap", ueManager);
+
+    m_cellId = nrCellId;
+
+    for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
+    {
+        auto ue = DynamicCast<NrUeManager>(ueObject->second);
+        uint64_t imsi = ue->GetImsi();
+        uint16_t rnti = ue->GetRnti();
+        uint8_t sst = NoriSlicingHelper::GetSstForRnti(rnti);
+
+        // Begin a new UE report (IMSI as AMF-UE-NGAP-ID for simulation)
+        helper->BeginUeReport(imsi, plmId, 0, 0, 0);
+
+        // --- CU-UP per-UE: PDCP throughput ---
+        double actualTotalTxBytes = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3);
+        if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
+            m_cellTxBytes.insert(std::make_pair(imsi, 0));
+        double txBytes = actualTotalTxBytes - m_cellTxBytes[imsi];
+        // NOTE: don't update m_cellTxBytes here (already done in NodeLevel)
+        double pdcpThroughput = txBytes / m_e2Periodicity; // kbps
+
+        helper->AddUeMeasurementReal("DRB.UEThpDl", pdcpThroughput);
+        helper->AddUeMeasurementInteger("QosFlow.PdcpPduVolumeDL_Filter", (unsigned long)txBytes);
+
+        // --- DU per-UE: MAC stats ---
+        uint32_t macPduUe = m_e2DuCalculator->GetMacPduUeSpecific(rnti, m_cellId);
+        uint32_t macPduInitialUe = m_e2DuCalculator->GetMacPduInitialTransmissionUeSpecific(rnti, m_cellId);
+        uint32_t macQpsk = m_e2DuCalculator->GetMacPduQpskUeSpecific(rnti, m_cellId);
+        uint32_t mac16Qam = m_e2DuCalculator->GetMacPdu16QamUeSpecific(rnti, m_cellId);
+        uint32_t mac64Qam = m_e2DuCalculator->GetMacPdu64QamUeSpecific(rnti, m_cellId);
+        uint32_t macRetx = m_e2DuCalculator->GetMacPduRetransmissionUeSpecific(rnti, m_cellId);
+
+        double macSymbols = m_e2DuCalculator->GetMacNumberOfSymbolsUeSpecific(rnti, m_cellId);
+        auto slotPeriod = DynamicCast<NrGnbNetDevice>(m_netDev)->GetPhy(0)->GetSlotPeriod();
+        Time reportingWindow = Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
+        double denomPrb = std::ceil(reportingWindow.GetNanoSeconds() / slotPeriod.GetNanoSeconds()) * 14;
+        double macPrb = (denomPrb != 0) ? macSymbols / denomPrb * 139 : 0;
+
+        helper->AddUeMeasurementInteger("TB.TotNbrDl.1", macPduUe);
+        helper->AddUeMeasurementInteger("TB.TotNbrDlInitial", macPduInitialUe);
+        helper->AddUeMeasurementInteger("TB.TotNbrDlInitial.Qpsk", macQpsk);
+        helper->AddUeMeasurementInteger("TB.TotNbrDlInitial.16Qam", mac16Qam);
+        helper->AddUeMeasurementInteger("TB.TotNbrDlInitial.64Qam", mac64Qam);
+        helper->AddUeMeasurementInteger("TB.ErrTotalNbrDl.1", macRetx);
+        helper->AddUeMeasurementInteger("RRU.PrbUsedDl", (unsigned long)std::ceil(macPrb));
+
+        // MCS distribution per UE
+        helper->AddUeMeasurementInteger("CARR.PDSCHMCSDist.Bin1",
+                                        m_e2DuCalculator->GetMacMcs04UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("CARR.PDSCHMCSDist.Bin2",
+                                        m_e2DuCalculator->GetMacMcs59UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("CARR.PDSCHMCSDist.Bin3",
+                                        m_e2DuCalculator->GetMacMcs1014UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("CARR.PDSCHMCSDist.Bin4",
+                                        m_e2DuCalculator->GetMacMcs1519UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("CARR.PDSCHMCSDist.Bin5",
+                                        m_e2DuCalculator->GetMacMcs2024UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("CARR.PDSCHMCSDist.Bin6",
+                                        m_e2DuCalculator->GetMacMcs2529UeSpecific(rnti, m_cellId));
+
+        // SINR bins per UE
+        helper->AddUeMeasurementInteger("L1M.RS-SINR.Bin34",
+                                        m_e2DuCalculator->GetMacSinrBin1UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("L1M.RS-SINR.Bin46",
+                                        m_e2DuCalculator->GetMacSinrBin2UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("L1M.RS-SINR.Bin58",
+                                        m_e2DuCalculator->GetMacSinrBin3UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("L1M.RS-SINR.Bin70",
+                                        m_e2DuCalculator->GetMacSinrBin4UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("L1M.RS-SINR.Bin82",
+                                        m_e2DuCalculator->GetMacSinrBin5UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("L1M.RS-SINR.Bin94",
+                                        m_e2DuCalculator->GetMacSinrBin6UeSpecific(rnti, m_cellId));
+        helper->AddUeMeasurementInteger("L1M.RS-SINR.Bin127",
+                                        m_e2DuCalculator->GetMacSinrBin7UeSpecific(rnti, m_cellId));
+
+        // Buffer + slice
+        helper->AddUeMeasurementInteger("DRB.BufferSize.Qos", 0); // TODO: implement RLC buffer
+        helper->AddUeMeasurementInteger("DRB.NetworkSlicing.SST", (unsigned long)sst);
+
+        // --- CU-CP per-UE: L3 SINR serving ---
+        double sinrThisCell = m_l3sinrMap[rnti][m_cellId];
+        double convertedSinr = L3RrcMeasurements::ThreeGppMapSinr(sinrThisCell);
+        helper->AddUeMeasurementReal("HO.SrcCellQual.RS-SINR", convertedSinr);
+
+        // --- CU-CP per-UE: num DRBs ---
+        ObjectMapValue drbMap;
+        ue->GetAttribute("DataRadioBearerMap", drbMap);
+        helper->AddUeMeasurementInteger("DRB.EstabSucc.5QI", drbMap.GetN());
+
+        // ML Slice Interface
+        MLSliceInterface(macPrb, imsi);
+
+        // Reset PHY traces (only here, last function called)
+        m_e2DuCalculator->ResetPhyTracesForRntiCellId(rnti, m_cellId);
+    }
+
+    m_drbThrDlPdcpBasedComputationUeid.clear();
+    m_drbThrDlUeid.clear();
+
+    return helper->CreateIndicationMessage();
 }
 
 void

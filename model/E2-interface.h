@@ -128,29 +128,9 @@ class E2Interface : public Object
      */
     std::string GetImsiString(uint64_t imsi);
 
-    /**
-     * @brief Build RIC Indication Message for CU-UP
-     * @param plmId PLMN ID
-     * @return the RIC Indication Message
-     */
+    Ptr<KpmIndicationMessage> BuildNodeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
 
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuUp(std::string plmId);
-
-    /**
-     * @brief Build RIC Indication Message for CU-CP
-     * @param plmId PLMN ID
-     * @return the RIC Indication Message
-     *
-     */
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuCp(std::string plmId);
-
-    /**
-     * @brief Build RIC Indication Message for DU
-     * @param plmId PLMN ID
-     * @param nrCellId NR cell ID
-     * @return the RIC Indication Message
-     */
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId);
+    Ptr<KpmIndicationMessage> BuildUeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
 
     /**
      * @brief Function to help us to flip the map
