@@ -16,7 +16,7 @@
  *         Andrey Adailso <andreyadailsom@gmail.com>
  */
 
-#pragma once
+//#pragma once
 
 #include "ns3/kpm-indication.h"
 
@@ -26,35 +26,29 @@ namespace ns3
 class IndicationMessageHelper : public Object
 {
   public:
+
     enum class IndicationMessageType
     {
-        CuCp = 0,
-        CuUp = 1,
-        Du = 2
+      NodeLevel = 0,
+      UeLevel = 1,
     };
-    IndicationMessageHelper(IndicationMessageType type, bool isOffline, bool reducedPmValues);
 
+    IndicationMessageHelper(IndicationMessageType type, bool isOffline, bool reducePMValues);
     ~IndicationMessageHelper();
 
     Ptr<KpmIndicationMessage> CreateIndicationMessage();
 
     const bool& IsOffline() const
     {
-        return m_offline;
+      return m_offline;
     }
 
   protected:
-    void FillBaseCuUpValues(std::string plmId);
-
-    void FillBaseCuCpValues(uint16_t numActiveUes);
-
     IndicationMessageType m_type;
     bool m_offline;
-    bool m_reducedPmValues;
-    KpmIndicationMessage::KpmIndicationMessageValues m_msgValues;
-    Ptr<OCuUpContainerValues> m_cuUpValues;
-    Ptr<OCuCpContainerValues> m_cuCpValues;
-    Ptr<ODuContainerValues> m_duValues;
-};
+    bool m_reducePmValues;
+    KpmIndicationMessage::KpmIndicationMessageHeader m_msgValues;
+
+}
 
 } // namespace ns3

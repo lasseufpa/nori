@@ -64,7 +64,7 @@ E2Termination::E2Termination(const std::string ricAddress,
       m_plmnId(plmnId)
 {
     NS_LOG_FUNCTION(this);
-    m_e2sim = new E2Sim;
+    // m_e2sim = new E2Sim;
     
     m_e2sim = new E2SimMod(m_gnbId, m_plmnId); 
     

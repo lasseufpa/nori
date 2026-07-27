@@ -28,45 +28,20 @@ IndicationMessageHelper::IndicationMessageHelper(IndicationMessageType type,
       m_offline(isOffline),
       m_reducedPmValues(reducedPmValues)
 {
-    if (!m_offline)
-    {
-        switch (type)
-        {
-        case IndicationMessageType::CuUp:
-            m_cuUpValues = Create<OCuUpContainerValues>();
+    switch (type){
+        case IndicationMessageType::NodeLevel:
+            m_msgValues.m_format = KpmIndicationMessage::MessageFormat::FORMAT1;
             break;
-
-        case IndicationMessageType::CuCp:
-            m_cuCpValues = Create<OCuCpContainerValues>();
-            m_msgValues.m_cellObjectId = "NRCellCU";
+        case IndicationMessageType::UeLevel:
+            m_msgValues.m_format = KpmIndicationMessage::MessageFormat::FORMAT3;
             break;
-
-        case IndicationMessageType::Du:
-            m_duValues = Create<ODuContainerValues>();
-            break;
-
         default:
-
+            NS_LOG_ERROR("Invalid indication message type");
             break;
-        }
+
     }
 }
 
-void
-IndicationMessageHelper::FillBaseCuUpValues(std::string plmId)
-{
-    NS_ABORT_MSG_IF(m_type != IndicationMessageType::CuUp, "Wrong function for this object");
-    m_cuUpValues->m_plmId = plmId;
-    m_msgValues.m_pmContainerValues = m_cuUpValues;
-}
-
-void
-IndicationMessageHelper::FillBaseCuCpValues(uint16_t numActiveUes)
-{
-    NS_ABORT_MSG_IF(m_type != IndicationMessageType::CuCp, "Wrong function for this object");
-    m_cuCpValues->m_numActiveUes = numActiveUes;
-    m_msgValues.m_pmContainerValues = m_cuCpValues;
-}
 
 IndicationMessageHelper::~IndicationMessageHelper()
 {
