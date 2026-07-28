@@ -24,7 +24,7 @@
 
 extern "C"
 {
-#include "ESM-KPM-RANfunction-Description.h"
+#include "E2SM-KPM-RANfunction-Description.h"
 #include "MeasurementInfo-Action-Item.h"
 #include "MeasurementInfo-Action-List.h"
 #include "asn1c-types.h"

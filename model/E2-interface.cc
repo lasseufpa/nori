@@ -18,7 +18,7 @@
 #include "ns3/config.h"
 #include "ns3/double.h"
 #include "ns3/log.h"
-#include "ns3/mmwave-indication-message-helper.h"
+#include "ns3/nori-indication-message-helper.h"
 #include "ns3/nr-gnb-mac.h"
 #include "ns3/nr-gnb-net-device.h"
 #include "ns3/nr-gnb-rrc.h"
