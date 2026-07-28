@@ -17,7 +17,7 @@
 
 #include "asn1c-types.h"
 #include "encode_e2apv1.hpp"
-#include "ric-control-message.h"
+// #include "ric-control-message.h"
 
 #include "ns3/log.h"
 

@@ -148,12 +148,12 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
                                                 std::placeholders::_1));
 
     
-    auto ricFd = Create<RicControlFunctionDescription>();
-    e2Term->RegisterSmCallbackToE2Sm(300,
-                                     ricFd,
-                                     std::bind(&E2Interface::ControlMessageReceivedCallback,
-                                               e2Messages,
-                                               std::placeholders::_1));
+    // auto ricFd = Create<RicControlFunctionDescription>();
+    // e2Term->RegisterSmCallbackToE2Sm(300,
+    //                                  ricFd,
+    //                                  std::bind(&E2Interface::ControlMessageReceivedCallback,
+    //                                            e2Messages,
+    //                                            std::placeholders::_1));
 
     Simulator::Schedule(MicroSeconds(0), &E2Termination::Start, e2Term);
 

@@ -33,7 +33,7 @@ NoriIndicationMessageHelper::~NoriIndicationMessageHelper()
 
 void NoriIndicationMessageHelper::SetGranularityPeriod(unsigned long periodMs)
 {
-    m_msgValues.m_granulPeriod = periodMs;
+    m_msgValues.m_granularityPeriod = periodMs;
 }
 
 void NoriIndicationMessageHelper::AddNodeMeasurementInteger(const std::string& measName,
@@ -103,7 +103,7 @@ void NoriIndicationMessageHelper::BeginUeReport(uint64_t amfUeNgapId,
     NS_ABORT_MSG_IF(m_type != IndicationMessageType::UeLevel, "BeginUeReport must be used with UeLevel type");
 
     KpmIndicationMessage::UeReportValues ueReport;
-    ueReport.ueId = BuildGnbUeId(amfUeNgapId, plmnId, amfRegionId, amfSetId, amfPointer);
+    ueReport.m_ueId = BuildGnbUeId(amfUeNgapId, plmnId, amfRegionId, amfSetId, amfPointer);
     m_msgValues.m_ueReports.push_back(ueReport);
 }
 
@@ -114,8 +114,8 @@ void NoriIndicationMessageHelper::AddUeMeasurementInteger(const std::string& mea
     NS_ABORT_MSG_IF(m_msgValues.m_ueReports.empty(), "Call BeginUeReport before adding UE measurements");
 
     auto& currentUe = m_msgValues.m_ueReports.back();
-    currentUe.measNames.push_back(measName);
-    currentUe.measRecordItems.push_back(CreateMeasurementRecordItemInteger(value));
+    currentUe.m_measNames.push_back(measName);
+    currentUe.m_measRecordItems.push_back(CreateMeasurementRecordItemInteger(value));
 }
 
 void NoriIndicationMessageHelper::AddUeMeasurementReal(const std::string& measName, double value)
@@ -126,8 +126,8 @@ void NoriIndicationMessageHelper::AddUeMeasurementReal(const std::string& measNa
                     "Call BeginUeReport before adding UE measurements");
 
     auto& currentUe = m_msgValues.m_ueReports.back();
-    currentUe.measNames.push_back(measName);
-    currentUe.measRecordItems.push_back(CreateMeasurementRecordItemReal(value));
+    currentUe.m_measNames.push_back(measName);
+    currentUe.m_measRecordItems.push_back(CreateMeasurementRecordItemReal(value));
 }
 
-}
+} // namespace ns3

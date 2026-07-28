@@ -19,8 +19,8 @@
 #include "e2sim-mod.h"
 #include "kpm-function-description.h"
 #include "kpm-indication.h"
-#include "ric-control-function-description.h"
-#include "ric-control-message.h"
+// #include "ric-control-function-description.h"
+// #include "ric-control-message.h"
 
 #include "ns3/object.h"
 
@@ -153,6 +153,6 @@ class E2Termination : public Object
     uint16_t m_clientPort;    //!< local bind port
     std::string m_gnbId;      //!< GNB id
     std::string m_plmnId;     //!< PLMN Id
-    Ptr<RicControlMessage> m_ricControlMessage; //! RAN control message handler
+    // Ptr<RicControlMessage> m_ricControlMessage; //! RAN control message handler
 };
 } // namespace ns3

@@ -104,8 +104,8 @@ KpmIndicationHeader::FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHead
     ind_header->colletStartTime = ts->GetValue();
 
     if (!values.m_fileFormatVersion.empty()){
-        ind_header->fileFormatVersion = (PrintableString_t*)calloc(1, sizeof(PrintableString_t));
-        OCTET_STRING_fromString(ind_header->fileFormatVersion, values.m_fileFormatVersion.c_str());
+        ind_header->fileFormatversion = (PrintableString_t*)calloc(1, sizeof(PrintableString_t));
+        OCTET_STRING_fromString(ind_header->fileFormatversion, values.m_fileFormatVersion.c_str());
     }
     if (!values.m_senderName.empty()){
         ind_header->senderName = (PrintableString_t*)calloc(1, sizeof(PrintableString_t));
@@ -122,7 +122,7 @@ KpmIndicationHeader::FillAndEncodeKpmRicIndicationHeader(E2SM_KPM_IndicationHead
 
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationHeader_Format1, ind_header));
 
-    descriptor->indicationHeader_formats.present = E2SM_KPM_IndicationHeader__indicationHeader_Formats_PR_indicationHeader_Format1;
+    descriptor->indicationHeader_formats.present = E2SM_KPM_IndicationHeader__indicationHeader_formats_PR_indicationHeader_Format1;
     descriptor->indicationHeader_formats.choice.indicationHeader_Format1 = ind_header;
 
     Encode(descriptor);
@@ -237,7 +237,7 @@ void KpmIndicationMessage::FillAndEncodeFormat1(E2SM_KPM_IndicationMessage_t* de
 
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationMessage_Format1, format1));
 
-    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_Formats_PR_indicationMessage_Format1;
+    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_formats_PR_indicationMessage_Format1;
     descriptor->indicationMessage_formats.choice.indicationMessage_Format1 = format1;
 
     Encode(descriptor);
@@ -249,7 +249,7 @@ void KpmIndicationMessage::FillAndEncodeFormat3(E2SM_KPM_IndicationMessage_t* de
     for (auto& ueReport : values.m_ueReports){
         auto* reportItem = (UEMeasurementReportItem_t*)calloc(1, sizeof(UEMeasurementReportItem_t));
 
-        NS_ABORT_IF(ueReport.m_ueId == nullptr, "UEID must not be null for format 3.");
+        NS_ABORT_MSG_IF(ueReport.m_ueId == nullptr, "UEID must not be null for format 3.");
         reportItem->ueID = *ueReport.m_ueId;
 
         if(!ueReport.m_measNames.empty()){
@@ -258,20 +258,20 @@ void KpmIndicationMessage::FillAndEncodeFormat3(E2SM_KPM_IndicationMessage_t* de
                 MeasurementInfoItem_t* infoItem = CreateMeasurementInfoItemName(name);
                 ASN_SEQUENCE_ADD(&measInfoList->list, infoItem);
             }
-            reportItem->measReportList = measInfoList;
+            reportItem->measReport.measInfoList = measInfoList;
         }
 
         auto* dataItem = (MeasurementDataItem_t*)calloc(1, sizeof(MeasurementDataItem_t));
         for (auto* recordItem : ueReport.m_measRecordItems){
             ASN_SEQUENCE_ADD(&dataItem->measRecord.list, recordItem);
         }
-        ASN_SEQUENCE_ADD(&reportItem->measData.list, dataItem);
+        ASN_SEQUENCE_ADD(&reportItem->measReport.measData.list, dataItem);
         ASN_SEQUENCE_ADD(&format3->ueMeasReportList.list, reportItem);
     }
     
     NS_LOG_INFO(xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationMessage_Format3, format3));
 
-    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_Formats_PR_indicationMessage_Format3;
+    descriptor->indicationMessage_formats.present = E2SM_KPM_IndicationMessage__indicationMessage_formats_PR_indicationMessage_Format3;
     descriptor->indicationMessage_formats.choice.indicationMessage_Format3 = format3;
 
     Encode(descriptor);

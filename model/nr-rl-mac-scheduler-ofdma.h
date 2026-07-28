@@ -6,11 +6,18 @@
 
 #include "ns3/nr-mac-scheduler-ofdma-rr.h"
 #include "ns3/nr-mac-scheduler-ofdma.h"
-#include "ns3/ric-control-message.h"
 #include "ns3/traced-value.h"
 
 namespace ns3
 {
+
+struct SlicePRBQuota
+{
+    uint32_t sliceId = 0;
+    long maxPRBRatio = 0;
+    long minPRBRatio = 0;
+    long dedicatePRBRatio = 0;
+};
 
 /**
  * @ingroup scheduler
@@ -50,7 +57,7 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
      * 
      * @param slicePRBQuota The slice PRB quota
      */
-    void SetSlicingParameters(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
+    void SetSlicingParameters(const std::vector<SlicePRBQuota>& quotas);
     
     void SetSliceUeMapping(uint32_t numSlices, const std::vector<std::vector<uint32_t>>& sliceUeRnti);
   

@@ -55,7 +55,6 @@ class NoriIndicationMessageHelper : public IndicationMessageHelper
                         uint8_t amfRegionId,
                         uint16_t amfSetId,
                         uint8_t amfPointer);
-}
+};
 
-
-}
+} // namespace ns3

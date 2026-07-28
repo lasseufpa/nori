@@ -18,15 +18,19 @@
 
 #include "indication-message-helper.h"
 
+#include "ns3/log.h"
+
 namespace ns3
 {
 
+NS_LOG_COMPONENT_DEFINE("IndicationMessageHelper");
+
 IndicationMessageHelper::IndicationMessageHelper(IndicationMessageType type,
                                                  bool isOffline,
-                                                 bool reducedPmValues)
+                                                 bool reducePmValues)
     : m_type(type),
       m_offline(isOffline),
-      m_reducedPmValues(reducedPmValues)
+      m_reducePmValues(reducePmValues)
 {
     switch (type){
         case IndicationMessageType::NodeLevel:

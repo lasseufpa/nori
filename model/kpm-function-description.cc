@@ -73,7 +73,7 @@ KpmFunctionDescription::Encode(E2SM_KPM_RANfunction_Description_t* descriptor)
 }
 
 // Helper to add a MeasurementInfo-Action-Item to a list.
-static void AddMeasInfoActionItem(MeausrementInfo_Action_List_t* list, const std::string& measName){
+static void AddMeasInfoActionItem(MeasurementInfo_Action_List_t* list, const std::string& measName){
     auto* item = (MeasurementInfo_Action_Item_t*)calloc(1, sizeof(MeasurementInfo_Action_Item_t));
     OCTET_STRING_fromString(&item->measName, measName.c_str());
     ASN_SEQUENCE_ADD(&list->list, item);
@@ -110,7 +110,7 @@ KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(E2SM_KPM_RANfunction
 
     OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_ShortName, shortName.c_str());
     OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_Description, description.c_str());
-    OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_OID, oid.c_str());
+    OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID, oid.c_str());
 
     long* inst = (long*)calloc(1, sizeof(long));
     *inst = 0;
@@ -183,7 +183,7 @@ KpmFunctionDescription::FillAndEncodeKpmFunctionDescription(E2SM_KPM_RANfunction
         style4Metrics
     );
 
-    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_ReportStyle_List->List, reportStyle4);
+    ASN_SEQUENCE_ADD(&ranfunc_desc->ric_ReportStyle_List->list, reportStyle4);
 
     Encode(ranfunc_desc);
 

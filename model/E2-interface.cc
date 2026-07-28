@@ -228,77 +228,9 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
 }
 
 void
-E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
+E2Interface::ControlMessageReceivedCallback([[maybe_unused]] E2AP_PDU_t* sub_req_pdu)
 {
-    NS_LOG_DEBUG("Received RIC Control Message");
-
-    Ptr<RicControlMessage> controlMessage = Create<RicControlMessage>(sub_req_pdu);
-    NS_LOG_INFO("After RicControlMessage::RicControlMessage constructor");
-    NS_LOG_INFO("Request type " << controlMessage->m_requestType);
-    switch (controlMessage->m_requestType)
-    {
-        /**
-         * This is the case for handover, which the legacy code was used in MmWave implementation.
-         * We hope NR team updates the NR module code
-         * */
-
-    case RicControlMessage::ControlMessageRequestIdType::TS: {
-        NS_FATAL_ERROR("TS not implemented in NR yet");
-        /**
-         *
-        NS_LOG_INFO("TS, do the handover");
-        // do handover
-        Ptr<OctetString> imsiString =
-            Create<OctetString>((void*)controlMessage->m_e2SmRcControlHeaderFormat1->ueId.buf,
-                                controlMessage->m_e2SmRcControlHeaderFormat1->ueId.size);
-        char* end;
-
-        uint64_t imsi = std::strtoull(imsiString->DecodeContent().c_str(), &end, 10);
-        uint16_t targetCellId = std::stoi(controlMessage->GetSecondaryCellIdHO());
-        NS_LOG_INFO("Imsi Decoded: " << imsi);
-        NS_LOG_INFO("Target Cell id " << targetCellId);
-        m_rrc->TakeUeHoControl(imsi);
-        if (!m_forceE2FileLogging)
-        {
-            Simulator::ScheduleWithContext(1,
-                                           Seconds(0),
-                                           &LteEnbRrc::PerformHandoverToTargetCell,
-                                           m_rrc,
-                                           imsi,
-                                           targetCellId);
-        }
-        else
-        {
-            Simulator::Schedule(Seconds(0),
-                                &LteEnbRrc::PerformHandoverToTargetCell,
-                                m_rrc,
-                                imsi,
-                                targetCellId);
-        }
-        break;
-        */
-    }
-    case RicControlMessage::ControlMessageRequestIdType::QoS: {
-        // use SetUeQoS()
-        NS_FATAL_ERROR("Not implemented yet.");
-        break;
-    }
-    case RicControlMessage::ControlMessageRequestIdType::RAN_SLICING: {
-        auto gnbNetDev = DynamicCast<NrGnbNetDevice>(m_netDev);
-        NS_ASSERT(gnbNetDev);
-
-        auto scheduler = gnbNetDev->GetScheduler(0);
-        auto rlScheduler = DynamicCast<NrRLMacSchedulerOfdma>(scheduler);
-        NS_ABORT_MSG_UNLESS(rlScheduler, "Scheduler is not a RL OFDMA scheduler");
-        rlScheduler->SetSlicingParameters(controlMessage->m_prbQuotas);
-
-        break;
-    }
-    default: {
-        NS_LOG_ERROR("Unrecognized id type of Ric Control Message");
-        break;
-    }
-    }
+    NS_LOG_WARN("Received RIC Control Message, but E2SM-RC is disabled in current build.");
 }
 
 void

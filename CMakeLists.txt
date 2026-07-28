@@ -6,8 +6,6 @@ set(source_files
     model/E2-interface.cc                                                                                                                                                                                                            
     model/E2-report.cc                                                                                                                                                                                                               
     model/function-description.cc                                                                                                                                                                                                    
-    model/ric-control-function-description.cc                                                                                                                                                                                        
-    model/ric-control-message.cc                                                                                                                                                                                                     
     model/nr-mac-scheduler-ue-info-rl.cc                                                                                                                                                                                             
     model/nr-rl-mac-scheduler-ofdma.cc
     helper/indication-message-helper.cc
@@ -34,8 +32,6 @@ set(header_files
     model/E2-interface.h
     model/E2-report.h
     model/function-description.h
-    model/ric-control-function-description.h
-    model/ric-control-message.h
     model/nr-mac-scheduler-ue-info-rl.h
     model/nr-rl-mac-scheduler-ofdma.h
     helper/indication-message-helper.h

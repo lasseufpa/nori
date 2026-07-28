@@ -16,7 +16,7 @@
  *         Andrey Adailso <andreyadailsom@gmail.com>
  */
 
-//#pragma once
+#pragma once
 
 #include "ns3/kpm-indication.h"
 
@@ -33,7 +33,7 @@ class IndicationMessageHelper : public Object
       UeLevel = 1,
     };
 
-    IndicationMessageHelper(IndicationMessageType type, bool isOffline, bool reducePMValues);
+    IndicationMessageHelper(IndicationMessageType type, bool isOffline, bool reducePmValues);
     ~IndicationMessageHelper();
 
     Ptr<KpmIndicationMessage> CreateIndicationMessage();
@@ -47,8 +47,8 @@ class IndicationMessageHelper : public Object
     IndicationMessageType m_type;
     bool m_offline;
     bool m_reducePmValues;
-    KpmIndicationMessage::KpmIndicationMessageHeader m_msgValues;
+    KpmIndicationMessage::KpmIndicationMessageValues m_msgValues;
 
-}
+};
 
 } // namespace ns3

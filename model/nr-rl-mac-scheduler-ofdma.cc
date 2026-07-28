@@ -303,7 +303,7 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
 
 void
 NrRLMacSchedulerOfdma::SetSlicingParameters(
-    const std::vector<RicControlMessage::SlicePRBQuota>& quotas)
+    const std::vector<SlicePRBQuota>& quotas)
 {
     NS_LOG_FUNCTION(this);
 
