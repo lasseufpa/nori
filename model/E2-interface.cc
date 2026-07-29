@@ -7,6 +7,8 @@
 
 #include "E2-interface.h"
 
+#include "ns3/node.h"
+
 #include "E2-report.h"
 #include "kpm-indication.h"
 #include "oran-interface.h"

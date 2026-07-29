@@ -140,12 +140,20 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     EnableSinrTraces(e2Messages);
 
     // Connect E2 termination to E2 messages via KPM subscription callback
+    // Note: SubscriptionCallback is a raw C function pointer void(*)(E2AP_PDU*),
+    // so we use a static global pointer + trampoline free function.
+    static Ptr<E2Interface> s_e2MessagesInstance = nullptr;
+    s_e2MessagesInstance = e2Messages;
+
     Ptr<KpmFunctionDescription> kpmFd = Create<KpmFunctionDescription>();
     e2Term->RegisterKpmCallbackToE2Sm(200,
                                       kpmFd,
-                                      std::bind(&E2Interface::FunctionServiceSubscriptionCallback,
-                                                e2Messages,
-                                                std::placeholders::_1));
+                                      [](E2AP_PDU_t* pdu) {
+                                          if (s_e2MessagesInstance)
+                                          {
+                                              s_e2MessagesInstance->FunctionServiceSubscriptionCallback(pdu);
+                                          }
+                                      });
 
     
     // auto ricFd = Create<RicControlFunctionDescription>();
