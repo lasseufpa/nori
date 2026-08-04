@@ -21,6 +21,8 @@
 #include <e2sim/e2sim_sctp.h>
 #include <e2sim/E2nodeComponentInterfaceNG.h>
 
+extern int client_fd;
+
 class E2SimMod : public E2Sim {
 public:
     std::string mod_gnb_id;
@@ -65,17 +67,27 @@ public:
     //E2 Agent will automatically restart upon sctp disconnection
     //  int server_fd = sctp_start_server(ops.server_ip, ops.server_port);
 
-    int mod_client_fd = sctp_start_client(ops.server_ip, ops.server_port);
+    //int client_fd = sctp_start_client(ops.server_ip, ops.server_port);
+    
+
+    client_fd = sctp_start_client(ops.server_ip, ops.server_port);
     E2AP_PDU_t* pdu_setup = (E2AP_PDU_t*)calloc(1,sizeof(E2AP_PDU));
 
     LOG_I("SCTP client has been started");
     
     std::vector<encoding::ran_func_info> all_funcs;
-    RANfunctionOID_t *ranFunctionOIDe = (RANfunctionOID_t*)calloc(1,sizeof(RANfunctionOID_t));
-    uint8_t *buf = (uint8_t*)"OID123";
-    ranFunctionOIDe->buf = (uint8_t*)calloc(1,strlen((char*)buf)+1);
-    memcpy(ranFunctionOIDe->buf, buf, strlen((char*)buf)+1);
-    ranFunctionOIDe->size = strlen((char*)buf);
+    // RANfunctionOID_t *ranFunctionOIDe = (RANfunctionOID_t*)calloc(1,sizeof(RANfunctionOID_t));
+    // uint8_t *buf = (uint8_t*)"OID123";
+    // ranFunctionOIDe->buf = (uint8_t*)calloc(1,strlen((char*)buf)+1);
+    // memcpy(ranFunctionOIDe->buf, buf, strlen((char*)buf)+1);
+    // ranFunctionOIDe->size = strlen((char*)buf);
+
+    RANfunctionOID_t *ranFunctionOIDe = (RANfunctionOID_t*)calloc(1, sizeof(RANfunctionOID_t));
+    const char *oid_str = "1.3.6.1.4.1.53148.1.2.2.2"; 
+    size_t oid_len = strlen(oid_str);
+    ranFunctionOIDe->buf = (uint8_t*)calloc(1, oid_len);
+    std::memcpy(ranFunctionOIDe->buf, oid_str, oid_len);
+    ranFunctionOIDe->size = oid_len;
 
     //Loop through RAN function definitions that are registered
     LOG_I("Constructing a list of RAN functions based on registered information");
@@ -146,7 +158,7 @@ public:
 
     memcpy(data.buffer, buffer, er.encoded);
 
-    if(sctp_send_data(mod_client_fd, data) > 0) {
+    if(sctp_send_data(client_fd, data) > 0) {
         LOG_I("Sent E2-SETUP-REQUEST as E2AP message");
     } else {
         LOG_E("Fail to send E2-SETUP-REQUEST to peer");
@@ -161,16 +173,16 @@ public:
 
     while(1) //constantly looking for data on SCTP interface
     {
-        if(sctp_receive_data(mod_client_fd, recv_buf) <= 0)
+        if(sctp_receive_data(client_fd, recv_buf) <= 0)
         break;
 
         LOG_I("Received new data of size %d", recv_buf.len);
 
-        e2ap_handle_sctp_data(mod_client_fd, recv_buf, xmlenc, this);
+        e2ap_handle_sctp_data(client_fd, recv_buf, xmlenc, this);
         if (xmlenc) xmlenc = false;
     }
 
-    close(mod_client_fd);
+    close(client_fd);
 
     return 0;
     }
@@ -179,20 +191,42 @@ private:
 
     void generate_e2apv1_setup_request_mod(E2AP_PDU_t *e2ap_pdu, std::vector<encoding::ran_func_info> all_funcs) {
         
-        BIT_STRING_t *gnb_bstring = (BIT_STRING_t*)calloc(1, sizeof(BIT_STRING_t));
-        gnb_bstring->buf = (uint8_t*)calloc(1, 8); 
-        gnb_bstring->size = 4; 
+        // BIT_STRING_t *gnb_bstring = (BIT_STRING_t*)calloc(1, sizeof(BIT_STRING_t));
+        // gnb_bstring->buf = (uint8_t*)calloc(1, 8); 
+        // gnb_bstring->size = 4; 
         
-        size_t gnb_len = std::min((size_t)4, mod_gnb_id.length());
-        std::memcpy(gnb_bstring->buf, mod_gnb_id.data(), gnb_len); 
+        // size_t gnb_len = std::min((size_t)4, mod_gnb_id.length());
+        // std::memcpy(gnb_bstring->buf, mod_gnb_id.data(), gnb_len); 
+        // gnb_bstring->bits_unused = 3;
+
+        // OCTET_STRING_t *plmn = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
+        // plmn->buf = (uint8_t*)calloc(1, 8); 
+        // plmn->size = 3; 
+        
+        // size_t plmn_len = std::min((size_t)3, mod_plmn_id.length());
+        // std::memcpy(plmn->buf, mod_plmn_id.data(), plmn_len);
+        
+        uint32_t gnb_val = std::stoul(mod_gnb_id); 
+        
+        BIT_STRING_t *gnb_bstring = (BIT_STRING_t*)calloc(1, sizeof(BIT_STRING_t));
+        gnb_bstring->buf = (uint8_t*)calloc(1, 4); 
+        gnb_bstring->size = 4; 
         gnb_bstring->bits_unused = 3;
 
+        gnb_bstring->buf[0] = (gnb_val >> 24) & 0xFF;
+        gnb_bstring->buf[1] = (gnb_val >> 16) & 0xFF;
+        gnb_bstring->buf[2] = (gnb_val >> 8)  & 0xFF;
+        gnb_bstring->buf[3] = (gnb_val)       & 0xFF;
+
         OCTET_STRING_t *plmn = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
-        plmn->buf = (uint8_t*)calloc(1, 8); 
+        plmn->buf = (uint8_t*)calloc(1, 3); 
         plmn->size = 3; 
         
-        size_t plmn_len = std::min((size_t)3, mod_plmn_id.length());
-        std::memcpy(plmn->buf, mod_plmn_id.data(), plmn_len);
+        if (mod_plmn_id.length() >= 6) {
+            for (int i = 0; i < 3; i++) {
+                plmn->buf[i] = ((mod_plmn_id[2*i + 1] - '0') << 4) | (mod_plmn_id[2*i] - '0');
+            }
+        }
 
         GNB_ID_Choice_t *gnbchoice = (GNB_ID_Choice_t*)calloc(1,sizeof(GNB_ID_Choice_t));
         GNB_ID_Choice_PR pres2 = GNB_ID_Choice_PR_gnb_ID;

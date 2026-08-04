@@ -172,7 +172,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
                 (uint8_t*)nodeMsg->m_buffer,
                 nodeMsg->m_size);
             e2Term->SendE2Message(pdu);
-            delete pdu;
+            // delete pdu;
         }
     }
 
@@ -197,7 +197,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
                 (uint8_t*)ueMsg->m_buffer,
                 ueMsg->m_size);
             m_e2term->SendE2Message(pdu);
-            delete pdu;
+            // delete pdu;
         }
     }
 
