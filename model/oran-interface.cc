@@ -266,13 +266,15 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
     int accept_size = actionIdsAccept.size();
     int reject_size = actionIdsReject.size();
 
-    encoding::generate_e2apv1_subscription_response_success(e2ap_pdu,
+    m_e2sim->generate_e2apv1_subscription_response_success(e2ap_pdu,
                                                             accept_array,
                                                             reject_array,
                                                             accept_size,
                                                             reject_size,
                                                             reqRequestorId,
-                                                            reqInstanceId);
+                                                            reqInstanceId,
+                                                            ranFuncionId);
+
 
     NS_LOG_DEBUG("Send RIC Subscription Response");
     m_e2sim->encode_and_send_sctp_data(e2ap_pdu);

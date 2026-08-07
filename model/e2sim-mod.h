@@ -111,7 +111,7 @@ public:
     }
         
     LOG_I("Generate E2AP v1 setup request for all registered RAN functions");
-    generate_e2apv1_setup_request_mod(pdu_setup, all_funcs);
+    generate_e2apv1_setup_request_parameterized(pdu_setup, all_funcs);
 
     xer_fprint(stderr, &asn_DEF_E2AP_PDU, pdu_setup);
 
@@ -187,9 +187,121 @@ public:
     return 0;
     }
 
+    void generate_e2apv1_subscription_response_success(E2AP_PDU *e2ap_pdu, long reqActionIdsAccepted[],
+						   long reqActionIdsRejected[], int accept_size, int reject_size,
+						   long reqRequestorId, long reqInstanceId, long ranFuncionId) {
+
+    RICsubscriptionResponse_IEs_t *respricreqid =
+        (RICsubscriptionResponse_IEs_t*)calloc(1, sizeof(RICsubscriptionResponse_IEs_t));
+    
+    respricreqid->id = ProtocolIE_ID_id_RICrequestID;
+    respricreqid->criticality = 0;
+    respricreqid->value.present = RICsubscriptionResponse_IEs__value_PR_RICrequestID;
+    respricreqid->value.choice.RICrequestID.ricRequestorID = reqRequestorId;
+    
+    respricreqid->value.choice.RICrequestID.ricInstanceID = reqInstanceId;
+
+    RICsubscriptionResponse_IEs_t *respfuncid =
+        (RICsubscriptionResponse_IEs_t*)calloc(1, sizeof(RICsubscriptionResponse_IEs_t));
+    respfuncid->id = ProtocolIE_ID_id_RANfunctionID;
+    respfuncid->criticality = 0;
+    respfuncid->value.present = RICsubscriptionResponse_IEs__value_PR_RANfunctionID;
+    respfuncid->value.choice.RANfunctionID = ranFuncionId;
+    
+
+    RICsubscriptionResponse_IEs_t *ricactionadmitted =
+        (RICsubscriptionResponse_IEs_t*)calloc(1, sizeof(RICsubscriptionResponse_IEs_t));
+    ricactionadmitted->id = ProtocolIE_ID_id_RICactions_Admitted;
+    ricactionadmitted->criticality = 0;
+    ricactionadmitted->value.present = RICsubscriptionResponse_IEs__value_PR_RICaction_Admitted_List;
+
+    RICaction_Admitted_List_t* admlist = 
+        (RICaction_Admitted_List_t*)calloc(1,sizeof(RICaction_Admitted_List_t));
+    ricactionadmitted->value.choice.RICaction_Admitted_List = *admlist;
+    if (admlist) free(admlist);
+
+
+    int numAccept = accept_size;
+    int numReject = reject_size;
+
+
+    
+    for (int i=0; i < numAccept ; i++) {
+        fprintf(stderr, "in for loop i = %d\n", i);
+
+        long aid = reqActionIdsAccepted[i];
+
+        RICaction_Admitted_ItemIEs_t *admitie = (RICaction_Admitted_ItemIEs_t*)calloc(1,sizeof(RICaction_Admitted_ItemIEs_t));
+        admitie->id = ProtocolIE_ID_id_RICaction_Admitted_Item;
+        admitie->criticality = 0;
+        admitie->value.present = RICaction_Admitted_ItemIEs__value_PR_RICaction_Admitted_Item;
+        admitie->value.choice.RICaction_Admitted_Item.ricActionID = aid;
+        
+        ASN_SEQUENCE_ADD(&ricactionadmitted->value.choice.RICaction_Admitted_List.list, admitie);
+
+    }
+
+    RICsubscriptionResponse_t *ricsubresp = (RICsubscriptionResponse_t*)calloc(1,sizeof(RICsubscriptionResponse_t));
+    ASN_SEQUENCE_ADD(&ricsubresp->protocolIEs.list, respricreqid);
+    ASN_SEQUENCE_ADD(&ricsubresp->protocolIEs.list, respfuncid);
+    ASN_SEQUENCE_ADD(&ricsubresp->protocolIEs.list, ricactionadmitted);
+    
+
+    if (numReject > 0) {
+
+        RICsubscriptionResponse_IEs_t *ricactionrejected =
+        (RICsubscriptionResponse_IEs_t*)calloc(1, sizeof(RICsubscriptionResponse_IEs_t));
+        ricactionrejected->id = ProtocolIE_ID_id_RICactions_NotAdmitted;
+        ricactionrejected->criticality = 0;
+        ricactionrejected->value.present = RICsubscriptionResponse_IEs__value_PR_RICaction_NotAdmitted_List;
+        
+        RICaction_NotAdmitted_List_t* rejectlist = 
+        (RICaction_NotAdmitted_List_t*)calloc(1,sizeof(RICaction_NotAdmitted_List_t));
+        ricactionadmitted->value.choice.RICaction_NotAdmitted_List = *rejectlist;
+        
+        for (int i=0; i < numReject; i++) {
+        fprintf(stderr, "in for loop i = %d\n", i);
+        
+        long aid = reqActionIdsRejected[i];
+        
+        RICaction_NotAdmitted_ItemIEs_t *noadmitie = (RICaction_NotAdmitted_ItemIEs_t*)calloc(1,sizeof(RICaction_NotAdmitted_ItemIEs_t));
+        noadmitie->id = ProtocolIE_ID_id_RICaction_NotAdmitted_Item;
+        noadmitie->criticality = 0;
+        noadmitie->value.present = RICaction_NotAdmitted_ItemIEs__value_PR_RICaction_NotAdmitted_Item;
+        noadmitie->value.choice.RICaction_NotAdmitted_Item.ricActionID = aid;
+        
+        ASN_SEQUENCE_ADD(&ricactionrejected->value.choice.RICaction_NotAdmitted_List.list, noadmitie);
+        ASN_SEQUENCE_ADD(&ricsubresp->protocolIEs.list, ricactionrejected);      
+        }
+    }
+
+
+    SuccessfulOutcome__value_PR pres2;
+    pres2 = SuccessfulOutcome__value_PR_RICsubscriptionResponse;
+    SuccessfulOutcome_t *successoutcome = (SuccessfulOutcome_t*)calloc(1, sizeof(SuccessfulOutcome_t));
+    successoutcome->procedureCode = ProcedureCode_id_RICsubscription;
+    successoutcome->criticality = 0;
+    successoutcome->value.present = pres2;
+    successoutcome->value.choice.RICsubscriptionResponse = *ricsubresp;
+    if (ricsubresp) free(ricsubresp);
+
+    E2AP_PDU_PR pres5 = E2AP_PDU_PR_successfulOutcome;
+    
+    e2ap_pdu->present = pres5;
+    e2ap_pdu->choice.successfulOutcome = successoutcome;
+
+    char error_buf[300] = {0, };
+    size_t errlen = 0;
+
+    asn_check_constraints(&asn_DEF_E2AP_PDU, e2ap_pdu, error_buf, &errlen);
+
+    LOG_I("Subscription response");
+    xer_fprint(stderr, &asn_DEF_E2AP_PDU, e2ap_pdu); 
+    }
+
 private:
 
-    void generate_e2apv1_setup_request_mod(E2AP_PDU_t *e2ap_pdu, std::vector<encoding::ran_func_info> all_funcs) {
+    void generate_e2apv1_setup_request_parameterized(E2AP_PDU_t *e2ap_pdu, std::vector<encoding::ran_func_info> all_funcs) {
         
         // BIT_STRING_t *gnb_bstring = (BIT_STRING_t*)calloc(1, sizeof(BIT_STRING_t));
         // gnb_bstring->buf = (uint8_t*)calloc(1, 8); 
