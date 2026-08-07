@@ -275,8 +275,8 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
 
     NS_LOG_DEBUG("Create RIC Subscription Response");
     auto* e2ap_pdu = (E2AP_PDU*)calloc(1, sizeof(E2AP_PDU));
-    long* accept_array = &actionIdsAccept[0];
-    long* reject_array = &actionIdsReject[0];
+    long* accept_array = actionIdsAccept.empty() ? nullptr : actionIdsAccept.data();
+    long* reject_array = actionIdsReject.empty() ? nullptr : actionIdsReject.data();
     int accept_size = actionIdsAccept.size();
     int reject_size = actionIdsReject.size();
 

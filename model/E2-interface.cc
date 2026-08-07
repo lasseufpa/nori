@@ -215,8 +215,10 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
 {
     NS_LOG_FUNCTION(this);
     NS_LOG_DEBUG("KPM Subscription Request callback");
+    auto e2Term = m_netDev->GetObject<E2Termination>();
+    NS_ASSERT(e2Term != nullptr);
     E2Termination::RicSubscriptionRequest_rval_s params =
-        m_e2term->ProcessRicSubscriptionRequest(sub_req_pdu);
+        e2Term->ProcessRicSubscriptionRequest(sub_req_pdu);
     NS_LOG_DEBUG("requestorId " << +params.requestorId << ", instanceId " << +params.instanceId
                                 << ", ranFuncionId " << +params.ranFuncionId << ", actionId "
                                 << +params.actionId);
