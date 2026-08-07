@@ -142,7 +142,8 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     NS_ASSERT(e2Term != nullptr);
 
     // nodeB PLMN ID
-    std::string plmId = "111";
+    // std::string plmId = "111";
+    const std::string& plmId = e2Term->GetPlmnId();
 
     // Check if the nodeB is a gNB or eNB
     auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);

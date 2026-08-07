@@ -47,6 +47,8 @@ class E2Termination : public Object
                   const std::string plmnId);
 
     ~E2Termination() override;
+    const std::string& GetGnbId() const;
+    const std::string& GetPlmnId() const;
 
     /**
      *  inherited from Object

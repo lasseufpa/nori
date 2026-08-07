@@ -319,26 +319,22 @@ private:
         // std::memcpy(plmn->buf, mod_plmn_id.data(), plmn_len);
         
         uint32_t gnb_val = std::stoul(mod_gnb_id); 
+        uint32_t encoded_gnb = gnb_val << 3;
         
         BIT_STRING_t *gnb_bstring = (BIT_STRING_t*)calloc(1, sizeof(BIT_STRING_t));
         gnb_bstring->buf = (uint8_t*)calloc(1, 4); 
         gnb_bstring->size = 4; 
         gnb_bstring->bits_unused = 3;
 
-        gnb_bstring->buf[0] = (gnb_val >> 24) & 0xFF;
-        gnb_bstring->buf[1] = (gnb_val >> 16) & 0xFF;
-        gnb_bstring->buf[2] = (gnb_val >> 8)  & 0xFF;
-        gnb_bstring->buf[3] = (gnb_val)       & 0xFF;
+        gnb_bstring->buf[0] = (encoded_gnb >> 24) & 0xFF;
+        gnb_bstring->buf[1] = (encoded_gnb >> 16) & 0xFF;
+        gnb_bstring->buf[2] = (encoded_gnb >> 8)  & 0xFF;
+        gnb_bstring->buf[3] = (encoded_gnb)       & 0xFF;
 
         OCTET_STRING_t *plmn = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
-        plmn->buf = (uint8_t*)calloc(1, 3); 
+        plmn->buf = (uint8_t*)calloc(3, sizeof(uint8_t));
         plmn->size = 3; 
-        
-        if (mod_plmn_id.length() >= 6) {
-            for (int i = 0; i < 3; i++) {
-                plmn->buf[i] = ((mod_plmn_id[2*i + 1] - '0') << 4) | (mod_plmn_id[2*i] - '0');
-            }
-        }
+        std::memcpy(plmn->buf, mod_plmn_id.data(), 3);
 
         GNB_ID_Choice_t *gnbchoice = (GNB_ID_Choice_t*)calloc(1,sizeof(GNB_ID_Choice_t));
         GNB_ID_Choice_PR pres2 = GNB_ID_Choice_PR_gnb_ID;

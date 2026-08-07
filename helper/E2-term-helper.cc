@@ -85,12 +85,68 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     // subscribed.
     std::string plmnId = "268413"; // Equivalent to MCC=001 and MNC=01 in Octet string with 3 bytes
     std::string encodedPlmnId;
-    if (plmnId.length() == 6) {
-        encodedPlmnId = {plmnId[1], plmnId[0], plmnId[3], plmnId[2], plmnId[5], plmnId[4]};
-    } 
-    else if (plmnId.length() == 5) {
-        encodedPlmnId =  {plmnId[1], plmnId[0], 'F', plmnId[2], plmnId[4], plmnId[3]};
+//     if (plmnId.length() == 6) {
+//         encodedPlmnId = {plmnId[1], plmnId[0], plmnId[3], plmnId[2], plmnId[5], plmnId[4]};
+//     } 
+//     else if (plmnId.length() == 5) {
+//         encodedPlmnId =  {plmnId[1], plmnId[0], 'F', plmnId[2], plmnId[4], plmnId[3]};
+//     }
+//     else if (plmnId.length() == 3)
+// {
+//     encodedPlmnId = plmnId;
+// }
+    if (plmnId.length() == 6)
+    {
+        uint8_t mcc1 = plmnId[0] - '0';
+        uint8_t mcc2 = plmnId[1] - '0';
+        uint8_t mcc3 = plmnId[2] - '0';
+
+        uint8_t mnc1 = plmnId[3] - '0';
+        uint8_t mnc2 = plmnId[4] - '0';
+        uint8_t mnc3 = plmnId[5] - '0';
+
+        encodedPlmnId.resize(3);
+
+        encodedPlmnId[0] =
+            static_cast<char>((mcc2 << 4) | mcc1);
+
+        encodedPlmnId[1] =
+            static_cast<char>((mnc3 << 4) | mcc3);
+
+        encodedPlmnId[2] =
+            static_cast<char>((mnc2 << 4) | mnc1);
     }
+    else if (plmnId.length() == 5)
+    {
+        uint8_t mcc1 = plmnId[0] - '0';
+        uint8_t mcc2 = plmnId[1] - '0';
+        uint8_t mcc3 = plmnId[2] - '0';
+
+        uint8_t mnc1 = plmnId[3] - '0';
+        uint8_t mnc2 = plmnId[4] - '0';
+
+        encodedPlmnId.resize(3);
+
+        encodedPlmnId[0] =
+            static_cast<char>((mcc2 << 4) | mcc1);
+
+        encodedPlmnId[1] =
+            static_cast<char>((0xF << 4) | mcc3);
+
+        encodedPlmnId[2] =
+            static_cast<char>((mnc2 << 4) | mnc1);
+    }
+    else if (plmnId.length() == 3)
+    {
+        // Caso especial de teste: "111" -> 31 31 31
+        encodedPlmnId = plmnId;
+    }
+    else
+    {
+        NS_FATAL_ERROR("Invalid PLMN length: " << plmnId.length());
+}
+
+
     // node cell ID
     uint16_t cellId{0};
     // Client local port
