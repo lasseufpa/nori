@@ -12,7 +12,7 @@
  *         Tommaso Zugno <tommasozugno@gmail.com>
  *         Michele Polese <michele.polese@gmail.com>
  */
-
+#include <iomanip>
 #include "oran-interface.h"
 
 #include "asn1c-types.h"
@@ -66,6 +66,15 @@ E2Termination::E2Termination(const std::string ricAddress,
     NS_LOG_FUNCTION(this);
     m_e2sim = new E2SimMod(m_gnbId, m_plmnId);
 }
+    const std::string& E2Termination::GetGnbId() const
+    {
+        return m_gnbId;
+    }
+
+    const std::string& E2Termination::GetPlmnId() const
+    {
+        return m_plmnId;
+    }   
 
 void
 E2Termination::RegisterFunctionDescToE2Sm(long ranFunctionId,
@@ -118,7 +127,12 @@ E2Termination::DoStart()
     NS_LOG_FUNCTION(this);
 
     NS_LOG_INFO("In ns3::E2Term: GNB" << m_gnbId << ", clientPort " << m_clientPort
-                << ", ricPort " << m_ricPort << ", PlmnID " << m_plmnId);
+                << ", ricPort " << m_ricPort << ", PlmnID " << ", PlmnID "
+            << std::hex
+            << std::setw(2) << std::setfill('0') << (int)(uint8_t)m_plmnId[0] << " "
+            << std::setw(2) << (int)(uint8_t)m_plmnId[1] << " "
+            << std::setw(2) << (int)(uint8_t)m_plmnId[2]
+            << std::dec);
 
     std::vector<char*> args;
     args.push_back(strdup("e2sim"));

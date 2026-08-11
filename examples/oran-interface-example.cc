@@ -1,17 +1,17 @@
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/*
- * Copyright (c) 2022 Northeastern University
- * Copyright (c) 2022 Sapienza, University of Rome
- * Copyright (c) 2022 University of Padova
- *
- * SPDX-License-Identifier: GPL-2.0-only
- *
- *
- *
- * Author: Andrea Lacava <thecave003@gmail.com>
- *         Tommaso Zugno <tommasozugno@gmail.com>
- *         Michele Polese <michele.polese@gmail.com>
- */
+// /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+// /*
+//  * Copyright (c) 2022 Northeastern University
+//  * Copyright (c) 2022 Sapienza, University of Rome
+//  * Copyright (c) 2022 University of Padova
+//  *
+//  * SPDX-License-Identifier: GPL-2.0-only
+//  *
+//  *
+//  *
+//  * Author: Andrea Lacava <thecave003@gmail.com>
+//  *         Tommaso Zugno <tommasozugno@gmail.com>
+//  *         Michele Polese <michele.polese@gmail.com>
+//  */
 
 #include "encode_e2apv1.hpp"
 

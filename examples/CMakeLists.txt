@@ -1,5 +1,5 @@
 set(base_examples
-    #nori-sample
+    nori-sample
     oran-interface-example
     #nori-mimo-demo
     #nori-simple-rl-sched
