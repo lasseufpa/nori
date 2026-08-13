@@ -1,5 +1,9 @@
 FROM ubuntu:20.04
 
+# Arguments for UID and GID to match the host user
+ARG UID=1000
+ARG GID=971
+
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update && apt-get install -y \
@@ -64,7 +68,9 @@ RUN cd /home && \
         -no-gen-OER \
         -no-gen-example \
         ./asn/v03/e2sm-v03.01.asn \
-        ./asn/v03/e2sm-kpm-v03.00.asn 
+        ./asn/v03/e2sm-kpm-v03.00.asn
+# fix the encoding of CHOICE extension index in constr_CHOICE.c to comply with X691/10.6
+RUN python3 -c "path='/home/e2-interface/e2sim/asn1c/constr_CHOICE.c';content=open(path).read();target='\t\t// X691/23.8 normally encoded as a small non negative whole number\n\t\t\n\t\tif(ext_ct && aper_put_nsnnwn(po, ext_ct->range_bits, present_enc - specs->ext_start))\n\t\t\tASN__ENCODE_FAILED;';replacement='\t\t// X691/23.8 encoded as normally small non-negative whole number\n\t\t// X691/10.6: if n <= 63, encode as 7 bits: [0] + [6-bit value]\n\t\tif(ext_ct) {\n\t\t\tint ext_idx = present_enc - specs->ext_start;\n\t\t\tif(ext_idx <= 63) {\n\t\t\t\tif(per_put_few_bits(po, ext_idx, 7))\n\t\t\t\t\tASN__ENCODE_FAILED;\n\t\t\t} else {\n\t\t\t\tif(per_put_few_bits(po, 1, 1))\n\t\t\t\t\tASN__ENCODE_FAILED;\n\t\t\t\tif(aper_put_nsnnwn(po, ext_idx + 1, ext_idx))\n\t\t\t\t\tASN__ENCODE_FAILED;\n\t\t\t}\n\t\t}';assert target in content,'Target not found in constr_CHOICE.c';open(path,'w').write(content.replace(target,replacement))"
 
 RUN sed -i '104s|^\([[:space:]]*\).*|\1"$<TARGET_OBJECTS:asn1_objects>;$<TARGET_OBJECTS:def_objects>;$<TARGET_OBJECTS:sctp_objects>;$<TARGET_OBJECTS:messagerouting_objects>;$<TARGET_OBJECTS:encoding_objects>;$<TARGET_OBJECTS:base_objects>"|' \
         /home/e2-interface/e2sim/CMakeLists.txt && \
