@@ -153,13 +153,14 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     NS_LOG_DEBUG("PLMN ID: " << plmId << " gNB cell ID: " << gnbId);
     
     // ---- Node-Level Message (Report Style 1, Format 1) ----
+    if (params.ricStyleType == 0 || params.ricStyleType == 1)
     {
         auto header = BuildRicIndicationHeader();
         auto nodeMsg = BuildNodeLevelIndicationMessage(plmId, m_cellId);
 
         if (header != nullptr && nodeMsg != nullptr)
         {
-            NS_LOG_DEBUG("Send KPM v3 Node-Level");
+            NS_LOG_DEBUG("Send KPM v3 Node-Level (Style 1, Format 1)");
             auto pdu = new E2AP_PDU;
             encoding::generate_e2apv1_indication_request_parameterized(
                 pdu,
@@ -178,13 +179,14 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     }
 
     // ---- UE-Level Message (Report Style 4, Format 3) ----
+    if (params.ricStyleType == 0 || params.ricStyleType == 4)
     {
         auto header = BuildRicIndicationHeader();
         auto ueMsg = BuildUeLevelIndicationMessage(plmId, m_cellId);
 
         if (header != nullptr && ueMsg != nullptr)
         {
-            NS_LOG_DEBUG("Send KPM v3 UE-Level");
+            NS_LOG_DEBUG("Send KPM v3 UE-Level (Style 4, Format 3)");
             auto pdu = new E2AP_PDU;
             encoding::generate_e2apv1_indication_request_parameterized(
                 pdu,
@@ -219,17 +221,13 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
     NS_ASSERT(e2Term != nullptr);
     E2Termination::RicSubscriptionRequest_rval_s params =
         e2Term->ProcessRicSubscriptionRequest(sub_req_pdu);
-    NS_LOG_DEBUG("requestorId " << +params.requestorId << ", instanceId " << +params.instanceId
-                                << ", ranFuncionId " << +params.ranFuncionId << ", actionId "
-                                << +params.actionId);
+    NS_LOG_INFO("Subscription accepted — requestorId " << +params.requestorId
+                << ", instanceId " << +params.instanceId
+                << ", ranFuncionId " << +params.ranFuncionId
+                << ", actionId " << +params.actionId
+                << ", ricStyleType " << params.ricStyleType);
 
-    static bool isFirsReportMessage = true;
-    if (isFirsReportMessage)
-    {
-        NS_LOG_DEBUG("=====> isFirsReportMessage: " << isFirsReportMessage);
-        BuildAndSendReportMessage(params);
-        isFirsReportMessage = false;
-    }
+    BuildAndSendReportMessage(params);
 }
 
 void

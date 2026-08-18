@@ -111,6 +111,7 @@ class E2Termination : public Object
         uint16_t instanceId;   //!< RIC Instance ID
         uint16_t ranFuncionId; //!< RAN Function ID
         uint8_t actionId;      //!< RIC Action ID
+        long ricStyleType{0};  //!< RIC Report Style Type (0 = not specified, send all)
     };
 
     /**

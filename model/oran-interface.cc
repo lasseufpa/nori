@@ -30,6 +30,7 @@ extern "C"
 #include "RICactionType.h"
 #include "RICsubscriptionRequest.h"
 #include "e2sim_sctp.h"
+#include "E2SM-KPM-ActionDefinition.h"
 }
 
 namespace ns3
@@ -186,6 +187,7 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
     uint16_t reqInstanceId{};
     uint16_t ranFuncionId{};
     uint8_t reqActionId{};
+    long reqStyleType{0}; // 0 = not specified → send all formats (backward compatible)
 
     std::vector<long> actionIdsAccept;
     std::vector<long> actionIdsReject;
@@ -256,6 +258,39 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
                     actionIdsAccept.push_back(reqActionId);
                     NS_LOG_DEBUG("Action ID " << actionId << " accepted");
                     foundAction = true;
+
+                    // Extract ric-Style-Type from RICactionDefinition (OCTET STRING)
+                    RICactionDefinition_t* actDef =
+                        ((RICaction_ToBeSetup_ItemIEs*)next_item)
+                            ->value.choice.RICaction_ToBeSetup_Item.ricActionDefinition;
+                    if (actDef != nullptr && actDef->size > 0)
+                    {
+                        E2SM_KPM_ActionDefinition_t* kpmActDef = nullptr;
+                        asn_dec_rval_t decRval = asn_decode(
+                            nullptr,
+                            ATS_ALIGNED_BASIC_PER,
+                            &asn_DEF_E2SM_KPM_ActionDefinition,
+                            (void**)&kpmActDef,
+                            actDef->buf,
+                            actDef->size);
+
+                        if (decRval.code == RC_OK && kpmActDef != nullptr)
+                        {
+                            reqStyleType = kpmActDef->ric_Style_Type;
+                            NS_LOG_INFO("Extracted ric-Style-Type: " << reqStyleType);
+                        }
+                        else
+                        {
+                            NS_LOG_WARN("Failed to decode E2SM-KPM-ActionDefinition, "
+                                        "defaulting to Style 0 (send all)");
+                        }
+                        ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, kpmActDef);
+                    }
+                    else
+                    {
+                        NS_LOG_WARN("No RICactionDefinition present in subscription, "
+                                    "defaulting to Style 0 (send all)");
+                    }
                 }
                 else
                 {
@@ -297,6 +332,7 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
     reqParams.instanceId = reqInstanceId;
     reqParams.ranFuncionId = ranFuncionId;
     reqParams.actionId = reqActionId;
+    reqParams.ricStyleType = reqStyleType;
     return reqParams;
 }
 
