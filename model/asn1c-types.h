@@ -20,30 +20,28 @@
 #include "ns3/math.h"
 #include "ns3/object.h"
 
+#include <string>
+#include <vector>
+
 extern "C"
 {
 #include "BIT_STRING.h"
-// #include "E2SM-RC-ControlMessage-Format1.h"
-// #include "L3-RRC-Measurements.h"
-// #include "MeasQuantityResults.h"
-// #include "MeasResultEUTRA.h"
-// #include "MeasResultListEUTRA.h"
-// #include "MeasResultListNR.h"
-// #include "MeasResultNR.h"
-// #include "MeasResultNeighCells.h"
-// #include "MeasResultPCell.h"
-// #include "MeasResultServMO.h"
-// #include "MeasResultServMOList.h"
+#include "BOOLEAN.h"
+#include "NativeInteger.h"
+#include "NativeReal.h"
 #include "OCTET_STRING.h"
-// #include "RANParameter-ELEMENT.h"
-// #include "RANParameter-Item.h"
-// #include "RANParameter-STRUCTURE.h"
-// #include "RANParameter-ValueType.h"
-// #include "RRCEvent.h"
-// #include "ResultsPerCSI-RS-Index.h"
-// #include "ResultsPerSSB-Index.h"
+#include "PrintableString.h"
+#include "RANParameter-ID.h"
+#include "RANParameter-LIST.h"
+#include "RANParameter-STRUCTURE-Item.h"
+#include "RANParameter-STRUCTURE.h"
+#include "RANParameter-Value.h"
+#include "RANParameter-ValueType-Choice-ElementFalse.h"
+#include "RANParameter-ValueType-Choice-ElementTrue.h"
+#include "RANParameter-ValueType-Choice-List.h"
+#include "RANParameter-ValueType-Choice-Structure.h"
+#include "RANParameter-ValueType.h"
 #include "S-NSSAI.h"
-// #include "ServingCellMeasurements.h"
 }
 
 namespace ns3
@@ -305,35 +303,45 @@ class L3RrcMeasurements : public SimpleRefCount<L3RrcMeasurements>
 
 
 
-// /**
-//  * Wrapper for class for RANParameter_Item_t
-//  */
-// class RANParameterItem : public SimpleRefCount<RANParameterItem>
-// {
-//   public:
-//     enum ValueType
-//     {
-//         Nothing = 0,
-//         Int = 1,
-//         OctectString = 2
-//     };
-// 
-//     RANParameterItem(RANParameter_Item_t* ranParameterItem);
-//     ~RANParameterItem();
-//     RANParameter_Item_t* GetPointer();
-//     RANParameter_Item_t GetValue();
-// 
-//     ValueType m_valueType;
-//     long m_valueInt;
-//     Ptr<OctetString> m_valueStr;
-// 
-//     static std::vector<RANParameterItem> ExtractRANParametersFromRANParameter(
-//         RANParameter_Item_t* ranParameterItem);
-// 
-//   private:
-//     // Main struct
-//     RANParameter_Item_t* m_ranParameterItem;
-//     BOOLEAN_t* m_keyFlag;
-// };
+/**
+ * Wrapper class for RANParameterItem (E2SM-RC v3)
+ */
+class RANParameterItem : public SimpleRefCount<RANParameterItem>
+{
+  public:
+    enum class ValueType
+    {
+        Nothing = 0,
+        Boolean = 1,
+        Int = 2,
+        Real = 3,
+        BitString = 4,
+        OctetString = 5,
+        PrintableString = 6
+    };
+
+    RANParameterItem();
+    RANParameterItem(long paramId, const RANParameter_Value_t& val);
+    ~RANParameterItem();
+
+    long m_paramId{0};
+    ValueType m_valueType{ValueType::Nothing};
+    bool m_valueBool{false};
+    long m_valueInt{0};
+    double m_valueReal{0.0};
+    Ptr<BitString> m_valueBitStr{nullptr};
+    Ptr<OctetString> m_valueOctStr{nullptr};
+    std::string m_valuePrtStr{""};
+
+    static std::vector<RANParameterItem> ExtractRANParametersFromValueType(
+        long paramId,
+        const RANParameter_ValueType_t* valueType);
+
+    static std::vector<RANParameterItem> ExtractRANParametersFromStructure(
+        const RANParameter_STRUCTURE_t* structure);
+
+    static std::vector<RANParameterItem> ExtractRANParametersFromList(
+        const RANParameter_LIST_t* list);
+};
 
 } // namespace ns3

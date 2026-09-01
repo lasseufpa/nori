@@ -110,8 +110,19 @@ class E2Interface : public Object
      */
     void ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu);
 
-    Ptr<NoriE2Report> GetE2DuCalculator();
+    /**
+     * @brief Apply slicing control directive to the MAC scheduler
+     * @param quotas slice PRB quotas
+     */
+    void ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
 
+    /**
+     * @brief Process control message on the simulation thread
+     * @param pdu control message PDU
+     */
+    void ProcessControlMessage(E2AP_PDU_t* pdu);
+
+    Ptr<NoriE2Report> GetE2DuCalculator();
     
     void MLSliceInterface(double macPrb, uint64_t imsi);
 

@@ -21,6 +21,7 @@
 #include "ns3/object.h"
 #include "ns3/oran-interface.h"
 #include "ns3/pointer.h"
+#include "ns3/ric-control-function-description.h"
 #include "ns3/simulator.h"
 #include "ns3/string.h"
 #include "ns3/type-id.h"
@@ -212,12 +213,15 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
                                       });
 
     
-    // auto ricFd = Create<RicControlFunctionDescription>();
-    // e2Term->RegisterSmCallbackToE2Sm(300,
-    //                                  ricFd,
-    //                                  std::bind(&E2Interface::ControlMessageReceivedCallback,
-    //                                            e2Messages,
-    //                                            std::placeholders::_1));
+    Ptr<RicControlFunctionDescription> rcFd = Create<RicControlFunctionDescription>();
+    e2Term->RegisterSmCallbackToE2Sm(300,
+                                     rcFd,
+                                     [](E2AP_PDU_t* pdu) {
+                                         if (s_e2MessagesInstance)
+                                         {
+                                             s_e2MessagesInstance->ControlMessageReceivedCallback(pdu);
+                                         }
+                                     });
 
     Simulator::Schedule(MicroSeconds(0), &E2Termination::Start, e2Term);
 

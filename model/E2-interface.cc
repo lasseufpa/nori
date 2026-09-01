@@ -12,6 +12,7 @@
 #include "E2-report.h"
 #include "kpm-indication.h"
 #include "oran-interface.h"
+#include "ric-control-message.h"
 
 #include "ns3/nori-slicing-helper.h"
 
@@ -233,9 +234,90 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
 }
 
 void
-E2Interface::ControlMessageReceivedCallback([[maybe_unused]] E2AP_PDU_t* sub_req_pdu)
+E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
 {
-    NS_LOG_WARN("Received RIC Control Message, but E2SM-RC is disabled in current build.");
+    NS_LOG_FUNCTION(this);
+    NS_LOG_INFO("RIC Control Message received in E2Interface callback");
+
+    if (m_netDev == nullptr || m_netDev->GetNode() == nullptr)
+    {
+        NS_LOG_ERROR("NetDevice or Node is null, cannot process RIC Control Message");
+        return;
+    }
+
+    uint32_t nodeId = m_netDev->GetNode()->GetId();
+
+    // Schedule on the ns-3 simulation event thread for thread safety
+    Simulator::ScheduleWithContext(nodeId,
+                                   MicroSeconds(0),
+                                   &E2Interface::ProcessControlMessage,
+                                   this,
+                                   sub_req_pdu);
+}
+
+void
+E2Interface::ProcessControlMessage(E2AP_PDU_t* pdu)
+{
+    NS_LOG_FUNCTION(this);
+    RicControlMessage ctrlMsg(pdu);
+
+    switch (ctrlMsg.GetRequestType())
+    {
+    case RicControlMessage::RAN_SLICING:
+        NS_LOG_INFO("Applying RAN Slicing control directive from RIC");
+        ApplySlicingControl(ctrlMsg.GetPrbQuotas());
+        break;
+    case RicControlMessage::TS:
+        NS_LOG_INFO("Traffic Steering control directive received: SecondaryCell="
+                    << ctrlMsg.GetSecondaryCellIdHO());
+        break;
+    case RicControlMessage::QoS:
+        NS_LOG_INFO("QoS control directive received");
+        break;
+    default:
+        NS_LOG_WARN("Unknown control request type: " << ctrlMsg.GetRequestType());
+        break;
+    }
+}
+
+void
+E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas)
+{
+    NS_LOG_FUNCTION(this);
+
+    auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
+    if (!gnbNode)
+    {
+        NS_LOG_ERROR("NetDevice is not a NrGnbNetDevice");
+        return;
+    }
+
+    Ptr<NrMacScheduler> scheduler = gnbNode->GetScheduler(0);
+    Ptr<NrRLMacSchedulerOfdma> rlScheduler = DynamicCast<NrRLMacSchedulerOfdma>(scheduler);
+
+    if (!rlScheduler)
+    {
+        NS_LOG_WARN("Scheduler is not NrRLMacSchedulerOfdma, cannot apply slicing quotas");
+        return;
+    }
+
+    std::vector<SlicePRBQuota> macQuotas;
+    for (const auto& q : quotas)
+    {
+        SlicePRBQuota macQ;
+        macQ.sliceId = q.sst;
+        macQ.maxPRBRatio = q.maxPRBRatio;
+        macQ.minPRBRatio = q.minPRBRatio;
+        macQ.dedicatePRBRatio = q.dedicatePRBRatio;
+        macQuotas.push_back(macQ);
+
+        NS_LOG_INFO("Applied PRB quota: SST=" << static_cast<uint32_t>(q.sst)
+                    << ", dedicated=" << q.dedicatePRBRatio
+                    << "%, min=" << q.minPRBRatio
+                    << "%, max=" << q.maxPRBRatio << "%");
+    }
+
+    rlScheduler->SetSlicingParameters(macQuotas);
 }
 
 void

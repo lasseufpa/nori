@@ -689,86 +689,169 @@ L3RrcMeasurements::ThreeGppMapSinr(double sinr)
 
 
 
-// RANParameterItem::RANParameterItem(RANParameter_Item_t* ranParameterItem)
-// {
-//     m_ranParameterItem = ranParameterItem;
-// }
-// 
-// RANParameterItem::~RANParameterItem()
-// {
-//     if (m_ranParameterItem != NULL)
-//         ASN_STRUCT_FREE(asn_DEF_RANParameter_Item, m_ranParameterItem);
-// }
-// 
-// std::vector<RANParameterItem>
-// RANParameterItem::ExtractRANParametersFromRANParameter(RANParameter_Item_t* ranParameterItem)
-// {
-//     std::vector<RANParameterItem> ranParameterList;
-// 
-//     switch (ranParameterItem->ranParameterItem_valueType->present)
-//     {
-//     case RANParameter_ValueType_PR_NOTHING: {
-//         NS_LOG_DEBUG("[E2SM] RANParameter_ValueType_PR_NOTHING");
-//         break;
-//     }
-//     case RANParameter_ValueType_PR_ranParameter_Element: {
-//         RANParameterItem newItem = RANParameterItem(ranParameterItem);
-//         NS_LOG_DEBUG("[E2SM] RANParameter_ValueType_PR_ranParameter_Element");
-//         RANParameter_ELEMENT_t* ranParameterElement =
-//             ranParameterItem->ranParameterItem_valueType->choice.ranParameter_Element;
-//         newItem.m_keyFlag = &ranParameterElement->keyFlag;
-//         switch (ranParameterElement->ranParameter_Value.present)
-//         {
-//         case RANParameter_Value_PR_NOTHING: {
-//             NS_LOG_DEBUG("[E2SM] RANParameter_Value_PR_NOTHING");
-//             newItem.m_valueType = ValueType::Nothing;
-//             break;
-//         }
-//         case RANParameter_Value_PR_valueInt: {
-//             NS_LOG_DEBUG("[E2SM] RANParameter_Value_PR_valueInt");
-//             newItem.m_valueInt = ranParameterElement->ranParameter_Value.choice.valueInt;
-//             newItem.m_valueType = ValueType::Int;
-//             NS_LOG_DEBUG("[E2SM] Value: " << newItem.m_valueInt);
-//             break;
-//         }
-//         case RANParameter_Value_PR_valueOctS: {
-//             NS_LOG_DEBUG("[E2SM] RANParameter_Value_PR_valueOctS");
-//             newItem.m_valueStr = Create<OctetString>(
-//                 (void*)ranParameterElement->ranParameter_Value.choice.valueOctS.buf,
-//                 ranParameterElement->ranParameter_Value.choice.valueOctS.size);
-//             newItem.m_valueType = ValueType::OctectString;
-//             NS_LOG_DEBUG("[E2SM] Value: OctectString");
-//             break;
-//         }
-//         }
-//         ranParameterList.push_back(newItem);
-//         break;
-//     }
-//     case RANParameter_ValueType_PR_ranParameter_Structure: {
-//         NS_LOG_DEBUG("[E2SM] RANParameter_ValueType_PR_ranParameter_Structure");
-//         RANParameter_STRUCTURE_t* ranParameterStructure =
-//             ranParameterItem->ranParameterItem_valueType->choice.ranParameter_Structure;
-//         int count = ranParameterStructure->sequence_of_ranParameters.list.count;
-//         for (int i = 0; i < count; i++)
-//         {
-//             RANParameter_Item_t* childRanItem =
-//                 ranParameterStructure->sequence_of_ranParameters.list.array[i];
-// 
-//             for (RANParameterItem extractedParameter :
-//                  ExtractRANParametersFromRANParameter(childRanItem))
-//             {
-//                 ranParameterList.push_back(extractedParameter);
-//             }
-//         }
-//         break;
-//     }
-//     case RANParameter_ValueType_PR_ranParameter_List: {
-//         NS_LOG_DEBUG("[E2SM] RANParameter_ValueType_PR_ranParameter_List");
-//         break;
-//     }
-//     }
-// 
-//     return ranParameterList;
-// }
+RANParameterItem::RANParameterItem()
+{
+}
 
-}; // namespace ns3
+RANParameterItem::RANParameterItem(long paramId, const RANParameter_Value_t& val)
+    : m_paramId(paramId)
+{
+    switch (val.present)
+    {
+    case RANParameter_Value_PR_valueBoolean:
+        m_valueType = ValueType::Boolean;
+        m_valueBool = (val.choice.valueBoolean != 0);
+        break;
+    case RANParameter_Value_PR_valueInt:
+        m_valueType = ValueType::Int;
+        m_valueInt = val.choice.valueInt;
+        break;
+    case RANParameter_Value_PR_valueReal:
+        m_valueType = ValueType::Real;
+        m_valueReal = val.choice.valueReal;
+        break;
+    case RANParameter_Value_PR_valueBitS:
+        m_valueType = ValueType::BitString;
+        if (val.choice.valueBitS.buf != nullptr)
+        {
+            m_valueBitStr = Create<BitString>(
+                std::string(reinterpret_cast<char*>(val.choice.valueBitS.buf),
+                            val.choice.valueBitS.size),
+                val.choice.valueBitS.size,
+                val.choice.valueBitS.bits_unused);
+        }
+        break;
+    case RANParameter_Value_PR_valueOctS:
+        m_valueType = ValueType::OctetString;
+        if (val.choice.valueOctS.buf != nullptr)
+        {
+            m_valueOctStr = Create<OctetString>(val.choice.valueOctS.buf,
+                                                val.choice.valueOctS.size);
+        }
+        break;
+    case RANParameter_Value_PR_valuePrintableString:
+        m_valueType = ValueType::PrintableString;
+        if (val.choice.valuePrintableString.buf != nullptr)
+        {
+            m_valuePrtStr.assign(
+                reinterpret_cast<char*>(val.choice.valuePrintableString.buf),
+                val.choice.valuePrintableString.size);
+        }
+        break;
+    case RANParameter_Value_PR_NOTHING:
+    default:
+        m_valueType = ValueType::Nothing;
+        break;
+    }
+}
+
+RANParameterItem::~RANParameterItem()
+{
+}
+
+std::vector<RANParameterItem>
+RANParameterItem::ExtractRANParametersFromValueType(
+    long paramId,
+    const RANParameter_ValueType_t* valueType)
+{
+    std::vector<RANParameterItem> list;
+    if (valueType == nullptr)
+    {
+        return list;
+    }
+
+    switch (valueType->present)
+    {
+    case RANParameter_ValueType_PR_ranP_Choice_ElementTrue:
+        if (valueType->choice.ranP_Choice_ElementTrue != nullptr)
+        {
+            list.emplace_back(paramId,
+                              valueType->choice.ranP_Choice_ElementTrue->ranParameter_value);
+        }
+        break;
+
+    case RANParameter_ValueType_PR_ranP_Choice_ElementFalse:
+        if (valueType->choice.ranP_Choice_ElementFalse != nullptr &&
+            valueType->choice.ranP_Choice_ElementFalse->ranParameter_value != nullptr)
+        {
+            list.emplace_back(paramId,
+                              *valueType->choice.ranP_Choice_ElementFalse->ranParameter_value);
+        }
+        break;
+
+    case RANParameter_ValueType_PR_ranP_Choice_Structure:
+        if (valueType->choice.ranP_Choice_Structure != nullptr &&
+            valueType->choice.ranP_Choice_Structure->ranParameter_Structure != nullptr)
+        {
+            auto subList = ExtractRANParametersFromStructure(
+                valueType->choice.ranP_Choice_Structure->ranParameter_Structure);
+            list.insert(list.end(), subList.begin(), subList.end());
+        }
+        break;
+
+    case RANParameter_ValueType_PR_ranP_Choice_List:
+        if (valueType->choice.ranP_Choice_List != nullptr &&
+            valueType->choice.ranP_Choice_List->ranParameter_List != nullptr)
+        {
+            auto subList = ExtractRANParametersFromList(
+                valueType->choice.ranP_Choice_List->ranParameter_List);
+            list.insert(list.end(), subList.begin(), subList.end());
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    return list;
+}
+
+std::vector<RANParameterItem>
+RANParameterItem::ExtractRANParametersFromStructure(
+    const RANParameter_STRUCTURE_t* structure)
+{
+    std::vector<RANParameterItem> list;
+    if (structure == nullptr || structure->sequence_of_ranParameters == nullptr)
+    {
+        return list;
+    }
+
+    int count = structure->sequence_of_ranParameters->list.count;
+    for (int i = 0; i < count; i++)
+    {
+        auto* item = structure->sequence_of_ranParameters->list.array[i];
+        if (item != nullptr && item->ranParameter_valueType != nullptr)
+        {
+            auto subList = ExtractRANParametersFromValueType(
+                item->ranParameter_ID,
+                item->ranParameter_valueType);
+            list.insert(list.end(), subList.begin(), subList.end());
+        }
+    }
+    return list;
+}
+
+std::vector<RANParameterItem>
+RANParameterItem::ExtractRANParametersFromList(
+    const RANParameter_LIST_t* list)
+{
+    std::vector<RANParameterItem> result;
+    if (list == nullptr)
+    {
+        return result;
+    }
+
+    int count = list->list_of_ranParameter.list.count;
+    for (int i = 0; i < count; i++)
+    {
+        auto* structItem = list->list_of_ranParameter.list.array[i];
+        if (structItem != nullptr)
+        {
+            auto subList = ExtractRANParametersFromStructure(structItem);
+            result.insert(result.end(), subList.begin(), subList.end());
+        }
+    }
+    return result;
+}
+
+} // namespace ns3

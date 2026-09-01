@@ -19,8 +19,8 @@
 #include "e2sim-mod.h"
 #include "kpm-function-description.h"
 #include "kpm-indication.h"
-// #include "ric-control-function-description.h"
-// #include "ric-control-message.h"
+#include "ric-control-function-description.h"
+#include "ric-control-message.h"
 
 #include "ns3/object.h"
 
