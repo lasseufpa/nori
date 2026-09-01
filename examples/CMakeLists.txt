@@ -1,5 +1,6 @@
 set(base_examples
     nori-sample
+    nori-rc-slicing-demo
     #oran-interface-example
     #nori-mimo-demo
     #nori-simple-rl-sched
