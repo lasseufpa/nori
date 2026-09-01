@@ -9,6 +9,7 @@ set(source_files
     model/nr-mac-scheduler-ue-info-rl.cc                                                                                                                                                                                             
     model/nr-rl-mac-scheduler-ofdma.cc
     model/ric-control-function-description.cc
+    model/ric-control-message.cc
     helper/indication-message-helper.cc
     helper/nori-indication-message-helper.cc
     helper/nori-slicing-helper.cc
@@ -31,6 +32,7 @@ set(header_files
     model/kpm-indication.h
     model/kpm-function-description.h
     model/ric-control-function-description.h
+    model/ric-control-message.h
     model/E2-interface.h
     model/E2-report.h
     model/function-description.h
