@@ -245,28 +245,28 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
         return;
     }
 
-    uint32_t nodeId = m_netDev->GetNode()->GetId();
+    if (sub_req_pdu == nullptr)
+    {
+        NS_LOG_ERROR("sub_req_pdu is null");
+        return;
+    }
 
-    // Schedule on the ns-3 simulation event thread for thread safety
-    Simulator::ScheduleWithContext(nodeId,
-                                   MicroSeconds(0),
-                                   &E2Interface::ProcessControlMessage,
-                                   this,
-                                   sub_req_pdu);
-}
-
-void
-E2Interface::ProcessControlMessage(E2AP_PDU_t* pdu)
-{
-    NS_LOG_FUNCTION(this);
-    RicControlMessage ctrlMsg(pdu);
+    RicControlMessage ctrlMsg(sub_req_pdu);
 
     switch (ctrlMsg.GetRequestType())
     {
     case RicControlMessage::RAN_SLICING:
+    {
         NS_LOG_INFO("Applying RAN Slicing control directive from RIC");
-        ApplySlicingControl(ctrlMsg.GetPrbQuotas());
+        auto quotas = ctrlMsg.GetPrbQuotas();
+        uint32_t nodeId = m_netDev->GetNode()->GetId();
+        Simulator::ScheduleWithContext(nodeId,
+                                       MicroSeconds(0),
+                                       &E2Interface::ApplySlicingControl,
+                                       this,
+                                       quotas);
         break;
+    }
     case RicControlMessage::TS:
         NS_LOG_INFO("Traffic Steering control directive received: SecondaryCell="
                     << ctrlMsg.GetSecondaryCellIdHO());
@@ -278,6 +278,11 @@ E2Interface::ProcessControlMessage(E2AP_PDU_t* pdu)
         NS_LOG_WARN("Unknown control request type: " << ctrlMsg.GetRequestType());
         break;
     }
+}
+
+void
+E2Interface::ProcessControlMessage([[maybe_unused]] E2AP_PDU_t* pdu)
+{
 }
 
 void

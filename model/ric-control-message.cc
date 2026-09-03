@@ -178,6 +178,14 @@ ParseSliceGroupStructure(const RANParameter_STRUCTURE_t* groupStruct)
             continue;
         }
 
+        if (item->ranParameter_ID == 2 &&
+            item->ranParameter_valueType->present == RANParameter_ValueType_PR_ranP_Choice_Structure &&
+            item->ranParameter_valueType->choice.ranP_Choice_Structure != nullptr &&
+            item->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure != nullptr)
+        {
+            return ParseSliceGroupStructure(item->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure);
+        }
+
         switch (item->ranParameter_ID)
         {
         case 3: // RRM Policy SST
