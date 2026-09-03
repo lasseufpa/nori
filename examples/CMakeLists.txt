@@ -1,3 +1,5 @@
+set(E2SIM_LIBRARIES "/usr/local/lib/libe2sim.a")
+
 set(base_examples
     nori-sample
     nori-rc-slicing-demo
@@ -18,5 +20,6 @@ build_lib_example(
     LIBRARIES_TO_LINK ${libnori}
                       ${libnr}
                       ${liblte}
+                      ${E2SIM_LIBRARIES}
   )
 endforeach()

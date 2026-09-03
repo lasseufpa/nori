@@ -1,3 +1,6 @@
+#ifndef E2SIM_MOD_H
+#define E2SIM_MOD_H
+
 #pragma once
 
 #include <iostream>
@@ -20,6 +23,8 @@
 #include <e2sim/GNB-ID-Choice.h>
 #include <e2sim/e2sim_sctp.h>
 #include <e2sim/E2nodeComponentInterfaceNG.h>
+#include <e2sim/ProcedureCode.h>
+#include <e2sim/RICcontrolRequest.h>
 
 extern int client_fd;
 
@@ -39,24 +44,74 @@ public:
 
     E2SimMod(std::string gnb, std::string plmn) : mod_gnb_id(gnb), mod_plmn_id(plmn) {}
 
+    void handle_sctp_data(int& socket_fd, sctp_buffer_t& data, bool xmlenc)
+    {
+        E2AP_PDU_t* pdu = (E2AP_PDU_t*)calloc(1, sizeof(E2AP_PDU));
+        ASN_STRUCT_RESET(asn_DEF_E2AP_PDU, pdu);
+
+        asn_transfer_syntax syntax = ATS_ALIGNED_BASIC_PER;
+        auto rval = asn_decode(nullptr, syntax, &asn_DEF_E2AP_PDU, (void**)&pdu, data.buffer, data.len);
+
+        if (rval.code != RC_OK)
+        {
+            LOG_E("[E2SimMod] Failed to decode E2AP data from SCTP connection (code=%d)", rval.code);
+            ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
+            return;
+        }
+
+        int procedureCode = -1;
+        if (pdu->present == E2AP_PDU_PR_initiatingMessage && pdu->choice.initiatingMessage)
+        {
+            procedureCode = pdu->choice.initiatingMessage->procedureCode;
+        }
+        else if (pdu->present == E2AP_PDU_PR_successfulOutcome && pdu->choice.successfulOutcome)
+        {
+            procedureCode = pdu->choice.successfulOutcome->procedureCode;
+        }
+        else if (pdu->present == E2AP_PDU_PR_unsuccessfulOutcome && pdu->choice.unsuccessfulOutcome)
+        {
+            procedureCode = pdu->choice.unsuccessfulOutcome->procedureCode;
+        }
+
+        LOG_I("[E2SimMod] Unpacked E2AP-PDU: index = %d, procedureCode = %d", (int)pdu->present, procedureCode);
+
+        if (procedureCode == ProcedureCode_id_RICcontrol && pdu->present == E2AP_PDU_PR_initiatingMessage)
+        {
+            long func_id = -1;
+            auto& ies_list = pdu->choice.initiatingMessage->value.choice.RICcontrolRequest.protocolIEs.list;
+            for (int i = 0; i < ies_list.count; i++)
+            {
+                RICcontrolRequest_IEs_t* next_ie = (RICcontrolRequest_IEs_t*)ies_list.array[i];
+                if (next_ie->value.present == RICcontrolRequest_IEs__value_PR_RANfunctionID)
+                {
+                    func_id = next_ie->value.choice.RANfunctionID;
+                    break;
+                }
+            }
+            LOG_I("[E2SimMod] Received RICcontrolRequest for RANfunctionID=%ld", func_id);
+
+            try
+            {
+                SubscriptionCallback cb = get_subscription_callback(func_id);
+                LOG_I("[E2SimMod] Invoking callback for control request (func_id=%ld)", func_id);
+                cb(pdu);
+            }
+            catch (const std::out_of_range& e)
+            {
+                LOG_E("[E2SimMod] No RAN Function callback registered for ID %ld", func_id);
+            }
+            ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
+        }
+        else
+        {
+            ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
+            e2ap_handle_sctp_data(socket_fd, data, xmlenc, this);
+        }
+    }
+
     int run_loop(int argc, char* argv[]){
 
     LOG_I("Start E2 Agent (E2 Simulator)");
-
-    // ifstream simfile;
-    // string line;
-
-    // simfile.open("simulation.txt", ios::in);
-
-    // if (simfile.is_open()) {
-
-    //     while (getline(simfile, line)) {
-    //     cout << line << "\n";
-    //     }
-
-    //     simfile.close();
-
-    // }
 
     bool xmlenc = false;
 
@@ -64,23 +119,12 @@ public:
 
     LOG_I("After reading input options");
 
-    //E2 Agent will automatically restart upon sctp disconnection
-    //  int server_fd = sctp_start_server(ops.server_ip, ops.server_port);
-
-    //int client_fd = sctp_start_client(ops.server_ip, ops.server_port);
-    
-
     client_fd = sctp_start_client(ops.server_ip, ops.server_port);
     E2AP_PDU_t* pdu_setup = (E2AP_PDU_t*)calloc(1,sizeof(E2AP_PDU));
 
     LOG_I("SCTP client has been started");
     
     std::vector<encoding::ran_func_info> all_funcs;
-    // RANfunctionOID_t *ranFunctionOIDe = (RANfunctionOID_t*)calloc(1,sizeof(RANfunctionOID_t));
-    // uint8_t *buf = (uint8_t*)"OID123";
-    // ranFunctionOIDe->buf = (uint8_t*)calloc(1,strlen((char*)buf)+1);
-    // memcpy(ranFunctionOIDe->buf, buf, strlen((char*)buf)+1);
-    // ranFunctionOIDe->size = strlen((char*)buf);
 
     RANfunctionOID_t *ranFunctionOIDe = (RANfunctionOID_t*)calloc(1, sizeof(RANfunctionOID_t));
     const char *oid_str = "1.3.6.1.4.1.53148.1.2.2.2"; 
@@ -89,72 +133,36 @@ public:
     std::memcpy(ranFunctionOIDe->buf, oid_str, oid_len);
     ranFunctionOIDe->size = oid_len;
 
-    //Loop through RAN function definitions that are registered
     LOG_I("Constructing a list of RAN functions based on registered information");
 
-
     for (std::pair<long, OCTET_STRING_t*> elem : m_ranFunctions) {
-        char* ran_desc = (char*) calloc(1, elem.second->size+1);
-        ran_desc = (char*)elem.second->buf;
-        ran_desc[elem.second->size] = '\0';
+        encoding::ran_func_info current_func;
+        current_func.ranFunctionId = elem.first;
+        current_func.ranFunctionDesc = elem.second;
+        current_func.ranFunctionRev = (long)3;
+        current_func.ranFunctionOId = ranFunctionOIDe;
 
-        LOG_I("Adding RAN function ID %ld, description: %s to the list", elem.first, ran_desc);
-
-        encoding::ran_func_info next_func;
-
-        next_func.ranFunctionId = elem.first;
-        next_func.ranFunctionDesc = elem.second;
-        next_func.ranFunctionRev = (long)2;
-        next_func.ranFunctionOId = ranFunctionOIDe;
-
-        all_funcs.push_back(next_func);
+        all_funcs.push_back(current_func);
     }
-        
-    LOG_I("Generate E2AP v1 setup request for all registered RAN functions");
+
+    LOG_I("About to encode E2-SETUP-REQUEST");
+
     generate_e2apv1_setup_request_parameterized(pdu_setup, all_funcs);
 
-    xer_fprint(stderr, &asn_DEF_E2AP_PDU, pdu_setup);
+    LOG_I("After generate_e2apv1_setup_request_parameterized");
 
-    auto buffer_size = MAX_SCTP_BUFFER;
-    unsigned char buffer[MAX_SCTP_BUFFER];
-    
+    size_t buffer_size = MAX_SCTP_BUFFER;
+    uint8_t buffer[MAX_SCTP_BUFFER];
+
     sctp_buffer_t data;
 
-    char error_buf[300] = {0, };
-    size_t errlen = 0;
+    LOG_I("Starting ASN_STRUCT_RESET");
 
-    asn_check_constraints(&asn_DEF_E2AP_PDU, pdu_setup, error_buf, &errlen);
-    LOG_I("Error length %d, error buf %s", errlen, error_buf);
-
-    auto er = asn_encode_to_buffer(nullptr, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2AP_PDU, pdu_setup, buffer, buffer_size);
-
-
-
-
-    if (er.encoded < 0)
-    {
-        std::cout << "Encode falhou!" << std::endl;
-
-        if (er.failed_type)
-        {
-            std::cout << "failed_type->name = "
-                    << er.failed_type->name << std::endl;
-
-            if (er.failed_type->xml_tag)
-                std::cout << "failed_type->xml_tag = "
-                        << er.failed_type->xml_tag << std::endl;
-        }
-
-        return -1;
-    }
-
-
-
-
+    asn_enc_rval_t er = asn_encode_to_buffer(nullptr, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2AP_PDU, pdu_setup, buffer, buffer_size);
 
     data.len = er.encoded;
 
-    LOG_I("Error encoded %d", er.encoded);
+    LOG_I("Error encoded %ld", (long)er.encoded);
 
     memcpy(data.buffer, buffer, er.encoded);
 
@@ -178,7 +186,7 @@ public:
 
         LOG_I("Received new data of size %d", recv_buf.len);
 
-        e2ap_handle_sctp_data(client_fd, recv_buf, xmlenc, this);
+        handle_sctp_data(client_fd, recv_buf, xmlenc);
         if (xmlenc) xmlenc = false;
     }
 
@@ -456,3 +464,5 @@ private:
         e2ap_pdu->choice.initiatingMessage = initmsg;  
     }
 };
+
+#endif // E2SIM_MOD_H

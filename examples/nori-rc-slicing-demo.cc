@@ -23,6 +23,7 @@
 #include "ns3/core-module.h"
 #include "ns3/flow-monitor-module.h"
 #include "ns3/internet-module.h"
+#include "ns3/isotropic-antenna-model.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/log.h"
 #include "ns3/mobility-module.h"
@@ -55,7 +56,7 @@ PrintPeriodicFlowStats(Ptr<FlowMonitor> monitor,
                        double interval)
 {
     double now = Simulator::Now().GetSeconds();
-    if (now > simTime)
+    if (simTime > 0.0 && now > simTime)
     {
         return;
     }
@@ -66,13 +67,15 @@ PrintPeriodicFlowStats(Ptr<FlowMonitor> monitor,
     std::map<FlowId, FlowMonitor::FlowStats> statsMap = monitor->GetFlowStats();
 
     uint32_t ueCount = ueIpToIndex.size();
+    static std::vector<uint64_t> lastRxBytes(ueCount, 0);
+    static std::vector<uint64_t> lastTxPackets(ueCount, 0);
+    static std::vector<uint64_t> lastRxPackets(ueCount, 0);
+    static double lastTime = 0.0;
+
     std::vector<uint64_t> ueTxPackets(ueCount, 0);
     std::vector<uint64_t> ueRxPackets(ueCount, 0);
     std::vector<uint64_t> ueRxBytes(ueCount, 0);
     std::vector<double> ueDelaySum(ueCount, 0.0);
-    std::vector<double> ueFirstTx(ueCount, 0.0);
-    std::vector<double> ueLastRx(ueCount, 0.0);
-    std::vector<bool> ueHasFirstTx(ueCount, false);
 
     for (const auto& it : statsMap)
     {
@@ -102,19 +105,12 @@ PrintPeriodicFlowStats(Ptr<FlowMonitor> monitor,
         ueRxPackets[idx] += stats.rxPackets;
         ueRxBytes[idx] += stats.rxBytes;
         ueDelaySum[idx] += stats.delaySum.GetSeconds();
+    }
 
-        double firstTx = stats.timeFirstTxPacket.GetSeconds();
-        double lastRx = stats.timeLastRxPacket.GetSeconds();
-
-        if (!ueHasFirstTx[idx] || firstTx < ueFirstTx[idx])
-        {
-            ueFirstTx[idx] = firstTx;
-            ueHasFirstTx[idx] = true;
-        }
-        if (stats.rxPackets > 0 && lastRx > ueLastRx[idx])
-        {
-            ueLastRx[idx] = lastRx;
-        }
+    double deltaT = (lastTime > 0.0) ? (now - lastTime) : interval;
+    if (deltaT <= 0.0)
+    {
+        deltaT = interval;
     }
 
     std::cout << "\n========================================================" << std::endl;
@@ -124,34 +120,42 @@ PrintPeriodicFlowStats(Ptr<FlowMonitor> monitor,
 
     for (uint32_t i = 0; i < ueCount; ++i)
     {
-        double throughput = 0.0;
+        double intervalThroughput = 0.0;
+        double avgThroughput = 0.0;
         double delayMs = 0.0;
         double lossRatio = 0.0;
         std::string sliceName = (i == 0) ? "Slice 0 (eMBB, SST=1)" : "Slice 1 (URLLC, SST=2)";
 
-        if (ueTxPackets[i] > 0)
+        uint64_t diffRxBytes = (ueRxBytes[i] >= lastRxBytes[i]) ? (ueRxBytes[i] - lastRxBytes[i]) : ueRxBytes[i];
+        intervalThroughput = (diffRxBytes * 8.0) / deltaT / 1e6; // Mbps in interval
+
+        if (ueRxPackets[i] > 0)
         {
-            if (ueRxPackets[i] > 0 && ueHasFirstTx[i])
-            {
-                double duration = ueLastRx[i] - ueFirstTx[i];
-                if (duration <= 0.0)
-                {
-                    duration = 1e-9;
-                }
-                throughput = (ueRxBytes[i] * 8.0) / duration / 1e6; // Mbps
-                delayMs = (ueDelaySum[i] / ueRxPackets[i]) * 1e3;    // ms
-            }
-            lossRatio = (double)(ueTxPackets[i] - ueRxPackets[i]) * 100.0 / ueTxPackets[i];
+            avgThroughput = (ueRxBytes[i] * 8.0) / now / 1e6;
+            delayMs = (ueDelaySum[i] / ueRxPackets[i]) * 1e3;
+        }
+
+        uint64_t diffTx = (ueTxPackets[i] >= lastTxPackets[i]) ? (ueTxPackets[i] - lastTxPackets[i]) : ueTxPackets[i];
+        uint64_t diffRx = (ueRxPackets[i] >= lastRxPackets[i]) ? (ueRxPackets[i] - lastRxPackets[i]) : ueRxPackets[i];
+        if (diffTx > 0)
+        {
+            lossRatio = (double)(diffTx - diffRx) * 100.0 / diffTx;
         }
 
         std::cout << "  " << sliceName << " -> UE[" << i << "]: "
-                  << "Throughput = " << std::fixed << std::setprecision(2) << throughput << " Mbps, "
+                  << "Throughput = " << std::fixed << std::setprecision(2) << intervalThroughput << " Mbps (Avg: "
+                  << avgThroughput << " Mbps), "
                   << "Delay = " << delayMs << " ms, "
                   << "Loss = " << lossRatio << " %" << std::endl;
     }
     std::cout << "========================================================\n" << std::endl;
 
-    if (now + interval <= simTime)
+    lastRxBytes = ueRxBytes;
+    lastTxPackets = ueTxPackets;
+    lastRxPackets = ueRxPackets;
+    lastTime = now;
+
+    if (simTime <= 0.0 || now + interval <= simTime)
     {
         Simulator::Schedule(Seconds(interval),
                             &PrintPeriodicFlowStats,
@@ -177,17 +181,19 @@ main(int argc, char* argv[])
     // Scenario parameters
     uint16_t gNbNum = 1;
     uint16_t ueNum = 2; // UE 0: eMBB, UE 1: URLLC
-    double simTime = 20.0;
+    double simTime = 0.0; // 0.0 means continuous until user cancels (Ctrl+C)
     double centralFrequency = 3.5e9; // 3.5 GHz
     double bandwidth = 100e6;        // 100 MHz
     uint16_t numerology = 1;         // 30 kHz SCS
+    std::string trafficRate = "100Mb/s"; // High saturation rate requested equally by both slices
 
-    std::string ipE2TermRic = "10.244.0.246";
+    std::string ipE2TermRic = "10.244.0.30";
     uint16_t ipE2TermRicPort = 36422;
     bool enableRealtime = true;
 
     CommandLine cmd(__FILE__);
-    cmd.AddValue("simTime", "Total simulation time in seconds", simTime);
+    cmd.AddValue("simTime", "Total simulation time in seconds (0 for continuous)", simTime);
+    cmd.AddValue("trafficRate", "Per-UE saturation traffic rate (e.g. 100Mb/s)", trafficRate);
     cmd.AddValue("centralFrequency", "Central carrier frequency in Hz", centralFrequency);
     cmd.AddValue("bandwidth", "Bandwidth in Hz", bandwidth);
     cmd.AddValue("numerology", "5G NR Numerology (0:15kHz, 1:30kHz, 2:60kHz)", numerology);
@@ -235,34 +241,55 @@ main(int argc, char* argv[])
     Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
+    Ptr<NrChannelHelper> channelHelper = CreateObject<NrChannelHelper>();
 
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
     nrHelper->SetEpcHelper(epcHelper);
+    channelHelper->ConfigureFactories("UMi", "LOS");
 
     // Set RL Mac Scheduler (with Slicing support)
-    nrHelper->SetGnbMacAttribute("SchedulerTypeId", TypeIdValue(NrRLMacSchedulerOfdma::GetTypeId()));
+    nrHelper->SetSchedulerTypeId(TypeId::LookupByName("ns3::NrRLMacSchedulerOfdma"));
 
     // 4. Configure Spectrum / Bandwidth Part
+    BandwidthPartInfoPtrVector allBwps;
     CcBwpCreator ccBwpCreator;
-    CcBwpCreator::SimpleOperationBandConf bandConf(centralFrequency, bandwidth, 1, numerology);
-    CcBwpCreator::SimpleOperationBandConfVector bandsConfVector = {bandConf};
-    OperationBandInfo band = ccBwpCreator.CreateOperationBandContiguousCc(bandsConfVector);
+    const uint8_t numCcPerBand = 1;
 
-    nrHelper->InitializeOperationBand(&band);
+    CcBwpCreator::SimpleOperationBandConf bandConf(centralFrequency,
+                                                   bandwidth,
+                                                   numCcPerBand);
 
-    // Bandwidth Part Manager
-    nrHelper->SetGnbBwpManagerAlgorithmAttribute("NGBwpManagerAlgorithm",
-                                                 TypeIdValue(TypeId::LookupByName("ns3::NrGnbBwpManagerAlgorithm")));
-    nrHelper->SetUeBwpManagerAlgorithmAttribute("NUBwpManagerAlgorithm",
-                                                TypeIdValue(TypeId::LookupByName("ns3::NrUeBwpManagerAlgorithm")));
+    OperationBandInfo band = ccBwpCreator.CreateOperationBandContiguousCc(bandConf);
+    channelHelper->AssignChannelsToBands({band});
+    allBwps = CcBwpCreator::GetAllBwps({band});
+
+    // Beamforming method
+    idealBeamformingHelper->SetAttribute("BeamformingMethod",
+                                         TypeIdValue(DirectPathBeamforming::GetTypeId()));
+
+    // Antennas for UEs and gNB
+    nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(2));
+    nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(4));
+    nrHelper->SetUeAntennaAttribute("AntennaElement",
+                                    PointerValue(CreateObject<IsotropicAntennaModel>()));
+
+    nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(4));
+    nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(8));
+    nrHelper->SetGnbAntennaAttribute("AntennaElement",
+                                     PointerValue(CreateObject<IsotropicAntennaModel>()));
 
     // 5. Install NetDevices
-    NetDeviceContainer gNbDevs = nrHelper->InstallGnbDevice(gNbNodes);
-    NetDeviceContainer ueDevs = nrHelper->InstallUeDevice(ueNodes);
+    NetDeviceContainer gNbDevs = nrHelper->InstallGnbDevice(gNbNodes, allBwps);
+    NetDeviceContainer ueDevs = nrHelper->InstallUeDevice(ueNodes, allBwps);
+
+    // Set numerology on gNB PHY
+    nrHelper->GetGnbPhy(gNbDevs.Get(0), 0)
+        ->SetAttribute("Numerology", UintegerValue(numerology));
 
     // 6. Setup Internet Stack & EPC Network
     InternetStackHelper internet;
     internet.Install(ueNodes);
+    internet.Install(remoteHostContainer);
 
     Ipv4AddressHelper ipv4h;
     ipv4h.SetBase("1.0.0.0", "255.0.0.0");
@@ -282,6 +309,14 @@ main(int argc, char* argv[])
 
     // Assign IP addresses to UEs
     Ipv4InterfaceContainer ueIpIfaces = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueDevs));
+
+    // Default route on UEs towards EPC gateway
+    for (uint32_t i = 0; i < ueNodes.GetN(); ++i)
+    {
+        Ptr<Ipv4> ueIpv4 = ueNodes.Get(i)->GetObject<Ipv4>();
+        Ptr<Ipv4StaticRouting> ueStatic = ipv4RoutingHelper.GetStaticRouting(ueIpv4);
+        ueStatic->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+    }
 
     // Attach UEs to gNB
     for (uint32_t i = 0; i < ueDevs.GetN(); ++i)
@@ -321,30 +356,24 @@ main(int argc, char* argv[])
                                     InetSocketAddress(Ipv4Address::GetAny(), dlPort));
         ApplicationContainer sinkApps = sinkHelper.Install(ueNodes.Get(i));
         sinkApps.Start(Seconds(0.5));
-        sinkApps.Stop(Seconds(simTime));
+        if (simTime > 0.0)
+        {
+            sinkApps.Stop(Seconds(simTime));
+        }
 
-        // Downlink Traffic Source on RemoteHost
+        // Downlink Traffic Source on RemoteHost (equal saturated throughput demand for both slices)
         OnOffHelper clientHelper("ns3::UdpSocketFactory", InetSocketAddress(ueIp, dlPort));
         clientHelper.SetAttribute("PacketSize", UintegerValue(1024));
-
-        if (i == 0)
-        {
-            // eMBB: High throughput stream (20 Mbps)
-            clientHelper.SetAttribute("DataRate", DataRateValue(DataRate("20Mb/s")));
-            clientHelper.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
-            clientHelper.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
-        }
-        else
-        {
-            // URLLC: Lower rate, frequent packets (5 Mbps)
-            clientHelper.SetAttribute("DataRate", DataRateValue(DataRate("5Mb/s")));
-            clientHelper.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
-            clientHelper.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
-        }
+        clientHelper.SetAttribute("DataRate", DataRateValue(DataRate(trafficRate)));
+        clientHelper.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+        clientHelper.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
 
         ApplicationContainer clientApps = clientHelper.Install(remoteHost);
         clientApps.Start(Seconds(1.0));
-        clientApps.Stop(Seconds(simTime));
+        if (simTime > 0.0)
+        {
+            clientApps.Stop(Seconds(simTime));
+        }
     }
 
     // 10. FlowMonitor for Per-Slice Performance Tracking
@@ -364,8 +393,16 @@ main(int argc, char* argv[])
                         simTime,
                         2.0);
 
-    NS_LOG_INFO("Starting Simulation for " << simTime << " seconds...");
-    Simulator::Stop(Seconds(simTime));
+    if (simTime > 0.0)
+    {
+        NS_LOG_INFO("Starting Simulation for " << simTime << " seconds...");
+        Simulator::Stop(Seconds(simTime));
+    }
+    else
+    {
+        NS_LOG_INFO("Starting Continuous Simulation (running indefinitely until user cancels with Ctrl+C)...");
+    }
+
     Simulator::Run();
 
     Simulator::Destroy();
