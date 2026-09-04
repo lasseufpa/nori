@@ -111,14 +111,47 @@ From the `ns-3-dev` directory:
 
 ---
 
-## Running a Docker container
-Clone the NORI repository using `git clone https://github.com/lasseufpa/nori.git` and then inside the `nori/` folder build the Docker image running `docker build -t nori .`. Then, you can run the NORI image running `docker run -it --name nori --network host nori bash`.
+## 🐳 Running with Docker
+
+### Option 1: Development Mode with Live Code Mounting (Recommended)
+Edit files directly on your host machine while building and running inside Docker (identical to `nori-dev-env`):
+
+```bash
+docker compose up -d
+docker compose exec nori-dev bash
+
+# Inside the container:
+./ns3 configure --enable-examples
+./ns3 build
+./ns3 run nori-rc-slicing-demo -- --simTime=0
+```
+
+### Option 2: Build Standalone High-Performance Image (Optimized Mode)
+Builds a fully self-contained Docker image with `-d optimized` (`-O3` compiler optimizations) using your local working tree:
+
+```bash
+docker build -t nori .
+docker run -it --name nori --network host nori bash
+
+# Inside the container:
+./ns3 run nori-rc-slicing-demo -- --simTime=0
+```
+
+---
 
 ## 🚀 Running Examples
 
-Two example scenarios are provided to demonstrate the core functionality of the **NORI** module:
+Example scenarios are provided to demonstrate the core functionality of the **NORI** module:
 
-### 1. `nori-sample`
+### 1. `nori-rc-slicing-demo` (E2SM-RC v3.01 Dynamic Slicing)
+
+Simulates 2 network slices (eMBB on SST=1, URLLC on SST=2) with real-time PRB quota adjustments received from a Near-RT RIC xApp via E2SM-RC v3.01:
+
+```bash
+./ns3 run nori-rc-slicing-demo -- --ipE2TermRic="YOUR_E2TERM_IP" --simTime=0
+```
+
+### 2. `nori-sample`
 
 Simulates one **gNB** and one **UE**, with UDP traffic and KPM metrics enabled.
 
@@ -138,7 +171,7 @@ To view the E2Term logs:
 kubectl logs deployment-ricplt-e2term-alpha-XYZ -n ricplt
 ```
 
-### 2. `nori-mimo-demo`
+### 3. `nori-mimo-demo`
 
 A variation of the sample with **MIMO** (multiple antennas) support.
 
