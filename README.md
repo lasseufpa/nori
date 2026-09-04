@@ -3,121 +3,25 @@
 **NORI** (New Open RAN Interface) is a module for the **ns-3** simulator that integrates the **NR 5G LENA** module with a **Near-RT RIC (Release I)** from the **O-RAN** architecture via the standardized **E2 interface**.
 
 This project enables:
-- Metric collection via **KPM Service Model**
-- Network control using the **RAN Control Service Model**
+- Metric collection via **KPM Service Model (E2SM-KPM v3.00)**
+- Network control and dynamic slicing via **RAN Control Service Model (E2SM-RC v3.01)**
 - Integration with custom xApps
 - Operation in simulated environments without modifying the ns-3 core
 
-## 📘 Available Blueprints
-
-To simplify the setup and experimentation with the **NORI** module, we provide **blueprints** with pre-configured environments, including **ns-3**, the **NR 5G LENA** module, **NORI**, and the necessary **xApps**.
-
-These blueprints are ideal for quick testing, prototyping, and hands-on learning with the RIC stack.
-
-▶️ Access the full documentation in the project’s **Wiki**:
-[https://github.com/lasseufpa/nori/wiki](https://github.com/lasseufpa/nori/wiki)
-
-> 💡 **However, if you prefer to test the module in a different environment**, just follow the steps below to manually install the required components and run the examples directly on your system.
-
 ---
 
-## 📦 Requirements
+## Getting Started with Docker
 
-Recommended OS: **Ubuntu 20.04.6 LTS**
-
-### E2Sim dependencies
-
-```bash
-sudo apt-get install -y build-essential git cmake libsctp-dev autoconf automake libtool bison flex libboost-all-dev
-````
-
-### ns-3 dependencies
-
-```bash
-sudo apt install -y git gcc python3 cmake g++
-```
-
-### NR 5G LENA dependencies
-
-```bash
-sudo apt install -y libc6-dev sqlite sqlite3 libsqlite3-dev libeigen3-dev
-```
-
-### ⚠️ GCC/G++ 11 Required
-
-This project requires **GCC/G++ version 11**. To install on Ubuntu 20.04:
-
-```bash
-sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-sudo apt update
-sudo apt install gcc-11 g++-11
-```
-
-Set GCC 11 as default:
-
-```bash
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 10
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 20
-sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 10
-sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 20
-```
-
----
-
-## 🧩 Installing Components
-
-### 1. E2Sim (Lacava’s fork with modified ASN1c)
-
-```bash
-git clone https://github.com/lasseufpa/e2sim.git
-cd e2sim/e2sim/
-mkdir build
-./build_e2sim.sh 3
-cd ../..
-```
-
-### 2. ns-3
-
-```bash
-git clone https://gitlab.com/nsnam/ns-3-dev.git
-cd ns-3-dev
-git checkout ab4cce021d8f6b2458784704a10af810d3969f0f
-```
-
-### 3. NR 5G LENA
-
-```bash
-cd contrib
-git clone https://gitlab.com/cttc-lena/nr.git
-cd nr && git checkout 78b7179e3841c608c2021ffa88bea1906a1c7594 && cd ..
-```
-
-### 4. NORI
-
-```bash
-git clone https://github.com/lasseufpa/nori.git
-```
-
----
-
-## 🔧 Building ns-3
-
-From the `ns-3-dev` directory:
-
-```bash
-./ns3 configure --enable-examples
-./ns3 build -j 2
-```
-
----
-
-## 🐳 Running with Docker
+NORI is containerized with **Docker** and **Docker Compose**, providing a pre-configured environment with all necessary toolchains (GCC-11, Nokia ASN1C, E2AP/E2SM-KPM/E2SM-RC v3.01 ASN.1 compilation, and patched `e2sim-dev`).
 
 ### Option 1: Development Mode with Live Code Mounting (Recommended)
-Edit files directly on your host machine while building and running inside Docker (identical to `nori-dev-env`):
+Edit source files directly on your host machine while building and running inside Docker in real-time:
 
 ```bash
+# Start the container with host volume mounted into ns-3-dev/contrib/nori
 docker compose up -d
+
+# Open a shell inside the container
 docker compose exec nori-dev bash
 
 # Inside the container:
@@ -126,11 +30,14 @@ docker compose exec nori-dev bash
 ./ns3 run nori-rc-slicing-demo -- --simTime=0
 ```
 
-### Option 2: Build Standalone High-Performance Image (Optimized Mode)
-Builds a fully self-contained Docker image with `-d optimized` (`-O3` compiler optimizations) using your local working tree:
+### Option 2: High-Performance Standalone Image (`-d optimized`)
+Builds a fully self-contained Docker image with `-d optimized` (`-O3` compiler optimizations) using your local working tree for maximum simulation execution speed:
 
 ```bash
+# Build the standalone image
 docker build -t nori .
+
+# Run the container
 docker run -it --name nori --network host nori bash
 
 # Inside the container:
@@ -139,7 +46,7 @@ docker run -it --name nori --network host nori bash
 
 ---
 
-## 🚀 Running Examples
+## Running Examples
 
 Example scenarios are provided to demonstrate the core functionality of the **NORI** module:
 
@@ -151,29 +58,26 @@ Simulates 2 network slices (eMBB on SST=1, URLLC on SST=2) with real-time PRB qu
 ./ns3 run nori-rc-slicing-demo -- --ipE2TermRic="YOUR_E2TERM_IP" --simTime=0
 ```
 
-### 2. `nori-sample`
+### 2. `nori-sample` (E2SM-KPM v3.00 Telemetry)
 
-Simulates one **gNB** and one **UE**, with UDP traffic and KPM metrics enabled.
+Simulates one **gNB** and one **UE**, with UDP traffic and KPM metric reporting enabled.
 
 ```bash
 ./ns3 run nori-sample -- --ipE2TermRic="YOUR_E2TERM_IP"
 ```
 
-> 🔎 You can get the E2Term pod IP with:
-
-```bash
-kubectl get pods -A -o wide
-```
-
-To view the E2Term logs:
-
-```bash
-kubectl logs deployment-ricplt-e2term-alpha-XYZ -n ricplt
-```
+> You can find the E2Term pod IP in your Kubernetes cluster with:
+> ```bash
+> kubectl get pods -A -o wide
+> ```
+> To follow the E2Term logs:
+> ```bash
+> kubectl logs deployment-ricplt-e2term-alpha-XYZ -n ricplt
+> ```
 
 ### 3. `nori-mimo-demo`
 
-A variation of the sample with **MIMO** (multiple antennas) support.
+A variation of the sample scenario with **MIMO** (multiple antennas) support.
 
 ```bash
 ./ns3 run nori-mimo-demo -- --IpE2TermRic="YOUR_E2TERM_IP"
@@ -181,10 +85,19 @@ A variation of the sample with **MIMO** (multiple antennas) support.
 
 ---
 
-## 🧠 Tips
+## Available Blueprints
 
-* Ensure the **RIC stack** is running before executing ns-3 examples.
-* The ns-3 terminal will show **E2-SETUP** and **RIC Indication** messages when working correctly.
+To simplify the setup and experimentation with the **NORI** module, we provide pre-configured **blueprints** including **ns-3**, **NR 5G LENA**, **NORI**, and sample **xApps**:
+
+Access the full documentation in the project’s **Wiki**:
+[https://github.com/lasseufpa/nori/wiki](https://github.com/lasseufpa/nori/wiki)
+
+---
+
+## Tips
+
+* Ensure the **Near-RT RIC stack** is up and running before executing ns-3 examples.
+* The ns-3 terminal output will log **E2-SETUP**, **RIC Subscription**, **RIC Indication**, and **RIC Control** messages upon successful operation.
 
 ---
 
