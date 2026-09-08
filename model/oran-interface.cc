@@ -13,6 +13,7 @@
  *         Michele Polese <michele.polese@gmail.com>
  */
 #include <iomanip>
+#include <algorithm>
 #include "oran-interface.h"
 
 #include "asn1c-types.h"
@@ -64,7 +65,10 @@ E2Termination::E2Termination(const std::string ricAddress,
       m_plmnId(plmnId)
 {
     NS_LOG_FUNCTION(this);
-    m_e2sim = new E2SimMod(m_gnbId, m_plmnId);
+    m_ricAddress.erase(std::remove(m_ricAddress.begin(), m_ricAddress.end(), '\"'), m_ricAddress.end());
+    m_ricAddress.erase(std::remove(m_ricAddress.begin(), m_ricAddress.end(), '\''), m_ricAddress.end());
+    m_ricAddress.erase(std::remove(m_ricAddress.begin(), m_ricAddress.end(), ' '), m_ricAddress.end());
+    m_e2sim = new E2SimMod(m_gnbId, m_plmnId, m_clientPort);
 }
     const std::string& E2Termination::GetGnbId() const
     {
@@ -92,6 +96,15 @@ E2Termination::RegisterFunctionDescToE2Sm(long ranFunctionId,
 void
 E2Termination::RegisterKpmCallbackToE2Sm(long ranFunctionId,
                                          Ptr<FunctionDescription> ranFunctionDescription,
+                                         std::function<void(E2AP_PDU_t*)> sbCb)
+{
+    RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
+    m_e2sim->register_subscription_callback_fn(ranFunctionId, sbCb);
+}
+
+void
+E2Termination::RegisterKpmCallbackToE2Sm(long ranFunctionId,
+                                         Ptr<FunctionDescription> ranFunctionDescription,
                                          SubscriptionCallback sbCb)
 {
     RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
@@ -101,11 +114,18 @@ E2Termination::RegisterKpmCallbackToE2Sm(long ranFunctionId,
 void
 E2Termination::RegisterSmCallbackToE2Sm(long ranFunctionId,
                                         Ptr<FunctionDescription> ranFunctionDescription,
+                                        std::function<void(E2AP_PDU_t*)> smCb)
+{
+    RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
+    m_e2sim->register_subscription_callback_fn(ranFunctionId, smCb);
+}
+
+void
+E2Termination::RegisterSmCallbackToE2Sm(long ranFunctionId,
+                                        Ptr<FunctionDescription> ranFunctionDescription,
                                         SubscriptionCallback smCb)
 {
     RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
-    // No e2sim atualizado, register_sm_callback não existe.
-    // Usamos register_subscription_callback que aceita o mesmo tipo de callback.
     m_e2sim->register_subscription_callback(ranFunctionId, smCb);
 }
 

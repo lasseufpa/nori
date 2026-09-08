@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <functional>
 #include "e2sim.hpp"
 #include "e2sim-mod.h"
 #include "kpm-function-description.h"
@@ -78,6 +79,9 @@ class E2Termination : public Object
      */
     void RegisterKpmCallbackToE2Sm(long ranFunctionId,
                                    Ptr<FunctionDescription> ranFunctionDescription,
+                                   std::function<void(E2AP_PDU_t*)> sbCb);
+    void RegisterKpmCallbackToE2Sm(long ranFunctionId,
+                                   Ptr<FunctionDescription> ranFunctionDescription,
                                    SubscriptionCallback sbCb);
     /**
      * Register an E2 Service Model.
@@ -92,6 +96,9 @@ class E2Termination : public Object
      * @param cb callback that will be triggered if the RIC subscribes to
      *        this function
      */
+    void RegisterSmCallbackToE2Sm(long ranFunctionId,
+                                  Ptr<FunctionDescription> ranFunctionDescription,
+                                  std::function<void(E2AP_PDU_t*)> smCb);
     void RegisterSmCallbackToE2Sm(long ranFunctionId,
                                   Ptr<FunctionDescription> ranFunctionDescription,
                                   SubscriptionCallback smCb);

@@ -3,6 +3,7 @@ set(E2SIM_LIBRARIES "/usr/local/lib/libe2sim.a")
 set(base_examples
     nori-sample
     nori-rc-slicing-demo
+    nori-benchmark-scenario
     #oran-interface-example
     #nori-mimo-demo
     #nori-simple-rl-sched

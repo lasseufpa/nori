@@ -196,30 +196,24 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     // Enable SINR traces
     EnableSinrTraces(e2Messages);
 
-    // Connect E2 termination to E2 messages via KPM subscription callback
-    // Note: SubscriptionCallback is a raw C function pointer void(*)(E2AP_PDU*),
-    // so we use a static global pointer + trampoline free function.
-    static Ptr<E2Interface> s_e2MessagesInstance = nullptr;
-    s_e2MessagesInstance = e2Messages;
-
+    // Connect E2 termination to E2 messages via KPM / RC subscription callbacks capturing e2Messages per instance
     Ptr<KpmFunctionDescription> kpmFd = Create<KpmFunctionDescription>();
     e2Term->RegisterKpmCallbackToE2Sm(200,
                                       kpmFd,
-                                      [](E2AP_PDU_t* pdu) {
-                                          if (s_e2MessagesInstance)
+                                      [e2Messages](E2AP_PDU_t* pdu) {
+                                          if (e2Messages)
                                           {
-                                              s_e2MessagesInstance->FunctionServiceSubscriptionCallback(pdu);
+                                              e2Messages->FunctionServiceSubscriptionCallback(pdu);
                                           }
                                       });
 
-    
     Ptr<RicControlFunctionDescription> rcFd = Create<RicControlFunctionDescription>();
     e2Term->RegisterSmCallbackToE2Sm(300,
                                      rcFd,
-                                     [](E2AP_PDU_t* pdu) {
-                                         if (s_e2MessagesInstance)
+                                     [e2Messages](E2AP_PDU_t* pdu) {
+                                         if (e2Messages)
                                          {
-                                             s_e2MessagesInstance->ControlMessageReceivedCallback(pdu);
+                                             e2Messages->ControlMessageReceivedCallback(pdu);
                                          }
                                      });
 
@@ -242,22 +236,26 @@ void
 E2TermHelper::EnableE2PdcpTraces()
 {
     NS_LOG_FUNCTION(this);
-    // Enable E2 PDCP traces
-    m_e2PdcpStats = CreateObject<NrBearerStatsCalculator>("E2PDCP");
-    m_e2PdcpStats->SetAttribute("DlPdcpOutputFilename", StringValue("DlE2PdcpStats.txt"));
-    m_e2PdcpStats->SetAttribute("UlPdcpOutputFilename", StringValue("UlE2PdcpStats.txt"));
-    m_e2StatsConnector.EnablePdcpStats(m_e2PdcpStats);
+    if (!m_e2PdcpStats)
+    {
+        m_e2PdcpStats = CreateObject<NrBearerStatsCalculator>("E2PDCP");
+        m_e2PdcpStats->SetAttribute("DlPdcpOutputFilename", StringValue("DlE2PdcpStats.txt"));
+        m_e2PdcpStats->SetAttribute("UlPdcpOutputFilename", StringValue("UlE2PdcpStats.txt"));
+        m_e2StatsConnector.EnablePdcpStats(m_e2PdcpStats);
+    }
 }
 
 void
 E2TermHelper::EnableE2RlcTraces()
 {
     NS_LOG_FUNCTION(this);
-    // Enable E2 RLC traces
-    m_e2RlcStats = CreateObject<NrBearerStatsCalculator>("E2RLC");
-    m_e2RlcStats->SetAttribute("DlRlcOutputFilename", StringValue("DlE2RlcStats.txt"));
-    m_e2RlcStats->SetAttribute("UlRlcOutputFilename", StringValue("UlE2RlcStats.txt"));
-    m_e2StatsConnector.EnableRlcStats(m_e2RlcStats);
+    if (!m_e2RlcStats)
+    {
+        m_e2RlcStats = CreateObject<NrBearerStatsCalculator>("E2RLC");
+        m_e2RlcStats->SetAttribute("DlRlcOutputFilename", StringValue("DlE2RlcStats.txt"));
+        m_e2RlcStats->SetAttribute("UlRlcOutputFilename", StringValue("UlE2RlcStats.txt"));
+        m_e2StatsConnector.EnableRlcStats(m_e2RlcStats);
+    }
 }
 
 void
