@@ -92,44 +92,58 @@ E2Interface::RegisterNewSinrReadingCallback([[maybe_unused]] std::string path,
                                             uint16_t cellId,
                                             uint16_t rnti,
                                             double avgSinr,
-                                            uint16_t bwpId)
+                                            [[maybe_unused]] uint16_t bwpId)
 {
     NS_LOG_FUNCTION(this);
+    if (avgSinr <= 0)
+    {
+        return;
+    }
     double sinrDb = 10 * log10(avgSinr);
     NS_LOG_DEBUG("Registering new SINR reading for cellId: " << cellId << " RNTI: " << rnti
                                                              << " avgSinr: " << sinrDb);
     auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
+    if (!gnbNode)
+    {
+        return;
+    }
     for (auto id : gnbNode->GetCellIds())
     {
         NS_LOG_DEBUG("CellId: " << cellId << " gNB cellId: " << id);
-        if (gnbNode)
+        if (id == cellId)
         {
-            if (id == cellId)
+            m_cellId = id;
+            // Get the current gNB RRC instance
+            PointerValue rrc;
+            gnbNode->GetAttribute("NrGnbRrc", rrc);
+            auto rrcPtr = rrc.Get<NrGnbRrc>();
+            if (!rrcPtr)
             {
-                m_cellId = id;
-                // Get the current gNB RRC instance
-                PointerValue rrc;
-                gnbNode->GetAttribute("NrGnbRrc", rrc);
-                auto rrcPtr = rrc.Get<NrGnbRrc>();
-                NS_ASSERT(rrcPtr);
-                // Using the current RRC, get the UE map
-                ObjectMapValue ueMap;
-                rrcPtr->GetAttribute("UeMap", ueMap);
-                // Get the ue based on the c-rnti
-                NS_LOG_DEBUG("ue C-RNTI:" << rnti);
-                auto ueMapObjct = ueMap.Get(rnti);
-                auto ue = DynamicCast<NrUeManager>(ueMapObjct);
-                auto ueRnti = ue->GetRnti();
-                NS_ASSERT(ueRnti == rnti);
+                return;
+            }
+            // Using the current RRC, get the UE map
+            ObjectMapValue ueMap;
+            rrcPtr->GetAttribute("UeMap", ueMap);
+            // Get the ue based on the c-rnti
+            NS_LOG_DEBUG("ue C-RNTI:" << rnti);
+            auto ueMapObjct = ueMap.Get(rnti);
+            if (!ueMapObjct)
+            {
+                return;
+            }
+            auto ue = DynamicCast<NrUeManager>(ueMapObjct);
+            if (!ue)
+            {
+                return;
+            }
+            auto ueRnti = ue->GetRnti();
+            if (ueRnti == rnti)
+            {
                 // Use in dB
                 m_l3sinrMap[rnti][cellId] = sinrDb;
                 NS_LOG_DEBUG("RNTI: " << rnti << " CellID: " << cellId << " SINR: " << sinrDb
                                       << " dB");
             }
-        }
-        else
-        {
-            NS_FATAL_ERROR("NetDevice is not a gNB");
         }
     }
 }
@@ -198,7 +212,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
                 header->m_size,
                 (uint8_t*)ueMsg->m_buffer,
                 ueMsg->m_size);
-            m_e2term->SendE2Message(pdu);
+            e2Term->SendE2Message(pdu);
             // delete pdu;
         }
     }
@@ -224,13 +238,12 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
                                 << ", ranFuncionId " << +params.ranFuncionId << ", actionId "
                                 << +params.actionId);
 
-    static bool isFirsReportMessage = true;
-    if (isFirsReportMessage)
-    {
-        NS_LOG_DEBUG("=====> isFirsReportMessage: " << isFirsReportMessage);
-        BuildAndSendReportMessage(params);
-        isFirsReportMessage = false;
-    }
+    uint32_t nodeId = m_netDev->GetNode()->GetId();
+    Simulator::ScheduleWithContext(nodeId,
+                                   MicroSeconds(0),
+                                   &E2Interface::BuildAndSendReportMessage,
+                                   this,
+                                   params);
 }
 
 void
@@ -449,11 +462,15 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
     for (auto ueMap = ueManager.Begin(); ueMap != ueManager.End(); ueMap++)
     {
         auto ue = DynamicCast<NrUeManager>(ueMap->second);
+        if (!ue)
+        {
+            continue;
+        }
         uint64_t imsi = ue->GetImsi();
         uint16_t rnti = ue->GetRnti();
 
         // --- CU-UP: aggregate PDCP volume ---
-        double actualTotalTxBytes = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3);
+        double actualTotalTxBytes = m_e2PdcpStatsCalculator ? (m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3)) : 0.0;
         if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
             m_cellTxBytes.insert(std::make_pair(imsi, 0));
         double txBytes = actualTotalTxBytes - m_cellTxBytes[imsi];
@@ -551,6 +568,10 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
     for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
     {
         auto ue = DynamicCast<NrUeManager>(ueObject->second);
+        if (!ue)
+        {
+            continue;
+        }
         uint64_t imsi = ue->GetImsi();
         uint16_t rnti = ue->GetRnti();
         uint8_t sst = NoriSlicingHelper::GetSstForRnti(rnti);
@@ -559,7 +580,7 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
         helper->BeginUeReport(imsi, plmId, 0, 0, 0);
 
         // --- CU-UP per-UE: PDCP throughput ---
-        double actualTotalTxBytes = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3);
+        double actualTotalTxBytes = m_e2PdcpStatsCalculator ? (m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3)) : 0.0;
         if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
             m_cellTxBytes.insert(std::make_pair(imsi, 0));
         double txBytes = actualTotalTxBytes - m_cellTxBytes[imsi];
@@ -671,11 +692,11 @@ E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
     double currentTime = Simulator::Now().GetMilliSeconds();
     double deltatime = currentTime - m_previousTime[imsi];
 
-    double currentDlTxData = m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4);
-    double dlThroughput = (currentDlTxData - m_previousDlTxData[imsi]) * 8 / deltatime;
+    double currentDlTxData = m_e2PdcpStatsCalculator ? m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) : 0.0;
+    double dlThroughput = (currentTime > m_previousTime[imsi]) ? ((currentDlTxData - m_previousDlTxData[imsi]) * 8 / deltatime) : 0.0;
     m_previousDlTxData[imsi] = currentDlTxData;
-    double currentUlTxData = m_e2PdcpStatsCalculator->GetUlTxData(imsi, 4);
-    double ulThroughput = (currentUlTxData - m_previousUlTxData[imsi]) * 8 / deltatime;
+    double currentUlTxData = m_e2PdcpStatsCalculator ? m_e2PdcpStatsCalculator->GetUlTxData(imsi, 4) : 0.0;
+    double ulThroughput = (currentTime > m_previousTime[imsi]) ? ((currentUlTxData - m_previousUlTxData[imsi]) * 8 / deltatime) : 0.0;
     m_previousUlTxData[imsi] = currentUlTxData;
     m_previousTime[imsi] = currentTime;
     double spectralEfficiency = 0.0;

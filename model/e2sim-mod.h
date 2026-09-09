@@ -121,75 +121,101 @@ public:
 
         LOG_I("[E2SimMod-gNB%s] Unpacked E2AP-PDU: index = %d, procedureCode = %d", mod_gnb_id.c_str(), (int)pdu->present, procedureCode);
 
-        if (procedureCode == ProcedureCode_id_RICcontrol && pdu->present == E2AP_PDU_PR_initiatingMessage)
+        switch (procedureCode)
         {
-            long func_id = -1;
-            auto& ies_list = pdu->choice.initiatingMessage->value.choice.RICcontrolRequest.protocolIEs.list;
-            for (int i = 0; i < ies_list.count; i++)
+        case ProcedureCode_id_E2setup:
+            if (pdu->present == E2AP_PDU_PR_successfulOutcome)
             {
-                RICcontrolRequest_IEs_t* next_ie = (RICcontrolRequest_IEs_t*)ies_list.array[i];
-                if (next_ie->value.present == RICcontrolRequest_IEs__value_PR_RANfunctionID)
-                {
-                    func_id = next_ie->value.choice.RANfunctionID;
-                    break;
-                }
+                LOG_I("[E2SimMod-gNB%s] Received SETUP-RESPONSE-SUCCESS from Near-RT RIC", mod_gnb_id.c_str());
             }
-            LOG_I("[E2SimMod-gNB%s] Received RICcontrolRequest for RANfunctionID=%ld", mod_gnb_id.c_str(), func_id);
+            else if (pdu->present == E2AP_PDU_PR_unsuccessfulOutcome)
+            {
+                LOG_E("[E2SimMod-gNB%s] Received SETUP-RESPONSE-FAILURE from Near-RT RIC", mod_gnb_id.c_str());
+            }
+            break;
 
-            auto it = m_subCallbacks.find(func_id);
-            if (it != m_subCallbacks.end() && it->second)
+        case ProcedureCode_id_RICcontrol:
+            if (pdu->present == E2AP_PDU_PR_initiatingMessage)
             {
-                LOG_I("[E2SimMod-gNB%s] Invoking instance callback for control request (func_id=%ld)", mod_gnb_id.c_str(), func_id);
-                it->second(pdu);
-            }
-            else
-            {
-                try
+                long func_id = -1;
+                auto& ies_list = pdu->choice.initiatingMessage->value.choice.RICcontrolRequest.protocolIEs.list;
+                for (int i = 0; i < ies_list.count; i++)
                 {
-                    SubscriptionCallback cb = get_subscription_callback(func_id);
-                    LOG_I("[E2SimMod-gNB%s] Invoking base callback for control request (func_id=%ld)", mod_gnb_id.c_str(), func_id);
-                    cb(pdu);
+                    RICcontrolRequest_IEs_t* next_ie = (RICcontrolRequest_IEs_t*)ies_list.array[i];
+                    if (next_ie->value.present == RICcontrolRequest_IEs__value_PR_RANfunctionID)
+                    {
+                        func_id = next_ie->value.choice.RANfunctionID;
+                        break;
+                    }
                 }
-                catch (const std::out_of_range& e)
-                {
-                    LOG_E("[E2SimMod-gNB%s] No RAN Function callback registered for ID %ld", mod_gnb_id.c_str(), func_id);
-                }
-            }
-            ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
-        }
-        else if (procedureCode == ProcedureCode_id_RICsubscription && pdu->present == E2AP_PDU_PR_initiatingMessage)
-        {
-            long func_id = -1;
-            auto& ies_list = pdu->choice.initiatingMessage->value.choice.RICsubscriptionRequest.protocolIEs.list;
-            for (int i = 0; i < ies_list.count; i++)
-            {
-                RICsubscriptionRequest_IEs_t* next_ie = (RICsubscriptionRequest_IEs_t*)ies_list.array[i];
-                if (next_ie->value.present == RICsubscriptionRequest_IEs__value_PR_RANfunctionID)
-                {
-                    func_id = next_ie->value.choice.RANfunctionID;
-                    break;
-                }
-            }
-            LOG_I("[E2SimMod-gNB%s] Received RICsubscriptionRequest for RANfunctionID=%ld", mod_gnb_id.c_str(), func_id);
+                LOG_I("[E2SimMod-gNB%s] Received RICcontrolRequest for RANfunctionID=%ld", mod_gnb_id.c_str(), func_id);
 
-            auto it = m_subCallbacks.find(func_id);
-            if (it != m_subCallbacks.end() && it->second)
-            {
-                LOG_I("[E2SimMod-gNB%s] Invoking instance callback for subscription request (func_id=%ld)", mod_gnb_id.c_str(), func_id);
-                it->second(pdu);
-                ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
+                auto it = m_subCallbacks.find(func_id);
+                if (it != m_subCallbacks.end() && it->second)
+                {
+                    LOG_I("[E2SimMod-gNB%s] Invoking instance callback for control request (func_id=%ld)", mod_gnb_id.c_str(), func_id);
+                    it->second(pdu);
+                }
+                else
+                {
+                    try
+                    {
+                        SubscriptionCallback cb = get_subscription_callback(func_id);
+                        LOG_I("[E2SimMod-gNB%s] Invoking base callback for control request (func_id=%ld)", mod_gnb_id.c_str(), func_id);
+                        cb(pdu);
+                    }
+                    catch (const std::out_of_range& e)
+                    {
+                        LOG_E("[E2SimMod-gNB%s] No RAN Function callback registered for ID %ld", mod_gnb_id.c_str(), func_id);
+                    }
+                }
             }
-            else
+            break;
+
+        case ProcedureCode_id_RICsubscription:
+            if (pdu->present == E2AP_PDU_PR_initiatingMessage)
             {
-                ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
-                e2ap_handle_sctp_data(socket_fd, data, xmlenc, this);
+                long func_id = -1;
+                auto& ies_list = pdu->choice.initiatingMessage->value.choice.RICsubscriptionRequest.protocolIEs.list;
+                for (int i = 0; i < ies_list.count; i++)
+                {
+                    RICsubscriptionRequest_IEs_t* next_ie = (RICsubscriptionRequest_IEs_t*)ies_list.array[i];
+                    if (next_ie->value.present == RICsubscriptionRequest_IEs__value_PR_RANfunctionID)
+                    {
+                        func_id = next_ie->value.choice.RANfunctionID;
+                        break;
+                    }
+                }
+                LOG_I("[E2SimMod-gNB%s] Received RICsubscriptionRequest for RANfunctionID=%ld", mod_gnb_id.c_str(), func_id);
+
+                auto it = m_subCallbacks.find(func_id);
+                if (it != m_subCallbacks.end() && it->second)
+                {
+                    LOG_I("[E2SimMod-gNB%s] Invoking instance callback for subscription request (func_id=%ld)", mod_gnb_id.c_str(), func_id);
+                    it->second(pdu);
+                }
+                else
+                {
+                    try
+                    {
+                        SubscriptionCallback cb = get_subscription_callback(func_id);
+                        LOG_I("[E2SimMod-gNB%s] Invoking base callback for subscription request (func_id=%ld)", mod_gnb_id.c_str(), func_id);
+                        cb(pdu);
+                    }
+                    catch (const std::out_of_range& e)
+                    {
+                        LOG_E("[E2SimMod-gNB%s] No callback for subscription ID %ld", mod_gnb_id.c_str(), func_id);
+                    }
+                }
             }
+            break;
+
+        default:
+            LOG_I("[E2SimMod-gNB%s] Handled E2 message with procedureCode=%d", mod_gnb_id.c_str(), procedureCode);
+            break;
         }
-        else
-        {
-            ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
-            e2ap_handle_sctp_data(socket_fd, data, xmlenc, this);
-        }
+
+        ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
     }
 
     int run_loop(int argc, char* argv[])

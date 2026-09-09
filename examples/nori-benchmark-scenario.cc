@@ -41,10 +41,25 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include <csignal>
+#include <cstdlib>
+#include <execinfo.h>
+#include <unistd.h>
 
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("NoriBenchmarkScenario");
+
+static void segfault_handler(int sig)
+{
+    void *array[50];
+    int size = backtrace(array, 50);
+    fprintf(stderr, "\n=== SIGNAL %d (%s) RECEIVED ===\n", sig, strsignal(sig));
+    fprintf(stderr, "Backtrace (%d frames):\n", size);
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    fprintf(stderr, "=== END BACKTRACE ===\n");
+    _exit(1);
+}
 
 /**
  * @brief Periodic statistics callback executed every 1.0s (or user-defined interval).
@@ -122,6 +137,10 @@ PrintPeriodicStats(Ptr<FlowMonitor> monitor,
 int
 main(int argc, char* argv[])
 {
+    // Install signal handler for crash diagnostics
+    signal(SIGSEGV, segfault_handler);
+    signal(SIGABRT, segfault_handler);
+
     // Default parameters
     uint32_t preset = 1;             // 1: 10 UEs, 2 gNBs
     uint32_t gNbNum = 2;             // Number of gNBs
@@ -324,12 +343,16 @@ main(int argc, char* argv[])
     nrHelper->AttachToClosestGnb(ueNetDev, gnbNetDev);
 
     // Optional E2 Interface Support (All gNBs have their own E2 interface)
+    // NOTE: e2Helper must persist for the entire simulation because its
+    // m_e2StatsConnector member registers trace callbacks (PDCP/RLC).
+    // If destroyed early, those callbacks become dangling → use-after-free crash.
+    Ptr<E2TermHelper> e2Helper;
     if (enableE2)
     {
-        auto e2 = CreateObject<E2TermHelper>();
-        e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
-        e2->SetAttribute("E2Port", UintegerValue(ipE2TermRicPort));
-        e2->InstallE2Term(gnbNetDev);
+        e2Helper = CreateObject<E2TermHelper>();
+        e2Helper->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
+        e2Helper->SetAttribute("E2Port", UintegerValue(ipE2TermRicPort));
+        e2Helper->InstallE2Term(gnbNetDev);
     }
 
     // 6. Traffic Applications (Downlink UDP from remoteHost to UEs)
