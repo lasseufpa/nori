@@ -563,6 +563,13 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
     ObjectMapValue ueManager;
     m_rrc->GetAttribute("UeMap", ueManager);
 
+    // If no UEs are attached to this gNB, skip UE-level report
+    // (ASN.1 Format 3 requires at least 1 UE in UEMeasurementReportList)
+    if (ueManager.GetN() == 0)
+    {
+        return nullptr;
+    }
+
     m_cellId = nrCellId;
 
     for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
