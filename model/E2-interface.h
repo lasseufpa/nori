@@ -14,6 +14,9 @@
 #include "ns3/nr-bearer-stats-calculator.h"
 #include "ns3/nr-gnb-net-device.h"
 #include "ns3/nr-phy-rx-trace.h"
+#include "ns3/nr-rl-mac-scheduler-ofdma.h"
+
+#include <nlohmann/json.hpp>
 
 namespace ns3
 {
@@ -57,7 +60,8 @@ class E2Interface : public Object
      * @param pdu request message
      */
     void FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
-
+    void CccSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
+    //callback specific for the ccc service model, it will be removed in the future
     /**
      * @brief Register new SINR reading callback
      * @param path the path
@@ -115,6 +119,7 @@ class E2Interface : public Object
      * @param quotas slice PRB quotas
      */
     void ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
+    void ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas);
 
     /**
      * @brief Process control message on the simulation thread
@@ -142,6 +147,13 @@ class E2Interface : public Object
     Ptr<KpmIndicationMessage> BuildNodeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
 
     Ptr<KpmIndicationMessage> BuildUeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
+
+    void BuildBwpReport(nlohmann::json& bwpList);
+    void BuildCccCellDuIndication(nlohmann::json& payload);
+    void BuildAndSendCccIndication(E2Termination::RicSubscriptionRequest_rval_s params);
+    void ApplyCellDuControl(const nlohmann::json& cellDu);
+    // bool m_applyPrbSlicing{true};   // example ccc-slicing-demo
+    // bool m_applyMimoLayers{false};  // example mimo-demo
 
     /**
      * @brief Function to help us to flip the map

@@ -93,6 +93,7 @@ NrRLMacSchedulerOfdma::SetSliceUeMapping(uint32_t numSlices,
     m_dedicatedRbPercSlices.resize(m_numberSlices, 0);
     m_minRbPercSlices.resize(m_numberSlices, 0);
     m_maxRbPercSlices.resize(m_numberSlices, 100);
+    // m_maxMimoLayersPerSlice.resize(m_numberSlices, 0);
 
     // Debug: logar mapeamento slice -> RNTIs
     for (uint32_t sliceIdx = 0; sliceIdx < m_numberSlices; ++sliceIdx)
@@ -159,9 +160,6 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
                     if (ue.first->m_rnti == rnti)
                     {
                         ranSliceUeVector[sliceIdx].emplace_back(ue);
-                        // Evidence/log: when we associate an active UE to a slice
-                        // in the scheduler, also log its SST as seen via the
-                        // RNTI->SST mapping (deterministic, no list scan here).
                         uint8_t sst = NrMacSchedulerUeInfoRl::GetSstFromUe(ue.first);
                         NS_LOG_INFO("[NrRLMacSchedulerOfdma] UE RNTI="
                                     << ue.first->m_rnti << " mapped to slice " << sliceIdx
@@ -390,7 +388,46 @@ NrRLMacSchedulerOfdma::SetSlicingParameters(
         m_dedicatedRbPercSlices[sliceIdx] = dedicated;
         m_minRbPercSlices[sliceIdx] = minPRB;
         m_maxRbPercSlices[sliceIdx] = maxPRB;
+        // if (m_maxMimoLayersPerSlice.size() < m_numberSlices) {
+        //     m_maxMimoLayersPerSlice.resize(m_numberSlices, 0);
+        // }
+        // m_maxMimoLayersPerSlice[sliceIdx] = q.maxMimoLayers; // 1 ou 2
     }
+}
+
+std::vector<SlicePRBQuota>
+NrRLMacSchedulerOfdma::GetCurrentSliceQuotas() const
+{
+    std::vector<SlicePRBQuota> quotas;
+    quotas.reserve(m_numberSlices);
+
+    for (uint32_t idx = 0; idx < m_numberSlices; ++idx)
+    {
+        uint8_t sst = 0;
+        if (idx < m_sliceUeRnti.size() && !m_sliceUeRnti[idx].empty())
+        {
+            uint16_t rnti = static_cast<uint16_t>(m_sliceUeRnti[idx][0]);
+            sst = NoriSlicingHelper::GetSstForRnti(rnti);
+        }
+
+        SlicePRBQuota q;
+        q.sliceId          = (sst > 0) ? sst : static_cast<uint32_t>(idx + 1);
+        q.dedicatePRBRatio = (idx < m_dedicatedRbPercSlices.size())
+                                 ? static_cast<long>(m_dedicatedRbPercSlices[idx]) : 0L;
+        q.minPRBRatio      = (idx < m_minRbPercSlices.size())
+                                 ? static_cast<long>(m_minRbPercSlices[idx]) : 0L;
+        q.maxPRBRatio      = (idx < m_maxRbPercSlices.size())
+                                 ? static_cast<long>(m_maxRbPercSlices[idx]) : 100L;
+        quotas.push_back(q);
+
+        NS_LOG_DEBUG("[NrRLMacSchedulerOfdma::GetCurrentSliceQuotas] "
+                     "sliceIdx=" << idx
+                     << " SST=" << static_cast<uint32_t>(sst)
+                     << " ded=" << q.dedicatePRBRatio
+                     << "% min=" << q.minPRBRatio
+                     << "% max=" << q.maxPRBRatio << "%");
+    }
+    return quotas;
 }
 
 } // namespace ns3

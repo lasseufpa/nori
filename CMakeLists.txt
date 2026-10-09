@@ -10,6 +10,9 @@ set(source_files
     model/nr-rl-mac-scheduler-ofdma.cc
     model/ric-control-function-description.cc
     model/ric-control-message.cc
+    model/ccc-indication-message.cc
+    model/ccc-control-message.cc
+    model/ccc-function-description.cc
     helper/indication-message-helper.cc
     helper/nori-indication-message-helper.cc
     helper/nori-slicing-helper.cc
@@ -38,6 +41,10 @@ set(header_files
     model/function-description.h
     model/nr-mac-scheduler-ue-info-rl.h
     model/nr-rl-mac-scheduler-ofdma.h
+    model/ccc-function-description.h
+    model/ccc-indication-message.h
+    model/ccc-control-message.h
+    model/ccc-data-models.h
     helper/indication-message-helper.h
     helper/nori-indication-message-helper.h
     helper/nori-slicing-helper.h

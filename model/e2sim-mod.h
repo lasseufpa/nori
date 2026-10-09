@@ -327,7 +327,7 @@ public:
             LOG_E("[E2SimMod-gNB%s] Failed to encode E2-SETUP-REQUEST", mod_gnb_id.c_str());
         }
 
-        ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu_setup);
+        // ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu_setup);
 
         sctp_buffer_t recv_buf;
         LOG_I("[E2SimMod-gNB%s] Waiting for SCTP data from RIC", mod_gnb_id.c_str());
@@ -528,7 +528,28 @@ private:
             itemIes->value.choice.RANfunction_Item.ranFunctionID = nextRanFuncId;
 
             // Deep-copy OID buffer so ASN_STRUCT_FREE does not double-free
-            const char *oid_str = "1.3.6.1.4.1.53148.1.2.2.2"; 
+            // const char *oid_str = "1.3.6.1.4.1.53148.1.2.2.2"; 
+            // size_t oid_len = strlen(oid_str);
+            // itemIes->value.choice.RANfunction_Item.ranFunctionOID.buf = (uint8_t*)calloc(1, oid_len);
+            // std::memcpy(itemIes->value.choice.RANfunction_Item.ranFunctionOID.buf, oid_str, oid_len);
+            // itemIes->value.choice.RANfunction_Item.ranFunctionOID.size = oid_len;
+
+            
+            //the oid changes if ran function id is 200, 300 or 400, otherwise it is the default fallback oid
+            const char *oid_str = "1.3.6.1.4.1.53148.1.3.2.2"; // Fallback / KPM v3
+            if (nextRanFuncId == 200)
+            {
+                oid_str = "1.3.6.1.4.1.53148.1.3.2.2"; // E2SM-KPM v3.00
+            }
+            else if (nextRanFuncId == 300)
+            {
+                oid_str = "1.3.6.1.4.1.53148.1.3.2.3"; // E2SM-RC v3.01
+            }
+            else if (nextRanFuncId == 400)
+            {
+                oid_str = "1.3.6.1.4.1.53148.1.1.2.4"; // E2SM-CCC
+            }
+
             size_t oid_len = strlen(oid_str);
             itemIes->value.choice.RANfunction_Item.ranFunctionOID.buf = (uint8_t*)calloc(1, oid_len);
             std::memcpy(itemIes->value.choice.RANfunction_Item.ranFunctionOID.buf, oid_str, oid_len);

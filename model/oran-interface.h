@@ -22,6 +22,7 @@
 #include "kpm-indication.h"
 #include "ric-control-function-description.h"
 #include "ric-control-message.h"
+#include "ccc-function-description.h"
 
 #include "ns3/object.h"
 
@@ -102,11 +103,14 @@ class E2Termination : public Object
     void RegisterSmCallbackToE2Sm(long ranFunctionId,
                                   Ptr<FunctionDescription> ranFunctionDescription,
                                   SubscriptionCallback smCb);
-
+    void RegisterCccCallbackToE2Sm(long ranFunctionId, 
+                                   Ptr<FunctionDescription> ranFunctionDescription,
+                                   std::function<void(E2AP_PDU_t*)> sbCb);
     enum class ServiceModelType
     {
         KPM,
-        RAN_CONTROL
+        RAN_CONTROL,
+        CCC
     };
 
     /**

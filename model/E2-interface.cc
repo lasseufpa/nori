@@ -36,9 +36,15 @@
 #include "ns3/string.h"
 #include "ns3/type-id.h"
 #include "ns3/uinteger.h"
+#include "ccc-data-models.h"
+#include "ccc-control-message.h"
+#include "ccc-indication-message.h"
+#include "ns3/node-list.h"
+#include "ns3/nr-ue-net-device.h"
+#include "ns3/nr-ue-phy.h"
+#include "ns3/nr-pm-search.h"
 
 #include <encode_e2apv1.hpp>
-
 namespace ns3
 {
 
@@ -224,6 +230,75 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
                                    this,
                                    params);
 }
+void E2Interface::BuildBwpReport(nlohmann::json& bwpList)
+{
+    auto gnb = DynamicCast<NrGnbNetDevice>(m_netDev);
+    for (uint8_t bwpIdx = 0; bwpIdx < gnb->GetCcMapSize(); bwpIdx++)
+    {
+        auto phy = gnb->GetPhy(bwpIdx);
+        nlohmann::json bwp;
+        bwp["bwpContext"] = "DL"; 
+        bwp["subCarrierSpacing"] = std::to_string(15 * (1 << phy->GetNumerology()));
+        bwp["numberOfRBs"] = phy->GetRbNum();
+        bwpList.push_back(bwp);
+    }
+}
+
+void E2Interface::BuildCccCellDuIndication(nlohmann::json& payload)
+{
+    auto gnb = DynamicCast<NrGnbNetDevice>(m_netDev);
+    payload["cellLocalId"] = gnb->GetCellId();
+    payload["operationalState"] = "ENABLED";
+    payload["cellState"] = "ACTIVE";
+    payload["nrPci"] = gnb->GetCellId();
+
+    nlohmann::json plmnInfo = nlohmann::json::object();
+    auto e2Term = m_netDev->GetObject<E2Termination>();
+    plmnInfo["plmnId"] = e2Term ? e2Term->GetPlmnId() : "111"; 
+    
+    nlohmann::json snssaiList = nlohmann::json::array();
+    
+    nlohmann::json embb = {{"sst", 1}, {"sd", "000001"}};
+    nlohmann::json urllc = {{"sst", 2}, {"sd", "000002"}};
+    
+    snssaiList.push_back(embb);
+    snssaiList.push_back(urllc);
+    plmnInfo["snssaiList"] = snssaiList;
+
+    payload["plmnInfoList"] = nlohmann::json::array({plmnInfo});
+
+    nlohmann::json bwpList = nlohmann::json::array();
+    BuildBwpReport(bwpList);
+    payload["bwpList"] = bwpList;
+}
+
+void E2Interface::ApplyCellDuControl(const nlohmann::json& cellDuJson)
+{
+    NS_LOG_FUNCTION(this);
+    
+    CccCellDuControlMessage controlMsg = cellDuJson.get<CccCellDuControlMessage>();
+    std::vector<SlicePRBQuota> macQuotas;
+    for (const auto& bwp : controlMsg.bwpList) {
+        for (const auto& part : bwp.partitionList) {
+            SlicePRBQuota macQ;
+            macQ.sliceId = part.snssai.sst;
+            macQ.dedicatePRBRatio = part.prbQuota;
+            macQ.minPRBRatio = part.minPRBRatio;
+            macQ.maxPRBRatio = part.maxPRBRatio;
+            
+            macQuotas.push_back(macQ);
+        }
+    }    if (!macQuotas.empty()) {
+        auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
+        if (gnbNode) {
+            Ptr<NrMacScheduler> scheduler = gnbNode->GetScheduler(0);
+            Ptr<NrRLMacSchedulerOfdma> rlScheduler = DynamicCast<NrRLMacSchedulerOfdma>(scheduler);
+            if (rlScheduler) {
+                rlScheduler->SetSlicingParameters(macQuotas);
+            }
+        }
+    }
+}
 
 void
 E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
@@ -245,6 +320,126 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
                                    this,
                                    params);
 }
+
+void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
+{
+    NS_LOG_FUNCTION(this);
+    if (!subReqPdu || !m_netDev) return;
+
+    if (subReqPdu->present != E2AP_PDU_PR_initiatingMessage) {
+        NS_LOG_WARN("CccSubscriptionCallback: PDU unexpected (not initiatingMessage).");
+        return;
+    }
+
+    long procedureCode =
+        subReqPdu->choice.initiatingMessage->procedureCode;
+
+    if (procedureCode == ProcedureCode_id_RICsubscription) {
+        auto e2Term = m_netDev->GetObject<E2Termination>();
+        if (!e2Term) return;
+        auto params = e2Term->ProcessRicSubscriptionRequest(subReqPdu);
+        NS_LOG_INFO("CCC Subscription accepted, scheduling periodic indications.");
+
+        uint32_t nodeId = m_netDev->GetNode()->GetId();
+        Simulator::ScheduleWithContext(nodeId, MicroSeconds(0),
+                                       &E2Interface::BuildAndSendCccIndication, this, params);
+
+        } else if (procedureCode == ProcedureCode_id_RICcontrol) {
+        NS_LOG_INFO("CCC RIC Control received.");
+        CccControlMessage ctrlMsg(subReqPdu);
+        if (!ctrlMsg.IsValid()) {
+            NS_LOG_WARN("CccSubscriptionCallback: RICcontrolRequest invalid.");
+            return;
+        }
+
+        auto quotas = ctrlMsg.GetPrbQuotas();
+        NS_LOG_INFO("CCC Control: " << quotas.size() << " quotas received.");
+
+        // uint32_t nodeId = m_netDev->GetNode()->GetId();
+        // Simulator::ScheduleWithContext(nodeId, MicroSeconds(0),
+        //                                &E2Interface::ApplyCccSlicingControl, this, quotas);
+        ApplyCccSlicingControl(quotas);
+
+        auto e2Term = m_netDev->GetObject<E2Termination>();
+        if (e2Term) {
+            long reqId = 0, instId = 0, ranFuncId = 4;
+            auto& ies = subReqPdu->choice.initiatingMessage->value.choice.RICcontrolRequest.protocolIEs.list;
+            for (int i = 0; i < ies.count; ++i) {
+                auto* ie = reinterpret_cast<RICcontrolRequest_IEs_t*>(ies.array[i]);
+                if (ie->value.present == RICcontrolRequest_IEs__value_PR_RICrequestID) {
+                    reqId = ie->value.choice.RICrequestID.ricRequestorID;
+                    instId = ie->value.choice.RICrequestID.ricInstanceID;
+                } else if (ie->value.present == RICcontrolRequest_IEs__value_PR_RANfunctionID) {
+                    ranFuncId = ie->value.choice.RANfunctionID;
+                }
+            }
+
+            auto* ackPdu = (E2AP_PDU_t*)calloc(1, sizeof(E2AP_PDU_t));
+            ackPdu->present = E2AP_PDU_PR_successfulOutcome;
+            ackPdu->choice.successfulOutcome = (SuccessfulOutcome_t*)calloc(1, sizeof(SuccessfulOutcome_t));
+            ackPdu->choice.successfulOutcome->procedureCode = ProcedureCode_id_RICcontrol;
+            ackPdu->choice.successfulOutcome->criticality = Criticality_reject;
+            ackPdu->choice.successfulOutcome->value.present = SuccessfulOutcome__value_PR_RICcontrolAcknowledge;
+
+            auto* ack = &ackPdu->choice.successfulOutcome->value.choice.RICcontrolAcknowledge;
+
+            // IE 1: RICrequestID
+            auto* ieReqId = (RICcontrolAcknowledge_IEs_t*)calloc(1, sizeof(RICcontrolAcknowledge_IEs_t));
+            ieReqId->id = ProtocolIE_ID_id_RICrequestID;
+            ieReqId->criticality = Criticality_reject;
+            ieReqId->value.present = RICcontrolAcknowledge_IEs__value_PR_RICrequestID;
+            ieReqId->value.choice.RICrequestID.ricRequestorID = reqId;
+            ieReqId->value.choice.RICrequestID.ricInstanceID = instId;
+            ASN_SEQUENCE_ADD(&ack->protocolIEs.list, ieReqId);
+
+            // IE 2: RANfunctionID
+            auto* ieFuncId = (RICcontrolAcknowledge_IEs_t*)calloc(1, sizeof(RICcontrolAcknowledge_IEs_t));
+            ieFuncId->id = ProtocolIE_ID_id_RANfunctionID;
+            ieFuncId->criticality = Criticality_reject;
+            ieFuncId->value.present = RICcontrolAcknowledge_IEs__value_PR_RANfunctionID;
+            ieFuncId->value.choice.RANfunctionID = ranFuncId;
+            ASN_SEQUENCE_ADD(&ack->protocolIEs.list, ieFuncId);
+
+            e2Term->SendE2Message(ackPdu);
+            NS_LOG_INFO("RIC control Acknowledgement successfully sent to reqId=" << reqId);
+        }
+    }
+}
+
+void E2Interface::BuildAndSendCccIndication(E2Termination::RicSubscriptionRequest_rval_s params)
+{
+    auto e2Term = m_netDev->GetObject<E2Termination>();
+    if (!e2Term) return;
+
+    Ptr<NrRLMacSchedulerOfdma> rlScheduler;
+    auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
+    if (gnbNode) {
+        Ptr<NrMacScheduler> scheduler = gnbNode->GetScheduler(0);
+        rlScheduler = DynamicCast<NrRLMacSchedulerOfdma>(scheduler);
+    }
+
+    std::string payload = CccIndicationMessage::BuildPayload(m_netDev, e2Term->GetPlmnId(), rlScheduler);
+    std::string header = "CCC";
+
+    auto pdu = new E2AP_PDU;
+    encoding::generate_e2apv1_indication_request_parameterized(
+        pdu,
+        params.requestorId,
+        params.instanceId,
+        params.ranFuncionId,
+        params.actionId,
+        1,
+        reinterpret_cast<uint8_t*>(header.data()), header.size(),
+        reinterpret_cast<uint8_t*>(payload.data()), payload.size()
+    );
+
+    e2Term->SendE2Message(pdu);
+
+    uint32_t nodeId = m_netDev->GetNode()->GetId();
+    Simulator::ScheduleWithContext(nodeId, Seconds(m_e2Periodicity),
+                                   &E2Interface::BuildAndSendCccIndication, this, params);
+}
+
 
 void
 E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
@@ -337,6 +532,47 @@ E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQu
 
     rlScheduler->SetSlicingParameters(macQuotas);
 }
+
+void
+E2Interface::ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas)
+{
+    NS_LOG_FUNCTION(this);
+    for (const auto& q : quotas)
+    {
+        if (q.maxMimoLayers > 0)
+        {
+            for (uint32_t i = 0; i < NodeList::GetNNodes(); ++i)
+            {
+                Ptr<Node> node = NodeList::GetNode(i);
+                for (uint32_t j = 0; j < node->GetNDevices(); ++j)
+                {
+                    Ptr<NrUeNetDevice> ueDev = DynamicCast<NrUeNetDevice>(node->GetDevice(j));
+                    if (ueDev && ueDev->GetPhy(0) && ueDev->GetPhy(0)->GetPmSearch())
+                    {
+                        ueDev->GetPhy(0)->GetPmSearch()->SetAttribute("RankLimit", UintegerValue(q.maxMimoLayers));
+                        std::cout << "\n>>> [MIMO CONTROL VIA xAPP] RankLimit atualizado para: " 
+                                  << q.maxMimoLayers << " layer(s) no UE (Node " << node->GetId() << ") <<<\n" << std::endl;
+                    }
+                }
+            }
+            break; 
+        }
+    }
+    auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
+    if (!gnbNode)
+    {
+        return;
+    }
+
+    Ptr<NrMacScheduler> scheduler = gnbNode->GetScheduler(0);
+    Ptr<NrRLMacSchedulerOfdma> rlScheduler = DynamicCast<NrRLMacSchedulerOfdma>(scheduler);
+
+    if (rlScheduler)
+    {
+        rlScheduler->SetSlicingParameters(quotas);
+    }
+}
+
 
 void
 E2Interface::SetE2PdcpStatsCalculator(Ptr<NrBearerStatsCalculator> e2PdcpStatsCalculator)

@@ -84,7 +84,7 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     // Public Land Mobile Network Identifier or with abbreviated version PLMN is a combination of
     // MCC and MNC. It is unique value and globally used to identify the mobile network that a user
     // subscribed.
-    std::string plmnId = "268413"; // Equivalent to MCC=001 and MNC=01 in Octet string with 3 bytes
+    std::string plmnId = "00101"; // Equivalent to MCC=001 and MNC=01 in Octet string with 3 bytes
     std::string encodedPlmnId;
 //     if (plmnId.length() == 6) {
 //         encodedPlmnId = {plmnId[1], plmnId[0], plmnId[3], plmnId[2], plmnId[5], plmnId[4]};
@@ -216,6 +216,16 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
                                              e2Messages->ControlMessageReceivedCallback(pdu);
                                          }
                                      });
+    Ptr<CccFunctionDescription> cccFd = Create<CccFunctionDescription>();
+    e2Term->RegisterCccCallbackToE2Sm(
+    4,
+    cccFd,
+    [e2Messages](E2AP_PDU_t* pdu) {
+        if (e2Messages)
+        {
+            e2Messages->CccSubscriptionCallback(pdu);
+        }
+    }); 
 
     Simulator::Schedule(MicroSeconds(0), &E2Termination::Start, e2Term);
 

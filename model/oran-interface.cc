@@ -130,6 +130,20 @@ E2Termination::RegisterSmCallbackToE2Sm(long ranFunctionId,
 }
 
 void
+E2Termination::RegisterCccCallbackToE2Sm(long ranFunctionId,
+    Ptr<FunctionDescription> ranFunctionDescription,
+    std::function<void(E2AP_PDU_t*)> sbCb)
+{
+    RegisterFunctionDescToE2Sm(
+        ranFunctionId,
+        ranFunctionDescription);
+
+    m_e2sim->register_subscription_callback_fn(
+        ranFunctionId,
+        sbCb);
+}
+
+void
 E2Termination::Start()
 {
     NS_LOG_FUNCTION(this);
