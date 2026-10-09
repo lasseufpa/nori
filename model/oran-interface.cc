@@ -12,7 +12,8 @@
  *         Tommaso Zugno <tommasozugno@gmail.com>
  *         Michele Polese <michele.polese@gmail.com>
  */
-
+#include <iomanip>
+#include <algorithm>
 #include "oran-interface.h"
 
 #include "asn1c-types.h"
@@ -29,6 +30,7 @@ extern "C"
 #include "ProtocolIE-Field.h"
 #include "RICactionType.h"
 #include "RICsubscriptionRequest.h"
+#include "e2sim_sctp.h"
 }
 
 namespace ns3
@@ -63,8 +65,20 @@ E2Termination::E2Termination(const std::string ricAddress,
       m_plmnId(plmnId)
 {
     NS_LOG_FUNCTION(this);
-    m_e2sim = new E2Sim;
+    m_ricAddress.erase(std::remove(m_ricAddress.begin(), m_ricAddress.end(), '\"'), m_ricAddress.end());
+    m_ricAddress.erase(std::remove(m_ricAddress.begin(), m_ricAddress.end(), '\''), m_ricAddress.end());
+    m_ricAddress.erase(std::remove(m_ricAddress.begin(), m_ricAddress.end(), ' '), m_ricAddress.end());
+    m_e2sim = new E2SimMod(m_gnbId, m_plmnId, m_clientPort);
 }
+    const std::string& E2Termination::GetGnbId() const
+    {
+        return m_gnbId;
+    }
+
+    const std::string& E2Termination::GetPlmnId() const
+    {
+        return m_plmnId;
+    }   
 
 void
 E2Termination::RegisterFunctionDescToE2Sm(long ranFunctionId,
@@ -82,6 +96,15 @@ E2Termination::RegisterFunctionDescToE2Sm(long ranFunctionId,
 void
 E2Termination::RegisterKpmCallbackToE2Sm(long ranFunctionId,
                                          Ptr<FunctionDescription> ranFunctionDescription,
+                                         std::function<void(E2AP_PDU_t*)> sbCb)
+{
+    RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
+    m_e2sim->register_subscription_callback_fn(ranFunctionId, sbCb);
+}
+
+void
+E2Termination::RegisterKpmCallbackToE2Sm(long ranFunctionId,
+                                         Ptr<FunctionDescription> ranFunctionDescription,
                                          SubscriptionCallback sbCb)
 {
     RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
@@ -91,10 +114,33 @@ E2Termination::RegisterKpmCallbackToE2Sm(long ranFunctionId,
 void
 E2Termination::RegisterSmCallbackToE2Sm(long ranFunctionId,
                                         Ptr<FunctionDescription> ranFunctionDescription,
-                                        SmCallback smCb)
+                                        std::function<void(E2AP_PDU_t*)> smCb)
 {
     RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
-    m_e2sim->register_sm_callback(ranFunctionId, smCb);
+    m_e2sim->register_subscription_callback_fn(ranFunctionId, smCb);
+}
+
+void
+E2Termination::RegisterSmCallbackToE2Sm(long ranFunctionId,
+                                        Ptr<FunctionDescription> ranFunctionDescription,
+                                        SubscriptionCallback smCb)
+{
+    RegisterFunctionDescToE2Sm(ranFunctionId, ranFunctionDescription);
+    m_e2sim->register_subscription_callback(ranFunctionId, smCb);
+}
+
+void
+E2Termination::RegisterCccCallbackToE2Sm(long ranFunctionId,
+    Ptr<FunctionDescription> ranFunctionDescription,
+    std::function<void(E2AP_PDU_t*)> sbCb)
+{
+    RegisterFunctionDescToE2Sm(
+        ranFunctionId,
+        ranFunctionDescription);
+
+    m_e2sim->register_subscription_callback_fn(
+        ranFunctionId,
+        sbCb);
 }
 
 void
@@ -114,23 +160,26 @@ E2Termination::DoStart()
 {
     NS_LOG_FUNCTION(this);
 
-    // start e2sim main loop
-    // char second[14]; // RIC ADDRESS
-    // std::strcpy (second, m_ricAddress.c_str ());
-    // char third[6]; // RIC PORT
-    // std::strcpy (third, std::to_string (m_ricPort).c_str ());
-    // char fourth[5]; // GNB ID value
-    // std::strncpy (fourth, m_gnbId.c_str (), 4);
-    // char fifth[6]; // CLIENT PORT
-    // std::strcpy (fifth, std::to_string (m_clientPort).c_str ());
-    // char sixth[4]; //PLMN ID
-    // std::strcpy (sixth, m_plmnId.c_str ());
+    NS_LOG_INFO("In ns3::E2Term: GNB" << m_gnbId << ", clientPort " << m_clientPort
+                << ", ricPort " << m_ricPort << ", PlmnID " << ", PlmnID "
+            << std::hex
+            << std::setw(2) << std::setfill('0') << (int)(uint8_t)m_plmnId[0] << " "
+            << std::setw(2) << (int)(uint8_t)m_plmnId[1] << " "
+            << std::setw(2) << (int)(uint8_t)m_plmnId[2]
+            << std::dec);
 
-    NS_LOG_INFO("In ns3::E2Term:  GNB" << m_gnbId << ", clientPort " << m_clientPort << ", ricPort "
-                                       << m_ricPort << ", PlmnID " << m_plmnId);
+    std::vector<char*> args;
+    args.push_back(strdup("e2sim"));
+    args.push_back(strdup(m_ricAddress.c_str()));
+    args.push_back(strdup(std::to_string(m_ricPort).c_str()));
 
-    // char* argv [] = {nullptr, &second [0], &third [0], &fourth[0], &fifth[0],&sixth[0]};
-    m_e2sim->run_loop(m_ricAddress, m_ricPort, m_clientPort, m_gnbId, m_plmnId);
+    m_e2sim->run_loop(args.size(), args.data());
+
+    // Limpar memória alocada com strdup
+    for (auto* arg : args)
+    {
+        free(arg);
+    }
 }
 
 E2Termination::~E2Termination()
@@ -260,18 +309,20 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
 
     NS_LOG_DEBUG("Create RIC Subscription Response");
     auto* e2ap_pdu = (E2AP_PDU*)calloc(1, sizeof(E2AP_PDU));
-    long* accept_array = &actionIdsAccept[0];
-    long* reject_array = &actionIdsReject[0];
+    long* accept_array = actionIdsAccept.empty() ? nullptr : actionIdsAccept.data();
+    long* reject_array = actionIdsReject.empty() ? nullptr : actionIdsReject.data();
     int accept_size = actionIdsAccept.size();
     int reject_size = actionIdsReject.size();
 
-    encoding::generate_e2apv1_subscription_response_success(e2ap_pdu,
+    m_e2sim->generate_e2apv1_subscription_response_success(e2ap_pdu,
                                                             accept_array,
                                                             reject_array,
                                                             accept_size,
                                                             reject_size,
                                                             reqRequestorId,
-                                                            reqInstanceId);
+                                                            reqInstanceId,
+                                                            ranFuncionId);
+
 
     NS_LOG_DEBUG("Send RIC Subscription Response");
     m_e2sim->encode_and_send_sctp_data(e2ap_pdu);

@@ -52,6 +52,10 @@ class NoriSlicingHelper
              */
             static uint8_t GetSstForRnti(uint16_t rnti);
 
+
+            static std::vector<uint8_t> GetConfiguredSsts();
+
+
   private:
     /**
      * \brief Internal function that applies the slice mapping configuration.
@@ -77,6 +81,11 @@ class NoriSlicingHelper
     /**
      * \brief Global RNTI -> SST mapping (single source of truth).
      */
+    struct SnssaiId {
+    uint8_t sst;
+    uint32_t sd;  // 0 = without SD, otherwise 24-bit SD value
+    };
+
     static std::map<uint16_t, uint8_t> m_rntiToSst;
 };
 

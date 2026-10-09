@@ -21,6 +21,7 @@
 #include "ns3/object.h"
 #include "ns3/oran-interface.h"
 #include "ns3/pointer.h"
+#include "ns3/ric-control-function-description.h"
 #include "ns3/simulator.h"
 #include "ns3/string.h"
 #include "ns3/type-id.h"
@@ -83,14 +84,70 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     // Public Land Mobile Network Identifier or with abbreviated version PLMN is a combination of
     // MCC and MNC. It is unique value and globally used to identify the mobile network that a user
     // subscribed.
-    std::string plmnId = "268413"; // Equivalent to MCC=001 and MNC=01 in Octet string with 3 bytes
+    std::string plmnId = "00101"; // Equivalent to MCC=001 and MNC=01 in Octet string with 3 bytes
     std::string encodedPlmnId;
-    if (plmnId.length() == 6) {
-        encodedPlmnId = {plmnId[1], plmnId[0], plmnId[3], plmnId[2], plmnId[5], plmnId[4]};
-    } 
-    else if (plmnId.length() == 5) {
-        encodedPlmnId =  {plmnId[1], plmnId[0], 'F', plmnId[2], plmnId[4], plmnId[3]};
+//     if (plmnId.length() == 6) {
+//         encodedPlmnId = {plmnId[1], plmnId[0], plmnId[3], plmnId[2], plmnId[5], plmnId[4]};
+//     } 
+//     else if (plmnId.length() == 5) {
+//         encodedPlmnId =  {plmnId[1], plmnId[0], 'F', plmnId[2], plmnId[4], plmnId[3]};
+//     }
+//     else if (plmnId.length() == 3)
+// {
+//     encodedPlmnId = plmnId;
+// }
+    if (plmnId.length() == 6)
+    {
+        uint8_t mcc1 = plmnId[0] - '0';
+        uint8_t mcc2 = plmnId[1] - '0';
+        uint8_t mcc3 = plmnId[2] - '0';
+
+        uint8_t mnc1 = plmnId[3] - '0';
+        uint8_t mnc2 = plmnId[4] - '0';
+        uint8_t mnc3 = plmnId[5] - '0';
+
+        encodedPlmnId.resize(3);
+
+        encodedPlmnId[0] =
+            static_cast<char>((mcc2 << 4) | mcc1);
+
+        encodedPlmnId[1] =
+            static_cast<char>((mnc3 << 4) | mcc3);
+
+        encodedPlmnId[2] =
+            static_cast<char>((mnc2 << 4) | mnc1);
     }
+    else if (plmnId.length() == 5)
+    {
+        uint8_t mcc1 = plmnId[0] - '0';
+        uint8_t mcc2 = plmnId[1] - '0';
+        uint8_t mcc3 = plmnId[2] - '0';
+
+        uint8_t mnc1 = plmnId[3] - '0';
+        uint8_t mnc2 = plmnId[4] - '0';
+
+        encodedPlmnId.resize(3);
+
+        encodedPlmnId[0] =
+            static_cast<char>((mcc2 << 4) | mcc1);
+
+        encodedPlmnId[1] =
+            static_cast<char>((0xF << 4) | mcc3);
+
+        encodedPlmnId[2] =
+            static_cast<char>((mnc2 << 4) | mnc1);
+    }
+    else if (plmnId.length() == 3)
+    {
+        // Caso especial de teste: "111" -> 31 31 31
+        encodedPlmnId = plmnId;
+    }
+    else
+    {
+        NS_FATAL_ERROR("Invalid PLMN length: " << plmnId.length());
+}
+
+
     // node cell ID
     uint16_t cellId{0};
     // Client local port
@@ -139,21 +196,36 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     // Enable SINR traces
     EnableSinrTraces(e2Messages);
 
-    // Connect E2 termination to E2 messages via KPM subscription callback
+    // Connect E2 termination to E2 messages via KPM / RC subscription callbacks capturing e2Messages per instance
     Ptr<KpmFunctionDescription> kpmFd = Create<KpmFunctionDescription>();
     e2Term->RegisterKpmCallbackToE2Sm(200,
                                       kpmFd,
-                                      std::bind(&E2Interface::FunctionServiceSubscriptionCallback,
-                                                e2Messages,
-                                                std::placeholders::_1));
+                                      [e2Messages](E2AP_PDU_t* pdu) {
+                                          if (e2Messages)
+                                          {
+                                              e2Messages->FunctionServiceSubscriptionCallback(pdu);
+                                          }
+                                      });
 
-    
-    auto ricFd = Create<RicControlFunctionDescription>();
+    Ptr<RicControlFunctionDescription> rcFd = Create<RicControlFunctionDescription>();
     e2Term->RegisterSmCallbackToE2Sm(300,
-                                     ricFd,
-                                     std::bind(&E2Interface::ControlMessageReceivedCallback,
-                                               e2Messages,
-                                               std::placeholders::_1));
+                                     rcFd,
+                                     [e2Messages](E2AP_PDU_t* pdu) {
+                                         if (e2Messages)
+                                         {
+                                             e2Messages->ControlMessageReceivedCallback(pdu);
+                                         }
+                                     });
+    Ptr<CccFunctionDescription> cccFd = Create<CccFunctionDescription>();
+    e2Term->RegisterCccCallbackToE2Sm(
+    4,
+    cccFd,
+    [e2Messages](E2AP_PDU_t* pdu) {
+        if (e2Messages)
+        {
+            e2Messages->CccSubscriptionCallback(pdu);
+        }
+    }); 
 
     Simulator::Schedule(MicroSeconds(0), &E2Termination::Start, e2Term);
 
@@ -174,22 +246,26 @@ void
 E2TermHelper::EnableE2PdcpTraces()
 {
     NS_LOG_FUNCTION(this);
-    // Enable E2 PDCP traces
-    m_e2PdcpStats = CreateObject<NrBearerStatsCalculator>("E2PDCP");
-    m_e2PdcpStats->SetAttribute("DlPdcpOutputFilename", StringValue("DlE2PdcpStats.txt"));
-    m_e2PdcpStats->SetAttribute("UlPdcpOutputFilename", StringValue("UlE2PdcpStats.txt"));
-    m_e2StatsConnector.EnablePdcpStats(m_e2PdcpStats);
+    if (!m_e2PdcpStats)
+    {
+        m_e2PdcpStats = CreateObject<NrBearerStatsCalculator>("E2PDCP");
+        m_e2PdcpStats->SetAttribute("DlPdcpOutputFilename", StringValue("DlE2PdcpStats.txt"));
+        m_e2PdcpStats->SetAttribute("UlPdcpOutputFilename", StringValue("UlE2PdcpStats.txt"));
+        m_e2StatsConnector.EnablePdcpStats(m_e2PdcpStats);
+    }
 }
 
 void
 E2TermHelper::EnableE2RlcTraces()
 {
     NS_LOG_FUNCTION(this);
-    // Enable E2 RLC traces
-    m_e2RlcStats = CreateObject<NrBearerStatsCalculator>("E2RLC");
-    m_e2RlcStats->SetAttribute("DlRlcOutputFilename", StringValue("DlE2RlcStats.txt"));
-    m_e2RlcStats->SetAttribute("UlRlcOutputFilename", StringValue("UlE2RlcStats.txt"));
-    m_e2StatsConnector.EnableRlcStats(m_e2RlcStats);
+    if (!m_e2RlcStats)
+    {
+        m_e2RlcStats = CreateObject<NrBearerStatsCalculator>("E2RLC");
+        m_e2RlcStats->SetAttribute("DlRlcOutputFilename", StringValue("DlE2RlcStats.txt"));
+        m_e2RlcStats->SetAttribute("UlRlcOutputFilename", StringValue("UlE2RlcStats.txt"));
+        m_e2StatsConnector.EnableRlcStats(m_e2RlcStats);
+    }
 }
 
 void
