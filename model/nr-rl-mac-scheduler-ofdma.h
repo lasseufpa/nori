@@ -6,11 +6,21 @@
 
 #include "ns3/nr-mac-scheduler-ofdma-rr.h"
 #include "ns3/nr-mac-scheduler-ofdma.h"
-#include "ns3/ric-control-message.h"
 #include "ns3/traced-value.h"
 
 namespace ns3
 {
+
+struct SlicePRBQuota
+{
+    uint32_t sliceId = 0;
+    long maxPRBRatio = 0;
+    long minPRBRatio = 0;
+    long dedicatePRBRatio = 0;
+    std::string resourceType = "PRB_DL"; // New: "PRB_DL", "PRB_UL"
+    uint32_t maxMimoLayers = 0;
+
+};
 
 /**
  * @ingroup scheduler
@@ -50,9 +60,19 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
      * 
      * @param slicePRBQuota The slice PRB quota
      */
-    void SetSlicingParameters(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
+    void SetSlicingParameters(const std::vector<SlicePRBQuota>& quotas);
     
     void SetSliceUeMapping(uint32_t numSlices, const std::vector<std::vector<uint32_t>>& sliceUeRnti);
+
+    /**
+* @brief Returns the current PRB quotas per slice.
+* Used by the CCC (CccIndicationMessage) layer to populate the
+* partitionList field in the indications sent to the Near-RT RIC.
+
+* @return Vector of SlicePRBQuota with the current state of each slice.
+     */
+    std::vector<SlicePRBQuota> GetCurrentSliceQuotas() const;
+
   
   protected:
     /**
@@ -73,6 +93,9 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
     std::vector<uint32_t> m_minRbPercSlices; //!< Minimum RB percentage per slice
     std::vector<uint32_t> m_maxRbPercSlices; //!< Maximum RB percentage per slice
     std::vector<std::vector<uint32_t>> m_sliceUeRnti; //!< UE RNTI per slice
+
+    std::vector<uint32_t> m_maxMimoLayersPerSlice; //
+
 
     TracedValue<uint32_t> m_tracedValueSymPerBeam;
 };

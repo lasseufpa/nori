@@ -1,3 +1,10 @@
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+/*
+ * Copyright (c) 2026 LASSE/UFPA - Universidade Federal do Pará
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #pragma once
 
 #include "E2-report.h"
@@ -7,6 +14,9 @@
 #include "ns3/nr-bearer-stats-calculator.h"
 #include "ns3/nr-gnb-net-device.h"
 #include "ns3/nr-phy-rx-trace.h"
+#include "ns3/nr-rl-mac-scheduler-ofdma.h"
+
+#include <nlohmann/json.hpp>
 
 namespace ns3
 {
@@ -50,7 +60,8 @@ class E2Interface : public Object
      * @param pdu request message
      */
     void FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
-
+    void CccSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
+    //callback specific for the ccc service model, it will be removed in the future
     /**
      * @brief Register new SINR reading callback
      * @param path the path
@@ -103,53 +114,46 @@ class E2Interface : public Object
      */
     void ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu);
 
-    Ptr<NoriE2Report> GetE2DuCalculator();
+    /**
+     * @brief Apply slicing control directive to the MAC scheduler
+     * @param quotas slice PRB quotas
+     */
+    void ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
+    void ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas);
 
+    /**
+     * @brief Process control message on the simulation thread
+     * @param pdu control message PDU
+     */
+    void ProcessControlMessage(E2AP_PDU_t* pdu);
+
+    Ptr<NoriE2Report> GetE2DuCalculator();
     
     void MLSliceInterface(double macPrb, uint64_t imsi);
 
   private:
     /**
      * @brief Build RIC Indication Header
-     * @param plmId PLMN ID
-     * @param gnbId gNB ID
-     * @param CellId NR cell ID
      * @return the RIC Indication Header
      */
-
-    Ptr<KpmIndicationHeader> BuildRicIndicationHeader(std::string plmId,
-                                                      std::string gnbId,
-                                                      uint16_t CellId) const;
-
+    Ptr<KpmIndicationHeader> BuildRicIndicationHeader() const;
+    
     /**
      * @brief Get the IMSI string
      * @param imsi the IMSI
      */
     std::string GetImsiString(uint64_t imsi);
 
-    /**
-     * @brief Build RIC Indication Message for CU-UP
-     * @param plmId PLMN ID
-     * @return the RIC Indication Message
-     */
+    Ptr<KpmIndicationMessage> BuildNodeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
 
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuUp(std::string plmId);
+    Ptr<KpmIndicationMessage> BuildUeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
 
-    /**
-     * @brief Build RIC Indication Message for CU-CP
-     * @param plmId PLMN ID
-     * @return the RIC Indication Message
-     *
-     */
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageCuCp(std::string plmId);
-
-    /**
-     * @brief Build RIC Indication Message for DU
-     * @param plmId PLMN ID
-     * @param nrCellId NR cell ID
-     * @return the RIC Indication Message
-     */
-    Ptr<KpmIndicationMessage> BuildRicIndicationMessageDu(std::string plmId, uint16_t nrCellId);
+    void BuildBwpReport(nlohmann::json& bwpList);
+    void BuildCccCellDuIndication(nlohmann::json& payload);
+    void BuildAndSendCccIndication(E2Termination::RicSubscriptionRequest_rval_s params);
+    void ApplyCellDuControl(const nlohmann::json& cellDu);
+    // bool m_applyPrbSlicing{true};   // example ccc-slicing-demo
+    // bool m_applyMimoLayers{false};  // example mimo-demo
 
     /**
      * @brief Function to help us to flip the map

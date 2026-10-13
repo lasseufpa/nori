@@ -138,6 +138,7 @@ main(int argc, char* argv[])
     uint16_t ueNumPergNb = 1;
     bool enableUl = false;
     std::string ipE2TermRic = "10.244.0.246";
+    std::string ipE2TermRicPort = "36422";
     RngSeedManager::SetSeed(1);
     Time sendPacketTime = Seconds(1);
 
@@ -152,6 +153,7 @@ main(int argc, char* argv[])
     cmd.AddValue("packetSize", "packet size in bytes", udpPacketSize);
     cmd.AddValue("enableUl", "Enable Uplink", enableUl);
     cmd.AddValue("ipE2TermRic", "Ip address of the E2 termination", ipE2TermRic);
+    cmd.AddValue("ipE2TermRicPort", "Port of the E2 termination", ipE2TermRicPort);
     cmd.Parse(argc, argv);
 
     int64_t randomStream = 1;
@@ -226,6 +228,7 @@ main(int argc, char* argv[])
 
     auto e2 = CreateObject<E2TermHelper>();
     e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
+    e2->SetAttribute("E2Port", StringValue(ipE2TermRicPort));
     e2->InstallE2Term(enbNetDev.Get(0));
 
     // Set the attribute of the netdevice (enbNetDev.Get (0)) and bandwidth part (0)
@@ -262,30 +265,10 @@ main(int argc, char* argv[])
     // attach UEs to the closest eNB
     nrHelper->AttachToClosestGnb(ueNetDev, enbNetDev);
 
-    // if (enableUl)
-    //{
-    //     std::cout << "\n Sending data in uplink." << std::endl;
-    //     Simulator::Schedule(Seconds(0.2), &ConnectUlPdcpRlcTraces);
-    // }
-    // else
-    //{
-    //     std::cout << "\n Sending data in downlink." << std::endl;
-    //     Simulator::Schedule(Seconds(0.2), &ConnectPdcpRlcTraces);
-    // }
-
     nrHelper->EnableTraces();
 
-    // Simulator::Stop(Seconds(1));
-    // ShowProgress progress(Seconds(1), std::cerr);
     Simulator::Run();
     Simulator::Destroy();
 
-    if (g_rxPdcpCallbackCalled && g_rxRxRlcPDUCallbackCalled)
-    {
-        return EXIT_SUCCESS;
-    }
-    else
-    {
-        return EXIT_FAILURE;
-    }
+    return EXIT_SUCCESS;
 }

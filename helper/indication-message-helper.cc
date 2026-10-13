@@ -3,6 +3,7 @@
  * Copyright (c) 2022 Northeastern University
  * Copyright (c) 2022 Sapienza, University of Rome
  * Copyright (c) 2022 University of Padova
+ * Copyright (c) 2026 LASSE/UFPA - Universidade Federal do Pará
  *
  * SPDX-License-Identifier: GPL-2.0-only
  *
@@ -11,59 +12,40 @@
  * Author: Andrea Lacava <thecave003@gmail.com>
  *         Tommaso Zugno <tommasozugno@gmail.com>
  *         Michele Polese <michele.polese@gmail.com>
+ *         João Albuquerque <joao.barbosa.albuquerque@itec.ufpa.br>
+ *         Andrey Adailso <andreyadailsom@gmail.com>
  */
 
 #include "indication-message-helper.h"
 
+#include "ns3/log.h"
+
 namespace ns3
 {
 
+NS_LOG_COMPONENT_DEFINE("IndicationMessageHelper");
+
 IndicationMessageHelper::IndicationMessageHelper(IndicationMessageType type,
                                                  bool isOffline,
-                                                 bool reducedPmValues)
+                                                 bool reducePmValues)
     : m_type(type),
       m_offline(isOffline),
-      m_reducedPmValues(reducedPmValues)
+      m_reducePmValues(reducePmValues)
 {
-    if (!m_offline)
-    {
-        switch (type)
-        {
-        case IndicationMessageType::CuUp:
-            m_cuUpValues = Create<OCuUpContainerValues>();
+    switch (type){
+        case IndicationMessageType::NodeLevel:
+            m_msgValues.m_format = KpmIndicationMessage::MessageFormat::FORMAT1;
             break;
-
-        case IndicationMessageType::CuCp:
-            m_cuCpValues = Create<OCuCpContainerValues>();
-            m_msgValues.m_cellObjectId = "NRCellCU";
+        case IndicationMessageType::UeLevel:
+            m_msgValues.m_format = KpmIndicationMessage::MessageFormat::FORMAT3;
             break;
-
-        case IndicationMessageType::Du:
-            m_duValues = Create<ODuContainerValues>();
-            break;
-
         default:
-
+            NS_LOG_ERROR("Invalid indication message type");
             break;
-        }
+
     }
 }
 
-void
-IndicationMessageHelper::FillBaseCuUpValues(std::string plmId)
-{
-    NS_ABORT_MSG_IF(m_type != IndicationMessageType::CuUp, "Wrong function for this object");
-    m_cuUpValues->m_plmId = plmId;
-    m_msgValues.m_pmContainerValues = m_cuUpValues;
-}
-
-void
-IndicationMessageHelper::FillBaseCuCpValues(uint16_t numActiveUes)
-{
-    NS_ABORT_MSG_IF(m_type != IndicationMessageType::CuCp, "Wrong function for this object");
-    m_cuCpValues->m_numActiveUes = numActiveUes;
-    m_msgValues.m_pmContainerValues = m_cuCpValues;
-}
 
 IndicationMessageHelper::~IndicationMessageHelper()
 {

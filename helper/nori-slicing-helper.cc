@@ -9,6 +9,8 @@
 #include "ns3/nr-ue-net-device.h"
 #include "ns3/simulator.h"
 
+#include <set>
+
 namespace ns3
 {
 
@@ -27,6 +29,20 @@ NoriSlicingHelper::GetSstForRnti(uint16_t rnti)
     }
 
     return it->second;
+}
+
+std::vector<uint8_t>
+NoriSlicingHelper::GetConfiguredSsts()
+{
+    std::set<uint8_t> sstSet;
+    for (const auto& kv : m_rntiToSst)
+    {
+        if (kv.second > 0) 
+        {
+            sstSet.insert(kv.second);
+        }
+    }
+    return std::vector<uint8_t>(sstSet.begin(), sstSet.end());
 }
 
 void
