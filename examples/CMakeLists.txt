@@ -5,6 +5,7 @@ set(base_examples
     nori-rc-slicing-demo
     nori-ccc-slicing-demo
     nori-benchmark-scenario
+    nori-testbed-scenario
     #oran-interface-example
     nori-mimo-demo
     #nori-simple-rl-sched
