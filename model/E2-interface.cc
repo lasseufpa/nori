@@ -537,25 +537,44 @@ void
 E2Interface::ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas)
 {
     NS_LOG_FUNCTION(this);
-    for (const auto& q : quotas)
+    // for (const auto& q : quotas)
+    // {
+    //     if (q.maxMimoLayers > 0)
+    //     {
+    //         for (uint32_t i = 0; i < NodeList::GetNNodes(); ++i)
+    //         {
+    //             Ptr<Node> node = NodeList::GetNode(i);
+    //             for (uint32_t j = 0; j < node->GetNDevices(); ++j)
+    //             {
+    //                 Ptr<NrUeNetDevice> ueDev = DynamicCast<NrUeNetDevice>(node->GetDevice(j));
+    //                 if (ueDev && ueDev->GetPhy(0) && ueDev->GetPhy(0)->GetPmSearch())
+    //                 {
+    //                     ueDev->GetPhy(0)->GetPmSearch()->SetAttribute("RankLimit", UintegerValue(q.maxMimoLayers));
+    //                     // ueDev->GetPhy(0)->GetPmSearch()->InitCodebooks(); // <-- ADICIONE ESTA LINHA!
+    //                     std::cout << "\n>>> [MIMO CONTROL VIA xAPP] RankLimit atualizado para: " 
+    //                             << q.maxMimoLayers << " layer(s) no UE (Node " << node->GetId() << ") <<<\n" << std::endl;
+    //                 }
+    //             }
+    //         }
+    //         break; 
+    //     }
+    // }
+    auto gnbNodeMimo = DynamicCast<NrGnbNetDevice>(m_netDev);
+    if (gnbNodeMimo)
     {
-        if (q.maxMimoLayers > 0)
+        auto rlSchedMimo = DynamicCast<NrRLMacSchedulerOfdma>(gnbNodeMimo->GetScheduler(0));
+        if (rlSchedMimo)
         {
-            for (uint32_t i = 0; i < NodeList::GetNNodes(); ++i)
+            for (const auto& q : quotas)
             {
-                Ptr<Node> node = NodeList::GetNode(i);
-                for (uint32_t j = 0; j < node->GetNDevices(); ++j)
+                if (q.maxMimoLayers > 0)
                 {
-                    Ptr<NrUeNetDevice> ueDev = DynamicCast<NrUeNetDevice>(node->GetDevice(j));
-                    if (ueDev && ueDev->GetPhy(0) && ueDev->GetPhy(0)->GetPmSearch())
-                    {
-                        ueDev->GetPhy(0)->GetPmSearch()->SetAttribute("RankLimit", UintegerValue(q.maxMimoLayers));
-                        std::cout << "\n>>> [MIMO CONTROL VIA xAPP] RankLimit atualizado para: " 
-                                  << q.maxMimoLayers << " layer(s) no UE (Node " << node->GetId() << ") <<<\n" << std::endl;
-                    }
+                    rlSchedMimo->SetMaxMimoLayers(q.maxMimoLayers);
+                    std::cout << "\n>>> [MIMO CONTROL VIA xAPP] Max Rank on gNB: "
+                              << q.maxMimoLayers << " layer(s) <<<\n" << std::endl;
+                    break;
                 }
             }
-            break; 
         }
     }
     auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
@@ -570,7 +589,7 @@ E2Interface::ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas)
     if (rlScheduler)
     {
         rlScheduler->SetSlicingParameters(quotas);
-    }
+    } 
 }
 
 

@@ -45,12 +45,16 @@ NrRLMacSchedulerOfdma::GetTypeId()
         //              Vector2DValue(),
         //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_maxRbPercSlices),
         //              MakeUintegerChecker<uint32_t>())
-        //.AddAttribute("SliceUeRnti",
+        // .AddAttribute("SliceUeRnti",
         //              "UE RNTI per slice",
         //              Vector2DValue(),
         //              MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_sliceUeRnti),
         //              MakeUintegerChecker<std::vector<uint32_t>>())
-        ;
+        .AddAttribute("TxLayersChoice",
+                        "Maximum number of MIMO layers for transmission (choice)",
+                                          UintegerValue(UINT8_MAX),
+        MakeUintegerAccessor(&NrRLMacSchedulerOfdma::m_txLayersChoice),
+                                          MakeUintegerChecker<uint8_t>());
     return tid;
 }
 
@@ -114,6 +118,14 @@ NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeD
     NS_LOG_FUNCTION(this);
 
     NS_LOG_DEBUG("# beams active flows: " << activeDl.size() << ", # sym: " << symAvail);
+    static uint32_t cnt = 0;
+    for (const auto& beam : activeDl)
+    {   
+        for (const auto& ueAndBuf : beam.second)
+        {
+            EnforceTxLayers(ueAndBuf.first);
+        }
+    }
 
     GetFirst GetBeamId;
     GetSecond GetUeVector;
@@ -380,18 +392,78 @@ NrRLMacSchedulerOfdma::SetSlicingParameters(
             maxPRB = minPRB;
         }
 
-        //std::cout << "Setting slicing parameters for SST " << static_cast<uint32_t>(sst)
-        //          << " (internal sliceIdx=" << sliceIdx << "): " << dedicated
-        //          << "% dedicated, " << minPRB << "% min, " << maxPRB
-        //          << "% max" << std::endl;
+        std::cout << "Setting slicing parameters for SST " << static_cast<uint32_t>(sst)
+                 << " (internal sliceIdx=" << sliceIdx << "): " << dedicated
+                 << "% dedicated, " << minPRB << "% min, " << maxPRB
+                 << "% max" << std::endl;
 
         m_dedicatedRbPercSlices[sliceIdx] = dedicated;
         m_minRbPercSlices[sliceIdx] = minPRB;
         m_maxRbPercSlices[sliceIdx] = maxPRB;
-        // if (m_maxMimoLayersPerSlice.size() < m_numberSlices) {
-        //     m_maxMimoLayersPerSlice.resize(m_numberSlices, 0);
-        // }
-        // m_maxMimoLayersPerSlice[sliceIdx] = q.maxMimoLayers; // 1 ou 2
+    }
+}
+void
+NrRLMacSchedulerOfdma::EnforceTxLayers(const std::shared_ptr<NrMacSchedulerUeInfo>& ue) const
+{
+    auto ueRl = std::dynamic_pointer_cast<NrMacSchedulerUeInfoRl>(ue);
+    if (!ueRl)
+    {
+        return;
+    }
+
+    ueRl->CheckAndStoreNewCsi();
+
+    if (!ueRl->m_fullPrecMats)
+    {
+        return;
+    }
+
+    uint8_t info_rank = ueRl->m_reportedRi;
+
+    uint8_t capFromXapp = std::min(m_maxMimoLayers, m_txLayersChoice);
+    uint8_t n_layers = std::min(capFromXapp, info_rank);
+    n_layers = std::max<uint8_t>(n_layers, 1);
+
+    static uint8_t s_lastDlRank = 0;
+    static uint8_t s_lastCap = 0;
+    if (n_layers != s_lastDlRank || capFromXapp != s_lastCap)
+    {
+        s_lastDlRank = n_layers;
+        s_lastCap = capFromXapp;
+    }
+
+    ueRl->m_dlRank = n_layers;
+
+    if (n_layers == ueRl->m_fullPrecMats->GetNumCols())
+    {
+        ueRl->m_dlPrecMats = ueRl->m_fullPrecMats;
+        ueRl->m_activePrecMats = ueRl->m_fullPrecMats;
+    }
+    else
+    {
+        if (ueRl->m_dlPrecMats && ueRl->m_dlPrecMats == ueRl->m_activePrecMats &&
+            ueRl->m_dlPrecMats->GetNumCols() == n_layers)
+        {
+            return;
+        }
+        size_t fullCols = ueRl->m_fullPrecMats->GetNumCols();
+        double normFactor = std::sqrt(static_cast<double>(fullCols) / static_cast<double>(n_layers));
+        size_t nRows = ueRl->m_fullPrecMats->GetNumRows();
+        size_t nPages = ueRl->m_fullPrecMats->GetNumPages();
+        auto truncated = Create<ComplexMatrixArray>(nRows, n_layers, nPages);
+
+        for (size_t p = 0; p < nPages; ++p)
+        {
+            for (size_t r = 0; r < nRows; ++r)
+            {
+                for (size_t c = 0; c < n_layers; ++c)
+                {
+                    (*truncated)(r, c, p) = (*ueRl->m_fullPrecMats)(r, c, p) * normFactor;
+                }
+            }
+        }
+        ueRl->m_dlPrecMats = truncated;
+        ueRl->m_activePrecMats = truncated;
     }
 }
 

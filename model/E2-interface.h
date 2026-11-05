@@ -152,7 +152,7 @@ class E2Interface : public Object
     void BuildCccCellDuIndication(nlohmann::json& payload);
     void BuildAndSendCccIndication(E2Termination::RicSubscriptionRequest_rval_s params);
     void ApplyCellDuControl(const nlohmann::json& cellDu);
-    // bool m_applyPrbSlicing{true};   // example ccc-slicing-demo
+    bool m_applyPrbSlicing{true};   // example ccc-slicing-demo
     // bool m_applyMimoLayers{false};  // example mimo-demo
 
     /**

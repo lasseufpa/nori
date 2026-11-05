@@ -45,6 +45,9 @@ class NrMacSchedulerUeInfoRl : public NrMacSchedulerUeInfo
      * \return SST value in {0,1,2}.
      */
     uint8_t GetSst() const;
+    uint8_t m_reportedRi{1};                               
+    Ptr<const ComplexMatrixArray> m_fullPrecMats{nullptr}; 
+    Ptr<const ComplexMatrixArray> m_activePrecMats{nullptr};
 
     /**
      * \brief Convenience helper to obtain the SST from a generic UePtr.
@@ -57,6 +60,15 @@ class NrMacSchedulerUeInfoRl : public NrMacSchedulerUeInfo
      * \return SST value in {0,1,2}.
      */
     static uint8_t GetSstFromUe(const UePtr& ue);
-};
+    void CheckAndStoreNewCsi()
+    {
+        if (m_dlPrecMats && m_dlPrecMats != m_activePrecMats)
+        {
+            m_fullPrecMats = m_dlPrecMats;
+            m_reportedRi = static_cast<uint8_t>(m_dlPrecMats->GetNumCols());
+        }
+    }
+  };
+  
 
 } // namespace ns3

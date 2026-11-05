@@ -63,7 +63,7 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
     void SetSlicingParameters(const std::vector<SlicePRBQuota>& quotas);
     
     void SetSliceUeMapping(uint32_t numSlices, const std::vector<std::vector<uint32_t>>& sliceUeRnti);
-
+    void SetTxLayersChoice(uint8_t choice) { m_txLayersChoice = choice; }
     /**
 * @brief Returns the current PRB quotas per slice.
 * Used by the CCC (CccIndicationMessage) layer to populate the
@@ -72,7 +72,7 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
 * @return Vector of SlicePRBQuota with the current state of each slice.
      */
     std::vector<SlicePRBQuota> GetCurrentSliceQuotas() const;
-
+    void SetMaxMimoLayers(uint8_t layers) { m_maxMimoLayers = layers; }
   
   protected:
     /**
@@ -94,9 +94,11 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
     std::vector<uint32_t> m_maxRbPercSlices; //!< Maximum RB percentage per slice
     std::vector<std::vector<uint32_t>> m_sliceUeRnti; //!< UE RNTI per slice
 
-    std::vector<uint32_t> m_maxMimoLayersPerSlice; //
-
+    // std::vector<uint32_t> m_maxMimoLayersPerSlice;
+    uint8_t m_maxMimoLayers{4}; //!< Rank cap applied on gNB side (set by xApp) 
+    uint8_t m_txLayersChoice{UINT8_MAX};
 
     TracedValue<uint32_t> m_tracedValueSymPerBeam;
+    void EnforceTxLayers(const std::shared_ptr<NrMacSchedulerUeInfo>& ue) const;
 };
 } // namespace ns3

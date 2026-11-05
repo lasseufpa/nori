@@ -40,34 +40,87 @@ $  ./ns3 run cttc-nr-mimo-demo -- --enableMimoFeedback=0
 #include "ns3/nori-module.h"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-module.h"
-
+#include <iomanip>
 using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("CttcNrMimoDemo");
+
+static uint8_t g_latestRi = 0;
+static uint8_t g_latestMcs = 0;
+
+void PrintMimoThroughput(Ptr<FlowMonitor> monitor, double intervalSec)
+{
+    monitor->CheckForLostPackets();
+    auto stats = monitor->GetFlowStats();
+    double totalMbps = 0.0;
+    uint64_t totalPackets = 0;
+
+    uint64_t currentTotalRxBytes = 0;
+
+    for (const auto& flow : stats)
+    {
+        currentTotalRxBytes += flow.second.rxBytes;
+        totalPackets += flow.second.rxPackets;
+    }
+
+    static uint64_t lastTotalRxBytes = 0;
+    double deltaBytes = (currentTotalRxBytes >= lastTotalRxBytes) ? (currentTotalRxBytes - lastTotalRxBytes) : currentTotalRxBytes;
+    lastTotalRxBytes = currentTotalRxBytes;
+
+    totalMbps = (deltaBytes * 8.0) / (intervalSec * 1e6);
+
+    std::cout << "[t = " << std::fixed << std::setprecision(1) << Simulator::Now().GetSeconds() 
+              << "s] Throughput DL: " << std::setprecision(2) << totalMbps << " Mbps"
+              << " | RX Packets: " << totalPackets
+              << " | UE RI: " << static_cast<uint32_t>(g_latestRi)
+              << " | MCS: " << static_cast<uint32_t>(g_latestMcs) << std::endl;
+
+    Simulator::Schedule(Seconds(intervalSec), &PrintMimoThroughput, monitor, intervalSec);
+}
+
+static void
+CqiFeedbackTracedCallback([[maybe_unused]] uint16_t rnti,
+                          [[maybe_unused]] uint8_t cqi,
+                          uint8_t mcs,
+                          uint8_t rank)
+{
+    g_latestRi = rank;
+    g_latestMcs = mcs;
+}
 
 int
 main(int argc, char* argv[])
 {
-    Config::SetDefault("ns3::NrHelper::EnableMimoFeedback", BooleanValue(true));
-    Config::SetDefault("ns3::NrPmSearch::SubbandSize", UintegerValue(16));
+
+    // LogComponentEnable("CccControlMessage", LOG_LEVEL_INFO);
+    LogComponentEnable("NrRLMacSchedulerOfdma", LOG_LEVEL_INFO);
+    LogComponentEnable("E2Interface", LOG_LEVEL_INFO);
+
+
+    uint8_t layers = 2; 
 
     NrHelper::AntennaParams apUe;
     NrHelper::AntennaParams apGnb;
+
     apUe.antennaElem = "ns3::ThreeGppAntennaModel";
     apUe.nAntCols = 2;
     apUe.nAntRows = 2;
     apUe.nHorizPorts = 2;
     apUe.nVertPorts = 1;
-    apUe.isDualPolarized = false;
+    apUe.isDualPolarized = true;
+
     apGnb.antennaElem = "ns3::ThreeGppAntennaModel";
     apGnb.nAntCols = 4;
     apGnb.nAntRows = 2;
     apGnb.nHorizPorts = 2;
     apGnb.nVertPorts = 1;
-    apGnb.isDualPolarized = false;
+    apGnb.isDualPolarized = true;
 
-    // The polarization slant angle in degrees in case of x-polarized
+    double downtiltAngleGnb = 10.0;
+
     double polSlantAngleGnb = 0.0;
-    double polSlantAngleUe = 90.0;
+    double polSlantAngleUe = 0.0;
+
+
     // The bearing angles in degrees
     double bearingAngleGnb = 0.0;
     double bearingAngleUe = 180.0;
@@ -101,7 +154,7 @@ main(int argc, char* argv[])
     std::string beamformingMethod = "ns3::DirectPathBeamforming";
     std::string losCondition = "Default";
 
-    std::string ipE2TermRic = "10.244.0.246"; // The IP address of the E2 termination
+    std::string ipE2TermRic = "10.244.0.214"; // The IP address of the E2 termination
 
     // Where the example stores the output files.
     std::string simTag = "default";
@@ -114,6 +167,7 @@ main(int argc, char* argv[])
     /**
      * The main parameters for testing MIMO
      */
+    cmd.AddValue("csiFlags", "ns3::NrHelper::CsiFeedbackFlags");
     cmd.AddValue("enableMimoFeedback", "ns3::NrHelper::EnableMimoFeedback");
     cmd.AddValue("pmSearchMethod", "ns3::NrHelper::PmSearchMethod");
     cmd.AddValue("fullSearchCb", "ns3::NrPmSearchFull::CodebookType");
@@ -150,6 +204,7 @@ main(int argc, char* argv[])
     cmd.AddValue("polSlantAngleUe", "Polarization slant angle of UE in degrees", polSlantAngleUe);
     cmd.AddValue("bearingAngleGnb", "Bearing angle of gNB in degrees", bearingAngleGnb);
     cmd.AddValue("bearingAngleUe", "Bearing angle of UE in degrees", bearingAngleUe);
+    cmd.AddValue("downtiltAngleGnb", "Downtilt angle of gNB in degrees", downtiltAngleGnb);
     cmd.AddValue("enableInterfNode", "Whether to enable an interfering node", enableInterfNode);
     cmd.AddValue(
         "interfDistance",
@@ -159,6 +214,7 @@ main(int argc, char* argv[])
                  "The difference between the pol. slant angles of the original pairs of gNB and UE "
                  "and the interfering one",
                  interfPolSlantDelta);
+    cmd.AddValue("layers", "Number of MIMO transmission layers (1, 2, or 4)", layers);
 
     /**
      * Other simulation parameters
@@ -200,7 +256,7 @@ main(int argc, char* argv[])
                  "ns3::QuasiOmniDirectPathBeamforming,"
                  "ns3::DirectPathQuasiOmniBeamforming",
                  beamformingMethod);
-    cmd.AddValue("losCondition", losCondition);
+    cmd.AddValue("losCondition", "LOS condition (Default, LOS, NLOS)", losCondition);
     cmd.AddValue("simTag",
                  "tag to be appended to output filenames to distinguish simulation campaigns",
                  simTag);
@@ -227,7 +283,9 @@ main(int argc, char* argv[])
         LogComponentEnable("LtePdcp", LOG_LEVEL_INFO);
     }
 
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+
+    Config::SetDefaultFailSafe("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefaultFailSafe("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
     Config::SetDefault("ns3::ThreeGppChannelModel::UpdatePeriod",
                        TimeValue(MilliSeconds(updatePeriodMs)));
 
@@ -298,14 +356,18 @@ main(int argc, char* argv[])
     CcBwpCreator ccBwpCreator;
     const uint8_t numCcPerBand = 1;
     CcBwpCreator::SimpleOperationBandConf bandConf(centralFrequency, bandwidth, numCcPerBand);
-    channelHelper->ConfigureFactories("UMi", losCondition);
+    channelHelper->ConfigureFactories("UMa", losCondition, "ThreeGpp");
     OperationBandInfo band = ccBwpCreator.CreateOperationBandContiguousCc(bandConf);
 
     /**
      * Configure NrHelper, prepare most of the parameters that will be used in the simulation.
      */
-    channelHelper->SetChannelConditionModelAttribute("UpdatePeriod",
-                                                     TimeValue(MilliSeconds(updatePeriodMs)));
+    // AlwaysLos/NeverLos (losCondition = LOS/NLOS) não possuem o atributo UpdatePeriod
+    if (losCondition == "Default")
+    {
+        channelHelper->SetChannelConditionModelAttribute("UpdatePeriod",
+                                                         TimeValue(MilliSeconds(updatePeriodMs)));
+    }
     channelHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
     nrHelper->SetDlErrorModel(errorModel);
     nrHelper->SetUlErrorModel(errorModel);
@@ -316,11 +378,18 @@ main(int argc, char* argv[])
                                          TypeIdValue(TypeId::LookupByName(beamformingMethod)));
     // Core latency
     epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    NrHelper::MimoPmiParams mimoPmiParams;
+    mimoPmiParams.pmSearchMethod = "ns3::NrPmSearchFull";
+    mimoPmiParams.fullSearchCb = "ns3::NrCbTypeOneSp";
+    mimoPmiParams.rankLimit = layers;
+    mimoPmiParams.subbandSize = 8;
+    nrHelper->SetupMimoPmi(mimoPmiParams);
 
     /**
      * Configure gNb antenna
      */
     nrHelper->SetupGnbAntennas(apGnb);
+    nrHelper->SetGnbAntennaAttribute("DowntiltAngle", DoubleValue(downtiltAngleGnb * (M_PI / 180.0)));
     /**
      * Configure UE antenna
      */
@@ -329,6 +398,8 @@ main(int argc, char* argv[])
     nrHelper->SetGnbPhyAttribute("Numerology", UintegerValue(numerology));
     nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(txPowerGnb));
     nrHelper->SetUePhyAttribute("TxPower", DoubleValue(txPowerUe));
+    nrHelper->SetUePhyAttribute("WbPmiUpdateInterval", TimeValue(MilliSeconds(100)));
+    nrHelper->SetUePhyAttribute("SbPmiUpdateInterval", TimeValue(MilliSeconds(20)));
 
     uint32_t bwpId = 0;
     // gNb routing between bearer type and bandwidth part
@@ -347,6 +418,9 @@ main(int argc, char* argv[])
      */
     NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice(gnbContainer, allBwps);
     NetDeviceContainer ueNetDev = nrHelper->InstallUeDevice(ueContainer, allBwps);
+
+    NrHelper::GetUePhy(ueNetDev.Get(0), 0)
+        ->TraceConnectWithoutContext("CqiFeedbackTrace", MakeCallback(&CqiFeedbackTracedCallback));
 
     if (enableInterfNode && interfPolSlantDelta != 0)
     {
@@ -410,7 +484,16 @@ main(int argc, char* argv[])
     if (enableInterfNode)
     {
         nrHelper->AttachToGnb(ueNetDev.Get(1), enbNetDev.Get(1));
+        
     }
+    std::vector<int> uesPerSlice = {1};        
+    std::vector<uint8_t> sstPerSlice = {1};    // SST=1 (eMBB)
+    NoriSlicingHelper::ScheduleSliceMapping(Seconds(0.1),
+                                            true,
+                                            uesPerSlice,
+                                            sstPerSlice,
+                                            enbNetDev,
+                                            ueNetDev);
 
     /**
      * Install DL traffic part.
@@ -468,7 +551,7 @@ main(int argc, char* argv[])
     clientApps.Stop(simTime);
 
     // enable the traces provided by the nr module
-    nrHelper->EnableTraces();
+    // nrHelper->EnableTraces();
 
     FlowMonitorHelper flowmonHelper;
     NodeContainer endpointNodes;
@@ -480,6 +563,8 @@ main(int argc, char* argv[])
     monitor->SetAttribute("JitterBinWidth", DoubleValue(0.001));
     monitor->SetAttribute("PacketSizeBinWidth", DoubleValue(20));
 
+
+    Simulator::Schedule(Seconds(2.0), &PrintMimoThroughput, monitor, 2.0);
     Simulator::Stop(simTime);
     Simulator::Run();
 

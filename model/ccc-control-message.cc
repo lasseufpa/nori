@@ -92,7 +92,7 @@ CccControlMessage::CccControlMessage(E2AP_PDU_t* pdu)
                     NS_LOG_WARN("CCC Control (O-RAN): no quota extracted from the payload.");
                 }
 
-            } else if (j.contains("bwpList")) {s
+            } else if (j.contains("bwpList")) {
                 m_controlData = j.get<CccCellDuControlMessage>();
                 m_valid = true;
                 NS_LOG_INFO("CCC Control (internal/legacy format) decoded.");
