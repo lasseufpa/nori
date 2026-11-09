@@ -297,6 +297,7 @@ main(int argc, char* argv[])
 {
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
+    signal(SIGPIPE, SIG_IGN);
 
     // Enable relevant log components
     LogComponentEnable("NoriTestbedScenario", LOG_LEVEL_INFO);
@@ -335,7 +336,7 @@ main(int argc, char* argv[])
     cmd.AddValue("statsInterval", "Intervalo das estatísticas locais em segundos", statsInterval);
     cmd.Parse(argc, argv);
 
-    if (enableRealtime)
+    if (enableRealtime || enableE2)
     {
         GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
     }

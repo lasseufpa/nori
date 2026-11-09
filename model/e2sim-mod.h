@@ -239,11 +239,44 @@ public:
         setsockopt(m_client_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
         setsockopt(m_client_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
+        std::string cleanIp = (ops.server_ip != nullptr) ? ops.server_ip : "";
+        cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), '\"'), cleanIp.end());
+        cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), '\''), cleanIp.end());
+        cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), ' '), cleanIp.end());
+
         struct sockaddr_in client_addr;
         memset(&client_addr, 0, sizeof(client_addr));
         client_addr.sin_family = AF_INET;
         client_addr.sin_port = htons(m_local_port);
         client_addr.sin_addr.s_addr = INADDR_ANY;
+
+        // Auto-detect the specific local interface IP used to route to the RIC to prevent advertising unreachable IPs in SCTP INIT
+        int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (probe_fd != -1)
+        {
+            struct sockaddr_in probe_peer;
+            memset(&probe_peer, 0, sizeof(probe_peer));
+            probe_peer.sin_family = AF_INET;
+            probe_peer.sin_port = htons(ops.server_port ? ops.server_port : 32222);
+            if (inet_pton(AF_INET, cleanIp.c_str(), &probe_peer.sin_addr) == 1)
+            {
+                if (connect(probe_fd, (struct sockaddr*)&probe_peer, sizeof(probe_peer)) == 0)
+                {
+                    struct sockaddr_in local_probe;
+                    socklen_t local_len = sizeof(local_probe);
+                    if (getsockname(probe_fd, (struct sockaddr*)&local_probe, &local_len) == 0 &&
+                        local_probe.sin_addr.s_addr != 0)
+                    {
+                        client_addr.sin_addr.s_addr = local_probe.sin_addr.s_addr;
+                        char local_ip_str[INET_ADDRSTRLEN];
+                        inet_ntop(AF_INET, &client_addr.sin_addr, local_ip_str, sizeof(local_ip_str));
+                        LOG_I("[E2SimMod-gNB%s] Bound SCTP specifically to routed local IP %s to avoid multi-homing unreachable addresses",
+                              mod_gnb_id.c_str(), local_ip_str);
+                    }
+                }
+            }
+            close(probe_fd);
+        }
 
         if (bind(m_client_fd, (struct sockaddr*)&client_addr, sizeof(client_addr)) == -1)
         {
@@ -254,11 +287,6 @@ public:
         {
             LOG_I("[E2SimMod-gNB%s] Bound SCTP socket to local port %u", mod_gnb_id.c_str(), m_local_port);
         }
-
-        std::string cleanIp = (ops.server_ip != nullptr) ? ops.server_ip : "";
-        cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), '\"'), cleanIp.end());
-        cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), '\''), cleanIp.end());
-        cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), ' '), cleanIp.end());
 
         struct sockaddr_in peer_addr;
         memset(&peer_addr, 0, sizeof(peer_addr));
