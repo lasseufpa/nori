@@ -176,7 +176,8 @@ class E2Interface : public Object
     uint16_t m_cellId{0};                                 //<! Cell ID
     double m_cellTxDlPackets = 0;                         //<! Number of DL packets
     //double m_cellTxBytes = 0;                             //<! Number of DL bytes
-    std::map <uint64_t, double> m_cellTxBytes;                             //<! Number of DL bytes
+    std::map <uint64_t, double> m_cellTxBytes;                             //<! Cumulative DL volume already reported at node level, per IMSI
+    std::map <uint64_t, double> m_ueTxBytes;                               //<! Cumulative DL volume already reported at UE level, per IMSI
     
     double m_cellRxBytes = 0;                             //<! Number of UL bytes
     uint64_t m_startTime = 0;                             //<! Start time

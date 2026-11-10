@@ -824,10 +824,10 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
 
         // --- CU-UP per-UE: PDCP throughput ---
         double actualTotalTxBytes = m_e2PdcpStatsCalculator ? (m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3)) : 0.0;
-        if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
-            m_cellTxBytes.insert(std::make_pair(imsi, 0));
-        double txBytes = actualTotalTxBytes - m_cellTxBytes[imsi];
-        // NOTE: don't update m_cellTxBytes here (already done in NodeLevel)
+        // Node-level and UE-level reports are built at the same instant, so each
+        // one keeps its own reference value (operator[] starts it at zero).
+        double txBytes = actualTotalTxBytes - m_ueTxBytes[imsi];
+        m_ueTxBytes[imsi] = actualTotalTxBytes;
         double pdcpThroughput = txBytes / m_e2Periodicity; // kbps
 
         helper->AddUeMeasurementReal("DRB.UEThpDl", pdcpThroughput);

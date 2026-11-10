@@ -557,6 +557,15 @@ main(int argc, char* argv[])
         ueIpToIndex[ueIp] = i;
         const auto& prof = profiles[i];
 
+        // Dedicated DL bearer (LCID 4): E2Interface reads PDCP statistics from this LCID.
+        NrEpsBearer bearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
+        Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+        NrEpcTft::PacketFilter dlpf;
+        dlpf.localPortStart = prof.port;
+        dlpf.localPortEnd = prof.port;
+        tft->Add(dlpf);
+        nrHelper->ActivateDedicatedEpsBearer(ueDevs.Get(i), bearer, tft);
+
         // UE receiver (PacketSink)
         PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",
                                     InetSocketAddress(Ipv4Address::GetAny(), prof.port));
