@@ -175,6 +175,14 @@ class E2Interface : public Object
      * @return cumulative bytes reported by the E2 PDCP statistics calculator (DlRxPdu)
      */
     uint64_t GetUePdcpDlRxBytes(Ptr<NrUeManager> ue) const;
+
+    /**
+     * @brief Cumulative PDCP UL bytes received at the gNB from a UE, summed over all its data
+     * radio bearers
+     * @param ue UE manager in the gNB RRC
+     * @return cumulative bytes reported by the E2 PDCP statistics calculator (UlRxPdu)
+     */
+    uint64_t GetUePdcpUlRxBytes(Ptr<NrUeManager> ue) const;
     
     void MLSliceInterface(double macPrb, uint64_t imsi);
 
@@ -262,6 +270,8 @@ class E2Interface : public Object
     std::map<uint64_t, uint32_t> m_drbThrDlUeid; //<! DRB throughput DL in UE ID
     std::string m_duFileName;                    //<! DU file name
     double macPrb;
+    std::map<uint64_t, double> m_previousDlRxData; //<! MLSliceInterface: delivered DL bytes reference
+    std::map<uint64_t, double> m_previousUlRxData; //<! MLSliceInterface: delivered UL bytes reference
     std::map<uint64_t, double> m_previousDlTxData;
     std::map<uint64_t, double> m_previousUlTxData;
     std::map<uint64_t, double> m_previousTime;

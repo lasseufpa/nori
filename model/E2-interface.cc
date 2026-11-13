@@ -123,6 +123,14 @@ E2Interface::GetUePdcpDlRxBytes(Ptr<NrUeManager> ue) const
     });
 }
 
+uint64_t
+E2Interface::GetUePdcpUlRxBytes(Ptr<NrUeManager> ue) const
+{
+    return SumUeDrbPdcpCounter(ue, [this](uint64_t imsi, uint8_t lcid) {
+        return m_e2PdcpStatsCalculator->GetUlRxData(imsi, lcid);
+    });
+}
+
 E2Interface::E2Interface()
 {
     NS_FATAL_ERROR("E2Interface must be created with a net device");
@@ -1167,7 +1175,7 @@ E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
     csv.seekp(0, std::ios::end);
     if (csv.tellp() == 0)
     {
-        csv << "timestamp,imsi,dlThroughput,ulThroughput,spectralEfficiency\n";
+        csv << "timestamp,imsi,dlThroughput,ulThroughput,spectralEfficiency,dlOffered,ulOffered\n";
     }
 
     double currentTime = Simulator::Now().GetMilliSeconds();
@@ -1186,13 +1194,21 @@ E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
         }
     }
 
-    // All DRBs of the UE (see GetUePdcpTxBytes)
-    double currentDlTxData = static_cast<double>(GetUePdcpTxBytes(ueManager, true));
-    double currentUlTxData = static_cast<double>(GetUePdcpTxBytes(ueManager, false));
-    double dlDelta = ConsumeCounterDelta(currentDlTxData, m_previousDlTxData[imsi]);
-    double ulDelta = ConsumeCounterDelta(currentUlTxData, m_previousUlTxData[imsi]);
-    double dlThroughput = (currentTime > m_previousTime[imsi]) ? (dlDelta * 8 / deltatime) : 0.0;
-    double ulThroughput = (currentTime > m_previousTime[imsi]) ? (ulDelta * 8 / deltatime) : 0.0;
+    // All DRBs of the UE. Throughput columns use the delivered volume (PDCP RX: at the
+    // UE for DL, at the gNB for UL), as DRB.UEThpDl does; the offered load (PDCP TX)
+    // goes to separate columns. Units: kbit/s (bytes * 8 / ms).
+    const bool validInterval = currentTime > m_previousTime[imsi];
+    auto rate = [validInterval, deltatime](double deltaBytes) {
+        return validInterval ? deltaBytes * 8 / deltatime : 0.0;
+    };
+    double dlThroughput = rate(ConsumeCounterDelta(
+        static_cast<double>(GetUePdcpDlRxBytes(ueManager)), m_previousDlRxData[imsi]));
+    double ulThroughput = rate(ConsumeCounterDelta(
+        static_cast<double>(GetUePdcpUlRxBytes(ueManager)), m_previousUlRxData[imsi]));
+    double dlOffered = rate(ConsumeCounterDelta(
+        static_cast<double>(GetUePdcpTxBytes(ueManager, true)), m_previousDlTxData[imsi]));
+    double ulOffered = rate(ConsumeCounterDelta(
+        static_cast<double>(GetUePdcpTxBytes(ueManager, false)), m_previousUlTxData[imsi]));
     m_previousTime[imsi] = currentTime;
     double spectralEfficiency = 0.0;
     if (m_e2DuCalculator)
@@ -1204,7 +1220,7 @@ E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
     }
     uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
     csv << timestamp << "," << imsi << "," << dlThroughput << "," << ulThroughput << ","
-        << spectralEfficiency << "\n";
+        << spectralEfficiency << "," << dlOffered << "," << ulOffered << "\n";
 
     csv.close();
 }
