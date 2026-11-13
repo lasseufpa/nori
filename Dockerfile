@@ -1,11 +1,13 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:20.04 AS base
+FROM ubuntu:24.04 AS base
 
 ARG UID=1000
 ARG GID=1000
 ENV DEBIAN_FRONTEND=noninteractive
 
 # 1. Dependências do sistema (compiladores, bibliotecas e utilitários)
+# Ubuntu 24.04: GCC 13, CMake 3.28 e Python 3.12 atendem ao ns-3.48
+# (CMake >= 3.25, Python >= 3.10, C++23) e ao NR v5.1 (CMake >= 3.25.2).
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -24,15 +26,7 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-dev \
     libeigen3-dev \
     nlohmann-json3-dev \
-    software-properties-common \
     wget && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test && \
-    apt-get update && \
-    apt-get install -y gcc-11 g++-11 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 10 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 20 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 10 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 20 && \
     rm -rf /var/lib/apt/lists/*
 
 # 2. Instalação do Nokia ASN1C (necessário para compilação das specs ASN.1)
@@ -46,7 +40,10 @@ RUN git clone https://github.com/nokia/asn1c.git /tmp/asn1c && \
     rm -rf /tmp/asn1c
 
 # 3. Criação do usuário developer para compatibilidade de permissões host-container
-RUN groupadd -g $GID developer || groupmod -g $GID $(getent group $GID | cut -d: -f1) || true && \
+# A imagem do Ubuntu 24.04 já traz o usuário "ubuntu" com UID/GID 1000; ele é removido
+# para que o developer receba o UID/GID do host.
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
+    groupadd -g $GID developer || groupmod -g $GID $(getent group $GID | cut -d: -f1) || true && \
     useradd -m -u $UID -g $GID -s /bin/bash developer || useradd -m -g $GID -s /bin/bash developer || true && \
     echo "developer ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
@@ -107,13 +104,17 @@ RUN dpkg --install /tmp/e2sim-dev_1.0.0_amd64.deb && \
 USER developer
 WORKDIR /home/developer
 
-# Clona o ns-3.42 e o módulo 5G-LENA NR
+# Clona o ns-3.48 e o módulo 5G-LENA NR v5.1 (par compatível segundo o README do NR)
+# Versão anterior: ns-3.42 (ab4cce02) + NR 78b7179e, preservada na imagem
+# nori-nori-dev:ns3.42-nr78b7179e.
+ARG NS3_VERSION=ns-3.48
+ARG NR_VERSION=v5.1
 RUN git clone https://gitlab.com/nsnam/ns-3-dev.git /home/developer/ns-3-dev && \
     cd /home/developer/ns-3-dev && \
-    git checkout ab4cce021d8f6b2458784704a10af810d3969f0f && \
+    git checkout ${NS3_VERSION} && \
     cd contrib && \
     git clone https://gitlab.com/cttc-lena/nr.git && \
-    cd nr && git checkout 78b7179e3841c608c2021ffa88bea1906a1c7594
+    cd nr && git checkout ${NR_VERSION}
 
 WORKDIR /home/developer/ns-3-dev
 

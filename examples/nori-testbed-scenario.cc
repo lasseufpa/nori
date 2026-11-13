@@ -409,7 +409,7 @@ main(int argc, char* argv[])
     nrHelper->SetGnbPhyAttribute("Numerology", UintegerValue(numerology));
     nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(txPower));
     nrHelper->SetGnbPhyAttribute("Pattern", StringValue(kTddPattern));
-    nrHelper->SetGnbPhyAttribute("RbOverhead", DoubleValue(kRbOverhead));
+    nrHelper->SetAttribute("RbOverhead", DoubleValue(kRbOverhead)); // NR v5.0+: NrHelper attribute
     nrHelper->SetUePhyAttribute("TxPower", DoubleValue(ueTxPower));
 
     idealBeamformingHelper->SetAttribute("BeamformingMethod",
@@ -558,13 +558,13 @@ main(int argc, char* argv[])
         const auto& prof = profiles[i];
 
         // Dedicated DL bearer (LCID 4): E2Interface reads PDCP statistics from this LCID.
-        NrEpsBearer bearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
-        Ptr<NrEpcTft> tft = Create<NrEpcTft>();
-        NrEpcTft::PacketFilter dlpf;
+        NrQosFlow bearer(NrQosFlow::NGBR_LOW_LAT_EMBB);
+        Ptr<NrQosRule> tft = Create<NrQosRule>();
+        NrQosRule::PacketFilter dlpf;
         dlpf.localPortStart = prof.port;
         dlpf.localPortEnd = prof.port;
         tft->Add(dlpf);
-        nrHelper->ActivateDedicatedEpsBearer(ueDevs.Get(i), bearer, tft);
+        nrHelper->ActivateDedicatedQosFlow(ueDevs.Get(i), bearer, tft);
 
         // UE receiver (PacketSink)
         PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",

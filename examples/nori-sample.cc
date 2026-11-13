@@ -27,7 +27,7 @@
 #include "ns3/mobility-module.h"
 #include "ns3/network-module.h"
 #include "ns3/nori-module.h"
-#include "ns3/nr-eps-bearer-tag.h"
+#include "ns3/nr-qos-flow-tag.h"
 #include "ns3/nr-helper.h"
 #include "ns3/nr-module.h"
 #include "ns3/nr-point-to-point-epc-helper.h"
@@ -53,7 +53,7 @@ SendContinuousPacket(Ptr<NetDevice> device, Address addr, uint32_t packetSize, T
     Ipv4Header ipv4Header;
     ipv4Header.SetProtocol(UdpL4Protocol::PROT_NUMBER);
     pkt->AddHeader(ipv4Header);
-    NrEpsBearerTag tag(1, 1);
+    NrQosFlowTag tag(1, 1);
     pkt->AddPacketTag(tag);
     device->Send(pkt, addr, Ipv4L3Protocol::PROT_NUMBER);
 

@@ -489,18 +489,18 @@ int main(int argc, char* argv[])
         Ptr<NetDevice> ueDevice = ueDevs.Get(i);
 
         // Use a non-GBR low-latency bearer (as in other Nori examples)
-        NrEpsBearer bearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
+        NrQosFlow bearer(NrQosFlow::NGBR_LOW_LAT_EMBB);
 
-        Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+        Ptr<NrQosRule> tft = Create<NrQosRule>();
 
         // Downlink filter: localPort = UDP port where the UE sink listens
         uint16_t uePort = portBase + i;
-        NrEpcTft::PacketFilter dlpf;
+        NrQosRule::PacketFilter dlpf;
         dlpf.localPortStart = uePort;
         dlpf.localPortEnd = uePort;
         tft->Add(dlpf);
 
-        nrHelper->ActivateDedicatedEpsBearer(ueDevice, bearer, tft);
+        nrHelper->ActivateDedicatedQosFlow(ueDevice, bearer, tft);
 
         NS_LOG_INFO("Dedicated DL bearer activated for UE[" << i << "] port " << uePort);
     }

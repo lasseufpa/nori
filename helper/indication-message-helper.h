@@ -19,11 +19,14 @@
 #pragma once
 
 #include "ns3/kpm-indication.h"
+#include "ns3/simple-ref-count.h"
 
 namespace ns3
 {
 
-class IndicationMessageHelper : public Object
+// Short-lived message builder created with Create<>(): reference counting only
+// (ns-3.48 forbids Create<>() for Object subclasses).
+class IndicationMessageHelper : public SimpleRefCount<IndicationMessageHelper>
 {
   public:
 
@@ -34,7 +37,7 @@ class IndicationMessageHelper : public Object
     };
 
     IndicationMessageHelper(IndicationMessageType type, bool isOffline, bool reducePmValues);
-    ~IndicationMessageHelper();
+    virtual ~IndicationMessageHelper(); // SimpleRefCount deletes through the base type
 
     Ptr<KpmIndicationMessage> CreateIndicationMessage();
 

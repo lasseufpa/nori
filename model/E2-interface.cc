@@ -417,7 +417,8 @@ E2Interface::RegisterNewSinrReadingCallback([[maybe_unused]] std::string path,
     {
         return;
     }
-    for (auto id : gnbNode->GetCellIds())
+    // NR v4.2+: a gNB has a single CellId (GetCellIds() was removed)
+    for (auto id : {gnbNode->GetCellId()})
     {
         NS_LOG_DEBUG("CellId: " << cellId << " gNB cellId: " << id);
         if (id == cellId)

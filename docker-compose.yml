@@ -7,6 +7,7 @@ services:
       args:
         UID: 1000
         GID: 1000
+    image: nori-nori-dev:ns3.48-nr5.1
     container_name: nori-dev
     volumes:
       - .:/home/developer/ns-3-dev/contrib/nori

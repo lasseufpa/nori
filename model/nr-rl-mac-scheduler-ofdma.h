@@ -8,6 +8,8 @@
 #include "ns3/nr-mac-scheduler-ofdma.h"
 #include "ns3/traced-value.h"
 
+#include <set>
+
 namespace ns3
 {
 
@@ -85,9 +87,51 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
     std::shared_ptr<NrMacSchedulerUeInfo> CreateUeRepresentation(
         const NrMacCschedSapProvider::CschedUeConfigReqParameters& params) const override;
 
+    /**
+     * @brief Assign the DL RBGs of each beam to the UEs, slice by slice.
+     *
+     * The RBGs of the beam are split in three phases, in this order, as percentages of the
+     * RBGs available in the beam (GetDlBitmask()):
+     *  - dedicated: each slice reserves its own RBGs; unused ones stay idle;
+     *  - min - dedicated: each slice takes up to this share from the common pool;
+     *  - max - min: each slice takes up to this share from what is left in the pool.
+     * Inside a slice, UEs are served in the round-robin order of NrMacSchedulerOfdmaRR.
+     * Without slices configured (SetSliceUeMapping() not called), the RR allocation is used.
+     */
     BeamSymbolMap AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl) const override;
 
   private:
+    /**
+     * @brief Allocate RBGs of a candidate set to the UEs of a slice.
+     *
+     * RBGs are taken in increasing index order (wideband allocation). A UE keeps receiving
+     * RBGs until its TB reaches the minimum DCI size (10 bytes); UEs that do not reach it
+     * when the budget or the set runs out give their RBGs back to the set.
+     *
+     * @param ueVector UEs of the slice in this beam, with their buffer
+     * @param candidates RBG indices usable by the slice; allocated ones are removed
+     * @param budget maximum number of RBGs to allocate
+     * @param beamSym symbols of the beam
+     * @param assigned resources assigned in the beam (updated)
+     * @return number of RBGs allocated
+     */
+    uint32_t AllocateSliceRbgs(std::vector<UePtrAndBufferReq>& ueVector,
+                               std::set<uint32_t>& candidates,
+                               uint32_t budget,
+                               uint32_t beamSym,
+                               FTResources& assigned) const;
+
+    /// Give one RBG (over beamSym symbols) to a UE
+    static void AllocateRbgToUe(const std::shared_ptr<NrMacSchedulerUeInfo>& ue,
+                                uint32_t rbg,
+                                uint32_t beamSym,
+                                FTResources& assigned);
+
+    /// Take back all the DL RBGs of a UE, returning them to the candidate set
+    static void ReleaseUeRbgs(const std::shared_ptr<NrMacSchedulerUeInfo>& ue,
+                              std::set<uint32_t>& candidates,
+                              FTResources& assigned);
+
     uint32_t m_numberSlices; //!< Number of slices
     std::vector<uint32_t> m_dedicatedRbPercSlices; //!< Dedicated RB percentage per slice
     std::vector<uint32_t> m_minRbPercSlices; //!< Minimum RB percentage per slice

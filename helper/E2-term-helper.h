@@ -98,6 +98,7 @@ class E2TermHelper : public Object
     std::string m_e2ip;     // !< E2 termination IP
     uint16_t m_e2port;      // !< E2 termination port
     uint16_t m_e2localPort; // !< E2 termination local port
+    Time m_startStagger;    // !< delay between the E2 starts of consecutive cells
 
     // E2 messages attributes
     bool m_e2ForceLog;  // !< E2 force log

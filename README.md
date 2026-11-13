@@ -12,7 +12,14 @@ This project enables:
 
 ## Getting Started with Docker
 
-NORI is containerized with **Docker** and **Docker Compose**, providing a pre-configured environment with all necessary toolchains (GCC-11, Nokia ASN1C, E2AP/E2SM-KPM/E2SM-RC v3.01 ASN.1 compilation, and patched `e2sim-dev`).
+NORI is containerized with **Docker** and **Docker Compose**, providing a pre-configured environment with all necessary toolchains (Ubuntu 24.04, GCC 13, CMake 3.28, Nokia ASN1C, E2AP/E2SM-KPM/E2SM-RC v3.01 ASN.1 compilation, and patched `e2sim-dev`).
+
+| Component | Version |
+| --- | --- |
+| ns-3 | `ns-3.48` |
+| nr (5G-LENA) | `v5.1` |
+
+The previous environment (ns-3.42 with nr commit `78b7179e`) is kept as the image tag `nori-nori-dev:ns3.42-nr78b7179e`. Results obtained with the two versions are not directly comparable: nr v4.0 to v5.1 changed the RLC, HARQ, TB size, MIMO SINR and scheduler models.
 
 ### Option 1: Development Mode with Live Code Mounting (Recommended)
 Edit source files directly on your host machine while building and running inside Docker in real-time:

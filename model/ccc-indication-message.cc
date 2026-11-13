@@ -1,5 +1,6 @@
 #include "ccc-indication-message.h"
 #include "ns3/nr-gnb-net-device.h"
+#include "ns3/nr-gnb-phy.h"
 #include "ns3/nori-slicing-helper.h"
 #include "ns3/log.h"
 

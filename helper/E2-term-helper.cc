@@ -64,7 +64,14 @@ E2TermHelper::GetTypeId()
                                           "The first port number for the local bind",
                                           UintegerValue(38470),
                                           MakeUintegerAccessor(&E2TermHelper::m_e2localPort),
-                                          MakeUintegerChecker<uint16_t>());
+                                          MakeUintegerChecker<uint16_t>())
+                            .AddAttribute("StartStagger",
+                                          "Delay between the start of the E2 terminations of "
+                                          "consecutive cells: cell N starts its E2 Setup at "
+                                          "(N - 1) x StartStagger. Zero starts all together",
+                                          TimeValue(Seconds(0)),
+                                          MakeTimeAccessor(&E2TermHelper::m_startStagger),
+                                          MakeTimeChecker(Seconds(0)));
     return tid;
 }
 
@@ -227,7 +234,10 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
         }
     }); 
 
-    Simulator::Schedule(MicroSeconds(0), &E2Termination::Start, e2Term);
+    // Staggered start: some E2 terminators delay the E2 Setup of associations opened at
+    // the same instant from the same host (observed with 3 gNBs on the OSC RIC)
+    const Time startDelay = cellId > 0 ? m_startStagger * (cellId - 1) : Seconds(0);
+    Simulator::Schedule(startDelay, &E2Termination::Start, e2Term);
     // Starts KPM reports and applies E2SM-RC controls on the simulation thread
     // (see E2Interface::StartSctpQueueDrain)
     Simulator::Schedule(MicroSeconds(0), &E2Interface::StartSctpQueueDrain, e2Messages);
