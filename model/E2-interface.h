@@ -18,6 +18,12 @@
 
 #include <nlohmann/json.hpp>
 
+#include "ns3/event-id.h"
+#include "ns3/nstime.h"
+
+#include <deque>
+#include <mutex>
+
 namespace ns3
 {
 class NoriE2Report;
@@ -118,7 +124,7 @@ class E2Interface : public Object
      * @brief Apply slicing control directive to the MAC scheduler
      * @param quotas slice PRB quotas
      */
-    void ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
+    bool ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
     void ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas);
 
     /**
@@ -129,11 +135,27 @@ class E2Interface : public Object
 
     /**
      * @brief Send RIC Control Acknowledge (success) or RIC Control Failure for an E2SM-RC request
-     * @param ctrlMsg decoded control request
+     * @param ricRequestId RICrequestID of the original request
+     * @param ranFunctionId RANfunctionID of the original request
      * @param success true for Acknowledge, false for Failure
      * @param ricRequestCause CauseRICrequest value used in the Failure
      */
-    void SendRcControlOutcome(const RicControlMessage& ctrlMsg, bool success, long ricRequestCause);
+    void SendRcControlOutcome(const RICrequestID_t& ricRequestId,
+                              long ranFunctionId,
+                              bool success,
+                              long ricRequestCause);
+
+    /**
+     * @brief Start the periodic event that applies queued E2SM-RC controls.
+     *
+     * Must be scheduled from the simulation (main) thread, before or during Simulator::Run().
+     * E2SM-RC controls arrive on the SCTP thread. With RealtimeSimulatorImpl, an event
+     * scheduled from another thread gets a wall-clock timestamp; when the simulation runs
+     * slower than real time, the event lands in the simulated future and the quota is
+     * applied late (or never, within the run). The SCTP thread therefore only enqueues the
+     * control, and this event applies it at the current simulation time.
+     */
+    void StartRcControlDrain();
 
     Ptr<NoriE2Report> GetE2DuCalculator();
     
@@ -169,6 +191,23 @@ class E2Interface : public Object
      * @return the flipped map
      */
     std::multimap<long double, uint16_t> FlipMap(const std::map<uint16_t, long double>& src);
+
+    /// E2SM-RC slicing control received on the SCTP thread, waiting to be applied
+    struct PendingRcControl
+    {
+        std::vector<RicControlMessage::SlicePRBQuota> quotas;
+        RICrequestID_t ricRequestId;
+        long ranFunctionId;
+    };
+
+    /// Apply the queued E2SM-RC controls on the simulation thread and answer the RIC
+    void DrainRcControlQueue();
+
+    std::mutex m_rcControlMutex;                    //<! protects m_pendingRcControls
+    std::deque<PendingRcControl> m_pendingRcControls; //<! controls queued by the SCTP thread
+    Time m_rcControlDrainPeriod;                    //<! period of the drain event
+    EventId m_rcControlDrainEvent;                  //<! drain event
+    bool m_rcControlDrainStarted{false};            //<! drain event already started
 
     double m_e2Periodicity;                                          //<! E2 periodicity
     Ptr<NrGnbRrc> m_rrc;                                             //<! RRC object

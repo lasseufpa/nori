@@ -228,6 +228,8 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
     }); 
 
     Simulator::Schedule(MicroSeconds(0), &E2Termination::Start, e2Term);
+    // Applies E2SM-RC controls on the simulation thread (see E2Interface::StartRcControlDrain)
+    Simulator::Schedule(MicroSeconds(0), &E2Interface::StartRcControlDrain, e2Messages);
 
     NetDevice->AggregateObject(e2Messages);
 }

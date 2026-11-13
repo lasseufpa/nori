@@ -97,7 +97,13 @@ E2Interface::GetTypeId()
                                           "The start time of the E2 report messages",
                                           DoubleValue(0),
                                           MakeDoubleAccessor(&E2Interface::m_startTime),
-                                          MakeDoubleChecker<double>());
+                                          MakeDoubleChecker<double>())
+                            .AddAttribute("RcControlDrainPeriod",
+                                          "Period of the event that applies E2SM-RC controls "
+                                          "queued by the SCTP thread",
+                                          TimeValue(MilliSeconds(1)),
+                                          MakeTimeAccessor(&E2Interface::m_rcControlDrainPeriod),
+                                          MakeTimeChecker(MicroSeconds(1)));
     return tid;
 }
 
@@ -477,22 +483,36 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
         if (quotas.empty())
         {
             NS_LOG_WARN("[E2SM-RC] Slice-level PRB quota without valid RRM Policy Ratio Group");
-            SendRcControlOutcome(ctrlMsg, false, CauseRICrequest_control_message_invalid);
+            SendRcControlOutcome(ctrlMsg.GetRicRequestId(),
+                                 ctrlMsg.GetRanFunctionId(),
+                                 false,
+                                 CauseRICrequest_control_message_invalid);
             break;
         }
-        NS_LOG_INFO("Applying RAN Slicing control directive from RIC (" << quotas.size()
-                                                                       << " slice quotas)");
-        uint32_t nodeId = m_netDev->GetNode()->GetId();
-        Simulator::ScheduleWithContext(nodeId,
-                                       MicroSeconds(0),
-                                       &E2Interface::ApplySlicingControl,
-                                       this,
-                                       quotas);
-        SendRcControlOutcome(ctrlMsg, true, 0);
+        // This callback runs on the SCTP thread: only enqueue. DrainRcControlQueue() applies
+        // the quota and answers the RIC on the simulation thread (see StartRcControlDrain()).
+        size_t pending = 0;
+        {
+            std::lock_guard<std::mutex> lock(m_rcControlMutex);
+            m_pendingRcControls.push_back(
+                {quotas, ctrlMsg.GetRicRequestId(), static_cast<long>(ctrlMsg.GetRanFunctionId())});
+            pending = m_pendingRcControls.size();
+        }
+        NS_LOG_INFO("RAN Slicing control directive from RIC queued (" << quotas.size()
+                                                                     << " slice quotas, "
+                                                                     << pending << " pending)");
+        if (!m_rcControlDrainStarted)
+        {
+            NS_LOG_WARN("[E2SM-RC] RC control drain event not started; call "
+                        "E2Interface::StartRcControlDrain() from the simulation thread");
+        }
         break;
     }
     case RicControlMessage::UNSUPPORTED:
-        SendRcControlOutcome(ctrlMsg, false, CauseRICrequest_action_not_supported);
+        SendRcControlOutcome(ctrlMsg.GetRicRequestId(),
+                             ctrlMsg.GetRanFunctionId(),
+                             false,
+                             CauseRICrequest_action_not_supported);
         break;
     case RicControlMessage::TS:
         NS_LOG_INFO("Traffic Steering control directive received: SecondaryCell="
@@ -513,7 +533,47 @@ E2Interface::ProcessControlMessage([[maybe_unused]] E2AP_PDU_t* pdu)
 }
 
 void
-E2Interface::SendRcControlOutcome(const RicControlMessage& ctrlMsg,
+E2Interface::StartRcControlDrain()
+{
+    NS_LOG_FUNCTION(this);
+    if (m_rcControlDrainStarted)
+    {
+        return;
+    }
+    m_rcControlDrainStarted = true;
+    m_rcControlDrainEvent =
+        Simulator::Schedule(m_rcControlDrainPeriod, &E2Interface::DrainRcControlQueue, this);
+}
+
+void
+E2Interface::DrainRcControlQueue()
+{
+    std::deque<PendingRcControl> batch;
+    {
+        std::lock_guard<std::mutex> lock(m_rcControlMutex);
+        batch.swap(m_pendingRcControls);
+    }
+
+    for (const auto& ctrl : batch)
+    {
+        NS_LOG_INFO("Applying RAN Slicing control directive from RIC (requestorId="
+                    << ctrl.ricRequestId.ricRequestorID << ", " << ctrl.quotas.size()
+                    << " slice quotas)");
+        bool applied = ApplySlicingControl(ctrl.quotas);
+        SendRcControlOutcome(ctrl.ricRequestId,
+                             ctrl.ranFunctionId,
+                             applied,
+                             CauseRICrequest_control_failed_to_execute);
+    }
+
+    // Called on the simulation thread: the next drain is scheduled in simulation time.
+    m_rcControlDrainEvent =
+        Simulator::Schedule(m_rcControlDrainPeriod, &E2Interface::DrainRcControlQueue, this);
+}
+
+void
+E2Interface::SendRcControlOutcome(const RICrequestID_t& ricRequestId,
+                                  long ranFunctionId,
                                   bool success,
                                   long ricRequestCause)
 {
@@ -524,8 +584,8 @@ E2Interface::SendRcControlOutcome(const RicControlMessage& ctrlMsg,
         return;
     }
 
-    const auto& reqId = ctrlMsg.GetRicRequestId();
-    long ranFuncId = ctrlMsg.GetRanFunctionId();
+    const auto& reqId = ricRequestId;
+    long ranFuncId = ranFunctionId;
 
     auto* pdu = (E2AP_PDU_t*)calloc(1, sizeof(E2AP_PDU_t));
     if (success)
@@ -597,7 +657,7 @@ E2Interface::SendRcControlOutcome(const RicControlMessage& ctrlMsg,
                                          << (success ? "" : std::to_string(ricRequestCause)));
 }
 
-void
+bool
 E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas)
 {
     NS_LOG_FUNCTION(this);
@@ -606,7 +666,7 @@ E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQu
     if (!gnbNode)
     {
         NS_LOG_ERROR("NetDevice is not a NrGnbNetDevice");
-        return;
+        return false;
     }
 
     Ptr<NrMacScheduler> scheduler = gnbNode->GetScheduler(0);
@@ -615,7 +675,7 @@ E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQu
     if (!rlScheduler)
     {
         NS_LOG_WARN("Scheduler is not NrRLMacSchedulerOfdma, cannot apply slicing quotas");
-        return;
+        return false;
     }
 
     std::vector<SlicePRBQuota> macQuotas;
@@ -635,6 +695,7 @@ E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQu
     }
 
     rlScheduler->SetSlicingParameters(macQuotas);
+    return true;
 }
 
 void
