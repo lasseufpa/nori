@@ -27,6 +27,7 @@
 namespace ns3
 {
 class NoriE2Report;
+class NrUeManager;
 
 typedef std::pair<uint64_t, uint16_t> ImsiCellIdPair_t;
 
@@ -158,6 +159,14 @@ class E2Interface : public Object
     void StartRcControlDrain();
 
     Ptr<NoriE2Report> GetE2DuCalculator();
+
+    /**
+     * @brief Cumulative PDCP TX bytes of a UE, summed over all its data radio bearers
+     * @param ue UE manager in the gNB RRC
+     * @param downlink true for DL, false for UL
+     * @return cumulative bytes reported by the E2 PDCP statistics calculator
+     */
+    uint64_t GetUePdcpTxBytes(Ptr<NrUeManager> ue, bool downlink) const;
     
     void MLSliceInterface(double macPrb, uint64_t imsi);
 

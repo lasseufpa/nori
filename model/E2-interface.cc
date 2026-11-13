@@ -25,6 +25,7 @@
 #include "ns3/nr-gnb-mac.h"
 #include "ns3/nr-gnb-net-device.h"
 #include "ns3/nr-gnb-rrc.h"
+#include "ns3/nr-radio-bearer-info.h"
 #include "ns3/nr-mac-sched-sap.h"
 #include "ns3/nr-rl-mac-scheduler-ofdma.h"
 #include "ns3/nr-rlc-am.h"
@@ -58,6 +59,52 @@ namespace ns3
 
 NS_LOG_COMPONENT_DEFINE("E2Interface");
 NS_OBJECT_ENSURE_REGISTERED(E2Interface);
+
+namespace
+{
+/**
+ * Return the increment of a cumulative counter since the previous report and
+ * advance the stored reference. A current value smaller than the reference
+ * means the statistics calculator was reset (or a bearer was released); the
+ * current value is then the whole increment.
+ */
+double
+ConsumeCounterDelta(double current, double& previous)
+{
+    const double delta = current >= previous ? current - previous : current;
+    previous = current;
+    return delta;
+}
+} // namespace
+
+uint64_t
+E2Interface::GetUePdcpTxBytes(Ptr<NrUeManager> ue, bool downlink) const
+{
+    if (!m_e2PdcpStatsCalculator || !ue)
+    {
+        return 0;
+    }
+
+    // Sum every data radio bearer of the UE. Reading a fixed LCID (previously 4)
+    // returned zero for UEs that only have the default bearer.
+    const uint64_t imsi = ue->GetImsi();
+    ObjectMapValue drbMap;
+    ue->GetAttribute("DataRadioBearerMap", drbMap);
+
+    uint64_t total = 0;
+    for (auto drb = drbMap.Begin(); drb != drbMap.End(); ++drb)
+    {
+        Ptr<NrDataRadioBearerInfo> bearerInfo = drb->second->GetObject<NrDataRadioBearerInfo>();
+        if (!bearerInfo)
+        {
+            continue;
+        }
+        const uint8_t lcid = bearerInfo->m_logicalChannelIdentity;
+        total += downlink ? m_e2PdcpStatsCalculator->GetDlTxData(imsi, lcid)
+                          : m_e2PdcpStatsCalculator->GetUlTxData(imsi, lcid);
+    }
+    return total;
+}
 
 E2Interface::E2Interface()
 {
@@ -871,11 +918,8 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
         uint16_t rnti = ue->GetRnti();
 
         // --- CU-UP: aggregate PDCP volume ---
-        double actualTotalTxBytes = m_e2PdcpStatsCalculator ? (m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3)) : 0.0;
-        if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
-            m_cellTxBytes.insert(std::make_pair(imsi, 0));
-        double txBytes = actualTotalTxBytes - m_cellTxBytes[imsi];
-        m_cellTxBytes[imsi] += txBytes;
+        double actualTotalTxBytes = GetUePdcpTxBytes(ue, true) * (8 / 1e3); // kbit, all DRBs
+        double txBytes = ConsumeCounterDelta(actualTotalTxBytes, m_cellTxBytes[imsi]);
         cellDlTxVolume += txBytes;
 
         // --- TX PDU counting reset for this frame ---
@@ -988,11 +1032,10 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
         helper->BeginUeReport(imsi, plmId, 0, 0, 0);
 
         // --- CU-UP per-UE: PDCP throughput ---
-        double actualTotalTxBytes = m_e2PdcpStatsCalculator ? (m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3)) : 0.0;
+        double actualTotalTxBytes = GetUePdcpTxBytes(ue, true) * (8 / 1e3); // kbit, all DRBs
         // Node-level and UE-level reports are built at the same instant, so each
         // one keeps its own reference value (operator[] starts it at zero).
-        double txBytes = actualTotalTxBytes - m_ueTxBytes[imsi];
-        m_ueTxBytes[imsi] = actualTotalTxBytes;
+        double txBytes = ConsumeCounterDelta(actualTotalTxBytes, m_ueTxBytes[imsi]);
         double pdcpThroughput = txBytes / m_e2Periodicity; // kbps
 
         helper->AddUeMeasurementReal("DRB.UEThpDl", pdcpThroughput);
@@ -1100,12 +1143,26 @@ E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
     double currentTime = Simulator::Now().GetMilliSeconds();
     double deltatime = currentTime - m_previousTime[imsi];
 
-    double currentDlTxData = m_e2PdcpStatsCalculator ? m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) : 0.0;
-    double dlThroughput = (currentTime > m_previousTime[imsi]) ? ((currentDlTxData - m_previousDlTxData[imsi]) * 8 / deltatime) : 0.0;
-    m_previousDlTxData[imsi] = currentDlTxData;
-    double currentUlTxData = m_e2PdcpStatsCalculator ? m_e2PdcpStatsCalculator->GetUlTxData(imsi, 4) : 0.0;
-    double ulThroughput = (currentTime > m_previousTime[imsi]) ? ((currentUlTxData - m_previousUlTxData[imsi]) * 8 / deltatime) : 0.0;
-    m_previousUlTxData[imsi] = currentUlTxData;
+    Ptr<NrUeManager> ueManager;
+    ObjectMapValue ueMap;
+    m_rrc->GetAttribute("UeMap", ueMap);
+    for (auto it = ueMap.Begin(); it != ueMap.End(); ++it)
+    {
+        auto candidate = DynamicCast<NrUeManager>(it->second);
+        if (candidate && candidate->GetImsi() == imsi)
+        {
+            ueManager = candidate;
+            break;
+        }
+    }
+
+    // All DRBs of the UE (see GetUePdcpTxBytes)
+    double currentDlTxData = static_cast<double>(GetUePdcpTxBytes(ueManager, true));
+    double currentUlTxData = static_cast<double>(GetUePdcpTxBytes(ueManager, false));
+    double dlDelta = ConsumeCounterDelta(currentDlTxData, m_previousDlTxData[imsi]);
+    double ulDelta = ConsumeCounterDelta(currentUlTxData, m_previousUlTxData[imsi]);
+    double dlThroughput = (currentTime > m_previousTime[imsi]) ? (dlDelta * 8 / deltatime) : 0.0;
+    double ulThroughput = (currentTime > m_previousTime[imsi]) ? (ulDelta * 8 / deltatime) : 0.0;
     m_previousTime[imsi] = currentTime;
     double spectralEfficiency = 0.0;
     if (m_e2DuCalculator)
