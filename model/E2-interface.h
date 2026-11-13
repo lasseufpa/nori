@@ -127,6 +127,14 @@ class E2Interface : public Object
      */
     void ProcessControlMessage(E2AP_PDU_t* pdu);
 
+    /**
+     * @brief Send RIC Control Acknowledge (success) or RIC Control Failure for an E2SM-RC request
+     * @param ctrlMsg decoded control request
+     * @param success true for Acknowledge, false for Failure
+     * @param ricRequestCause CauseRICrequest value used in the Failure
+     */
+    void SendRcControlOutcome(const RicControlMessage& ctrlMsg, bool success, long ricRequestCause);
+
     Ptr<NoriE2Report> GetE2DuCalculator();
     
     void MLSliceInterface(double macPrb, uint64_t imsi);

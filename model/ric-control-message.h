@@ -53,6 +53,7 @@ class RicControlMessage : public SimpleRefCount<RicControlMessage>
     {
         uint8_t sst{0};         // Slice/Service Type
         uint32_t sd{0};         // Slice Differentiator (optional)
+        std::string plmnId;     // PLMN Identity (optional, raw octets)
         long maxPRBRatio{100};  // Maximum PRB policy ratio
         long minPRBRatio{0};    // Minimum PRB policy ratio
         long dedicatePRBRatio{0}; // Dedicated PRB policy ratio
@@ -60,9 +61,32 @@ class RicControlMessage : public SimpleRefCount<RicControlMessage>
 
     enum ControlMessageRequestIdType
     {
+        UNSUPPORTED = 0,
         TS = 1001,
         QoS = 1002,
         RAN_SLICING = 1003,
+    };
+
+    /// E2SM-RC v03.00 section 7.6.3: CONTROL Service Style 2 (Radio Resource Allocation Control)
+    static constexpr long RC_CONTROL_STYLE_RADIO_RESOURCE_ALLOCATION = 2;
+    /// E2SM-RC v03.00 section 7.6.3: Control Action 6 (Slice-level PRB quota)
+    static constexpr long RC_CONTROL_ACTION_SLICE_PRB_QUOTA = 6;
+
+    /// RAN Parameter IDs of E2SM-RC v03.00 section 8.4.3.6 (Slice-level PRB quota)
+    enum SlicePrbQuotaRanParameterId : long
+    {
+        RC_PARAM_RRM_POLICY_RATIO_LIST = 1,
+        RC_PARAM_RRM_POLICY_RATIO_GROUP = 2,
+        RC_PARAM_RRM_POLICY = 3,
+        RC_PARAM_RRM_POLICY_MEMBER_LIST = 5,
+        RC_PARAM_RRM_POLICY_MEMBER = 6,
+        RC_PARAM_PLMN_IDENTITY = 7,
+        RC_PARAM_S_NSSAI = 8,
+        RC_PARAM_SST = 9,
+        RC_PARAM_SD = 10,
+        RC_PARAM_MIN_PRB_RATIO = 11,
+        RC_PARAM_MAX_PRB_RATIO = 12,
+        RC_PARAM_DEDICATED_PRB_RATIO = 13,
     };
 
     RicControlMessage(E2AP_PDU_t* pdu);
@@ -136,10 +160,7 @@ class RicControlMessage : public SimpleRefCount<RicControlMessage>
     void DecodeControlHeader(const RICcontrolHeader_t& headerIe);
     void DecodeControlMessage(const RICcontrolMessage_t& messageIe);
 
-    void ParseRanParameterStructureForSlicing(const RANParameter_STRUCTURE_t* structure);
-    void ParseRanParameterListForSlicing(const RANParameter_LIST_t* list);
-    void ParseRanParameterValueTypeForSlicing(long paramId,
-                                             const RANParameter_ValueType_t* valueType);
+    void ParseRrmPolicyRatioList(const RANParameter_ValueType_t* valueType);
 
     std::string m_secondaryCellId;
 };

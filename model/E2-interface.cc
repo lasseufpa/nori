@@ -45,6 +45,14 @@
 #include "ns3/nr-pm-search.h"
 
 #include <encode_e2apv1.hpp>
+
+extern "C"
+{
+#include "Cause.h"
+#include "CauseRICrequest.h"
+#include "RICcontrolFailure.h"
+#include "UnsuccessfulOutcome.h"
+}
 namespace ns3
 {
 
@@ -465,16 +473,27 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
     {
     case RicControlMessage::RAN_SLICING:
     {
-        NS_LOG_INFO("Applying RAN Slicing control directive from RIC");
         auto quotas = ctrlMsg.GetPrbQuotas();
+        if (quotas.empty())
+        {
+            NS_LOG_WARN("[E2SM-RC] Slice-level PRB quota without valid RRM Policy Ratio Group");
+            SendRcControlOutcome(ctrlMsg, false, CauseRICrequest_control_message_invalid);
+            break;
+        }
+        NS_LOG_INFO("Applying RAN Slicing control directive from RIC (" << quotas.size()
+                                                                       << " slice quotas)");
         uint32_t nodeId = m_netDev->GetNode()->GetId();
         Simulator::ScheduleWithContext(nodeId,
                                        MicroSeconds(0),
                                        &E2Interface::ApplySlicingControl,
                                        this,
                                        quotas);
+        SendRcControlOutcome(ctrlMsg, true, 0);
         break;
     }
+    case RicControlMessage::UNSUPPORTED:
+        SendRcControlOutcome(ctrlMsg, false, CauseRICrequest_action_not_supported);
+        break;
     case RicControlMessage::TS:
         NS_LOG_INFO("Traffic Steering control directive received: SecondaryCell="
                     << ctrlMsg.GetSecondaryCellIdHO());
@@ -491,6 +510,91 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
 void
 E2Interface::ProcessControlMessage([[maybe_unused]] E2AP_PDU_t* pdu)
 {
+}
+
+void
+E2Interface::SendRcControlOutcome(const RicControlMessage& ctrlMsg,
+                                  bool success,
+                                  long ricRequestCause)
+{
+    auto e2Term = m_netDev->GetObject<E2Termination>();
+    if (!e2Term)
+    {
+        NS_LOG_ERROR("[E2SM-RC] E2Termination not found, cannot send control outcome");
+        return;
+    }
+
+    const auto& reqId = ctrlMsg.GetRicRequestId();
+    long ranFuncId = ctrlMsg.GetRanFunctionId();
+
+    auto* pdu = (E2AP_PDU_t*)calloc(1, sizeof(E2AP_PDU_t));
+    if (success)
+    {
+        pdu->present = E2AP_PDU_PR_successfulOutcome;
+        pdu->choice.successfulOutcome = (SuccessfulOutcome_t*)calloc(1, sizeof(SuccessfulOutcome_t));
+        pdu->choice.successfulOutcome->procedureCode = ProcedureCode_id_RICcontrol;
+        pdu->choice.successfulOutcome->criticality = Criticality_reject;
+        pdu->choice.successfulOutcome->value.present =
+            SuccessfulOutcome__value_PR_RICcontrolAcknowledge;
+        auto* ack = &pdu->choice.successfulOutcome->value.choice.RICcontrolAcknowledge;
+
+        auto* ieReqId = (RICcontrolAcknowledge_IEs_t*)calloc(1, sizeof(RICcontrolAcknowledge_IEs_t));
+        ieReqId->id = ProtocolIE_ID_id_RICrequestID;
+        ieReqId->criticality = Criticality_reject;
+        ieReqId->value.present = RICcontrolAcknowledge_IEs__value_PR_RICrequestID;
+        ieReqId->value.choice.RICrequestID.ricRequestorID = reqId.ricRequestorID;
+        ieReqId->value.choice.RICrequestID.ricInstanceID = reqId.ricInstanceID;
+        ASN_SEQUENCE_ADD(&ack->protocolIEs.list, ieReqId);
+
+        auto* ieFuncId = (RICcontrolAcknowledge_IEs_t*)calloc(1, sizeof(RICcontrolAcknowledge_IEs_t));
+        ieFuncId->id = ProtocolIE_ID_id_RANfunctionID;
+        ieFuncId->criticality = Criticality_reject;
+        ieFuncId->value.present = RICcontrolAcknowledge_IEs__value_PR_RANfunctionID;
+        ieFuncId->value.choice.RANfunctionID = ranFuncId;
+        ASN_SEQUENCE_ADD(&ack->protocolIEs.list, ieFuncId);
+    }
+    else
+    {
+        pdu->present = E2AP_PDU_PR_unsuccessfulOutcome;
+        pdu->choice.unsuccessfulOutcome =
+            (UnsuccessfulOutcome_t*)calloc(1, sizeof(UnsuccessfulOutcome_t));
+        pdu->choice.unsuccessfulOutcome->procedureCode = ProcedureCode_id_RICcontrol;
+        pdu->choice.unsuccessfulOutcome->criticality = Criticality_reject;
+        pdu->choice.unsuccessfulOutcome->value.present =
+            UnsuccessfulOutcome__value_PR_RICcontrolFailure;
+        auto* fail = &pdu->choice.unsuccessfulOutcome->value.choice.RICcontrolFailure;
+
+        auto* ieReqId = (RICcontrolFailure_IEs_t*)calloc(1, sizeof(RICcontrolFailure_IEs_t));
+        ieReqId->id = ProtocolIE_ID_id_RICrequestID;
+        ieReqId->criticality = Criticality_reject;
+        ieReqId->value.present = RICcontrolFailure_IEs__value_PR_RICrequestID;
+        ieReqId->value.choice.RICrequestID.ricRequestorID = reqId.ricRequestorID;
+        ieReqId->value.choice.RICrequestID.ricInstanceID = reqId.ricInstanceID;
+        ASN_SEQUENCE_ADD(&fail->protocolIEs.list, ieReqId);
+
+        auto* ieFuncId = (RICcontrolFailure_IEs_t*)calloc(1, sizeof(RICcontrolFailure_IEs_t));
+        ieFuncId->id = ProtocolIE_ID_id_RANfunctionID;
+        ieFuncId->criticality = Criticality_reject;
+        ieFuncId->value.present = RICcontrolFailure_IEs__value_PR_RANfunctionID;
+        ieFuncId->value.choice.RANfunctionID = ranFuncId;
+        ASN_SEQUENCE_ADD(&fail->protocolIEs.list, ieFuncId);
+
+        auto* ieCause = (RICcontrolFailure_IEs_t*)calloc(1, sizeof(RICcontrolFailure_IEs_t));
+        ieCause->id = ProtocolIE_ID_id_Cause;
+        ieCause->criticality = Criticality_ignore;
+        ieCause->value.present = RICcontrolFailure_IEs__value_PR_Cause;
+        ieCause->value.choice.Cause.present = Cause_PR_ricRequest;
+        ieCause->value.choice.Cause.choice.ricRequest = ricRequestCause;
+        ASN_SEQUENCE_ADD(&fail->protocolIEs.list, ieCause);
+    }
+
+    e2Term->SendE2Message(pdu);
+    NS_LOG_INFO("[E2SM-RC] RIC Control " << (success ? "Acknowledge" : "Failure")
+                                         << " sent: requestorId=" << reqId.ricRequestorID
+                                         << " instanceId=" << reqId.ricInstanceID
+                                         << " ranFunctionId=" << ranFuncId
+                                         << (success ? "" : " cause=")
+                                         << (success ? "" : std::to_string(ricRequestCause)));
 }
 
 void

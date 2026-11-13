@@ -154,163 +154,240 @@ ExtractSstValue(const RANParameter_ValueType_t* vt, uint8_t& outSst)
     return false;
 }
 
-static RicControlMessage::SlicePRBQuota
-ParseSliceGroupStructure(const RANParameter_STRUCTURE_t* groupStruct)
+static bool
+ExtractSdValue(const RANParameter_ValueType_t* vt, uint32_t& outSd)
 {
-    RicControlMessage::SlicePRBQuota quota;
-    quota.sst = 0;
-    quota.sd = 0;
-    quota.maxPRBRatio = 100;
-    quota.minPRBRatio = 0;
-    quota.dedicatePRBRatio = 0;
-
-    if (groupStruct == nullptr || groupStruct->sequence_of_ranParameters == nullptr)
+    long intVal = 0;
+    if (ExtractIntValue(vt, intVal))
     {
-        return quota;
+        outSd = static_cast<uint32_t>(intVal);
+        return true;
     }
-
-    int count = groupStruct->sequence_of_ranParameters->list.count;
-    for (int i = 0; i < count; i++)
+    std::string strVal;
+    if (ExtractOctetStringValue(vt, strVal) && !strVal.empty())
     {
-        auto* item = groupStruct->sequence_of_ranParameters->list.array[i];
+        // SD is OCTET STRING (SIZE(3)) in TS 38.473
+        uint32_t sd = 0;
+        for (unsigned char c : strVal)
+        {
+            sd = (sd << 8) | c;
+        }
+        outSd = sd;
+        return true;
+    }
+    return false;
+}
+
+static const RANParameter_STRUCTURE_t*
+GetStructure(const RANParameter_ValueType_t* vt)
+{
+    if (vt != nullptr && vt->present == RANParameter_ValueType_PR_ranP_Choice_Structure &&
+        vt->choice.ranP_Choice_Structure != nullptr)
+    {
+        return vt->choice.ranP_Choice_Structure->ranParameter_Structure;
+    }
+    return nullptr;
+}
+
+static const RANParameter_LIST_t*
+GetList(const RANParameter_ValueType_t* vt)
+{
+    if (vt != nullptr && vt->present == RANParameter_ValueType_PR_ranP_Choice_List &&
+        vt->choice.ranP_Choice_List != nullptr)
+    {
+        return vt->choice.ranP_Choice_List->ranParameter_List;
+    }
+    return nullptr;
+}
+
+/**
+ * Parses an "RRM Policy Member" structure (RAN Parameter ID 6):
+ *   7 PLMN Identity, 8 S-NSSAI { 9 SST, 10 SD }
+ */
+static void
+ParsePolicyMember(const RANParameter_STRUCTURE_t* member, RicControlMessage::SlicePRBQuota& quota)
+{
+    if (member == nullptr || member->sequence_of_ranParameters == nullptr)
+    {
+        return;
+    }
+    for (int i = 0; i < member->sequence_of_ranParameters->list.count; i++)
+    {
+        auto* item = member->sequence_of_ranParameters->list.array[i];
         if (item == nullptr || item->ranParameter_valueType == nullptr)
         {
             continue;
         }
-
-        if (item->ranParameter_ID == 2 &&
-            item->ranParameter_valueType->present == RANParameter_ValueType_PR_ranP_Choice_Structure &&
-            item->ranParameter_valueType->choice.ranP_Choice_Structure != nullptr &&
-            item->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure != nullptr)
-        {
-            return ParseSliceGroupStructure(item->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure);
-        }
-
         switch (item->ranParameter_ID)
         {
-        case 3: // RRM Policy SST
-            ExtractSstValue(item->ranParameter_valueType, quota.sst);
+        case RicControlMessage::RC_PARAM_PLMN_IDENTITY:
+            ExtractOctetStringValue(item->ranParameter_valueType, quota.plmnId);
             break;
-        case 4: // Max PRB Policy Ratio
-            ExtractIntValue(item->ranParameter_valueType, quota.maxPRBRatio);
+        case RicControlMessage::RC_PARAM_S_NSSAI: {
+            const auto* snssai = GetStructure(item->ranParameter_valueType);
+            if (snssai == nullptr || snssai->sequence_of_ranParameters == nullptr)
+            {
+                break;
+            }
+            for (int j = 0; j < snssai->sequence_of_ranParameters->list.count; j++)
+            {
+                auto* sItem = snssai->sequence_of_ranParameters->list.array[j];
+                if (sItem == nullptr)
+                {
+                    continue;
+                }
+                if (sItem->ranParameter_ID == RicControlMessage::RC_PARAM_SST)
+                {
+                    ExtractSstValue(sItem->ranParameter_valueType, quota.sst);
+                }
+                else if (sItem->ranParameter_ID == RicControlMessage::RC_PARAM_SD)
+                {
+                    ExtractSdValue(sItem->ranParameter_valueType, quota.sd);
+                }
+            }
             break;
-        case 5: // Min PRB Policy Ratio
-            ExtractIntValue(item->ranParameter_valueType, quota.minPRBRatio);
-            break;
-        case 6: // Dedicated PRB Policy Ratio
-            ExtractIntValue(item->ranParameter_valueType, quota.dedicatePRBRatio);
-            break;
+        }
         default:
+            NS_LOG_WARN("[E2SM-RC] Unexpected RAN Parameter ID " << item->ranParameter_ID
+                                                                 << " inside RRM Policy Member");
             break;
         }
     }
-    return quota;
 }
 
-void
-RicControlMessage::ParseRanParameterStructureForSlicing(const RANParameter_STRUCTURE_t* structure)
+/** Parses an "RRM Policy Member List" (ID 5); each element is an RRM Policy Member (ID 6). */
+static void
+ParseMemberList(const RANParameter_LIST_t* list,
+                std::vector<RicControlMessage::SlicePRBQuota>& members)
+{
+    if (list == nullptr)
+    {
+        return;
+    }
+    for (int j = 0; j < list->list_of_ranParameter.list.count; j++)
+    {
+        RicControlMessage::SlicePRBQuota member;
+        ParsePolicyMember(list->list_of_ranParameter.list.array[j], member);
+        members.push_back(member);
+    }
+}
+
+/**
+ * Collects the RRM Policy Members found under an "RRM Policy" structure (ID 3).
+ * The member list (ID 5) is accepted either inside ID 3 or as a sibling of it,
+ * because the nesting level of ID 5 is ambiguous in the E2SM-RC v03.00 table.
+ */
+static void
+CollectPolicyMembers(const RANParameter_STRUCTURE_t* structure,
+                     std::vector<RicControlMessage::SlicePRBQuota>& members)
 {
     if (structure == nullptr || structure->sequence_of_ranParameters == nullptr)
     {
         return;
     }
-
-    int count = structure->sequence_of_ranParameters->list.count;
-    for (int i = 0; i < count; i++)
+    for (int i = 0; i < structure->sequence_of_ranParameters->list.count; i++)
     {
         auto* item = structure->sequence_of_ranParameters->list.array[i];
         if (item == nullptr || item->ranParameter_valueType == nullptr)
         {
             continue;
         }
-
-        if (item->ranParameter_ID == 2) // RRM Policy Ratio Group
+        if (item->ranParameter_ID == RicControlMessage::RC_PARAM_RRM_POLICY)
         {
-            if (item->ranParameter_valueType->present ==
-                    RANParameter_ValueType_PR_ranP_Choice_Structure &&
-                item->ranParameter_valueType->choice.ranP_Choice_Structure != nullptr &&
-                item->ranParameter_valueType->choice.ranP_Choice_Structure
-                        ->ranParameter_Structure != nullptr)
-            {
-                SlicePRBQuota q = ParseSliceGroupStructure(
-                    item->ranParameter_valueType->choice.ranP_Choice_Structure
-                        ->ranParameter_Structure);
-                m_prbQuotas.push_back(q);
-            }
+            CollectPolicyMembers(GetStructure(item->ranParameter_valueType), members);
         }
-        else if (item->ranParameter_ID == 1) // RRM Policy Ratio List
+        else if (item->ranParameter_ID == RicControlMessage::RC_PARAM_RRM_POLICY_MEMBER_LIST)
         {
-            ParseRanParameterValueTypeForSlicing(item->ranParameter_ID,
-                                                 item->ranParameter_valueType);
-        }
-        else
-        {
-            ParseRanParameterValueTypeForSlicing(item->ranParameter_ID,
-                                                 item->ranParameter_valueType);
+            ParseMemberList(GetList(item->ranParameter_valueType), members);
         }
     }
 }
 
-void
-RicControlMessage::ParseRanParameterListForSlicing(const RANParameter_LIST_t* list)
+/**
+ * Parses one "RRM Policy Ratio Group" structure (RAN Parameter ID 2), as defined in
+ * O-RAN.WG3.E2SM-RC v03.00, section 8.4.3.6 (Slice-level PRB quota):
+ *   3 RRM Policy { 5 RRM Policy Member List { 6 RRM Policy Member { 7 PLMN, 8 S-NSSAI {9 SST, 10 SD} } } }
+ *   11 Min PRB Policy Ratio, 12 Max PRB Policy Ratio, 13 Dedicated PRB Policy Ratio
+ * One SlicePRBQuota is produced per RRM Policy Member, all sharing the group ratios.
+ */
+static std::vector<RicControlMessage::SlicePRBQuota>
+ParseSliceGroupStructure(const RANParameter_STRUCTURE_t* groupStruct)
 {
+    std::vector<RicControlMessage::SlicePRBQuota> result;
+    if (groupStruct == nullptr || groupStruct->sequence_of_ranParameters == nullptr)
+    {
+        return result;
+    }
+
+    long minRatio = 0;
+    long maxRatio = 100;
+    long dedRatio = 0;
+    std::vector<RicControlMessage::SlicePRBQuota> members;
+
+    for (int i = 0; i < groupStruct->sequence_of_ranParameters->list.count; i++)
+    {
+        auto* item = groupStruct->sequence_of_ranParameters->list.array[i];
+        if (item == nullptr || item->ranParameter_valueType == nullptr)
+        {
+            continue;
+        }
+        switch (item->ranParameter_ID)
+        {
+        case RicControlMessage::RC_PARAM_RRM_POLICY:
+            CollectPolicyMembers(GetStructure(item->ranParameter_valueType), members);
+            break;
+        case RicControlMessage::RC_PARAM_RRM_POLICY_MEMBER_LIST:
+            ParseMemberList(GetList(item->ranParameter_valueType), members);
+            break;
+        case RicControlMessage::RC_PARAM_MIN_PRB_RATIO:
+            ExtractIntValue(item->ranParameter_valueType, minRatio);
+            break;
+        case RicControlMessage::RC_PARAM_MAX_PRB_RATIO:
+            ExtractIntValue(item->ranParameter_valueType, maxRatio);
+            break;
+        case RicControlMessage::RC_PARAM_DEDICATED_PRB_RATIO:
+            ExtractIntValue(item->ranParameter_valueType, dedRatio);
+            break;
+        default:
+            NS_LOG_WARN("[E2SM-RC] Unexpected RAN Parameter ID " << item->ranParameter_ID
+                                                                 << " inside RRM Policy Ratio Group");
+            break;
+        }
+    }
+
+    if (members.empty())
+    {
+        NS_LOG_WARN("[E2SM-RC] RRM Policy Ratio Group without RRM Policy Member (S-NSSAI); ignored");
+        return result;
+    }
+
+    for (auto& m : members)
+    {
+        m.minPRBRatio = minRatio;
+        m.maxPRBRatio = maxRatio;
+        m.dedicatePRBRatio = dedRatio;
+        NS_LOG_INFO("[E2SM-RC] Slice quota: SST=" << +m.sst << " SD=" << m.sd
+                                                  << " min=" << minRatio << " max=" << maxRatio
+                                                  << " dedicated=" << dedRatio);
+        result.push_back(m);
+    }
+    return result;
+}
+
+void
+RicControlMessage::ParseRrmPolicyRatioList(const RANParameter_ValueType_t* valueType)
+{
+    const auto* list = GetList(valueType);
     if (list == nullptr)
     {
+        NS_LOG_ERROR("[E2SM-RC] RAN Parameter ID 1 (RRM Policy Ratio List) is not a LIST");
         return;
     }
-
-    int count = list->list_of_ranParameter.list.count;
-    for (int i = 0; i < count; i++)
+    // Each list element is an RRM Policy Ratio Group (ID 2) structure
+    for (int i = 0; i < list->list_of_ranParameter.list.count; i++)
     {
-        auto* structItem = list->list_of_ranParameter.list.array[i];
-        if (structItem != nullptr)
-        {
-            SlicePRBQuota q = ParseSliceGroupStructure(structItem);
-            m_prbQuotas.push_back(q);
-        }
-    }
-}
-
-void
-RicControlMessage::ParseRanParameterValueTypeForSlicing(long paramId,
-                                                        const RANParameter_ValueType_t* valueType)
-{
-    if (valueType == nullptr)
-    {
-        return;
-    }
-
-    switch (valueType->present)
-    {
-    case RANParameter_ValueType_PR_ranP_Choice_Structure:
-        if (valueType->choice.ranP_Choice_Structure != nullptr &&
-            valueType->choice.ranP_Choice_Structure->ranParameter_Structure != nullptr)
-        {
-            if (paramId == 2) // Single Group
-            {
-                SlicePRBQuota q = ParseSliceGroupStructure(
-                    valueType->choice.ranP_Choice_Structure->ranParameter_Structure);
-                m_prbQuotas.push_back(q);
-            }
-            else
-            {
-                ParseRanParameterStructureForSlicing(
-                    valueType->choice.ranP_Choice_Structure->ranParameter_Structure);
-            }
-        }
-        break;
-
-    case RANParameter_ValueType_PR_ranP_Choice_List:
-        if (valueType->choice.ranP_Choice_List != nullptr &&
-            valueType->choice.ranP_Choice_List->ranParameter_List != nullptr)
-        {
-            ParseRanParameterListForSlicing(
-                valueType->choice.ranP_Choice_List->ranParameter_List);
-        }
-        break;
-
-    default:
-        break;
+        auto quotas = ParseSliceGroupStructure(list->list_of_ranParameter.list.array[i]);
+        m_prbQuotas.insert(m_prbQuotas.end(), quotas.begin(), quotas.end());
     }
 }
 
@@ -346,9 +423,20 @@ RicControlMessage::DecodeControlHeader(const RICcontrolHeader_t& headerIe)
             m_ricStyleType = format1->ric_Style_Type;
             m_ricControlActionId = format1->ric_ControlAction_ID;
 
-            if (m_ricControlActionId == 6)
+            if (m_ricStyleType == RC_CONTROL_STYLE_RADIO_RESOURCE_ALLOCATION &&
+                m_ricControlActionId == RC_CONTROL_ACTION_SLICE_PRB_QUOTA)
             {
                 m_requestType = ControlMessageRequestIdType::RAN_SLICING;
+            }
+            else if (m_ricControlActionId == RC_CONTROL_ACTION_SLICE_PRB_QUOTA)
+            {
+                // E2SM-RC v03.00 section 7.6.3: Slice-level PRB quota is Control Action 6 of
+                // Control Style 2 (Radio Resource Allocation Control). Action 6 of Style 1 is
+                // "DRB split ratio control", which NORI does not implement.
+                NS_LOG_ERROR("[E2SM-RC] Control Style " << m_ricStyleType << " / Action "
+                             << m_ricControlActionId
+                             << " not supported (Slice-level PRB quota is Style 2, Action 6)");
+                m_requestType = ControlMessageRequestIdType::UNSUPPORTED;
             }
 
             if (format1->ric_ControlDecision != nullptr)
@@ -416,8 +504,19 @@ RicControlMessage::DecodeControlMessage(const RICcontrolMessage_t& messageIe)
                 auto* item = format1->ranP_List.list.array[i];
                 if (item != nullptr)
                 {
-                    ParseRanParameterValueTypeForSlicing(item->ranParameter_ID,
-                                                         &item->ranParameter_valueType);
+                    if (m_requestType == ControlMessageRequestIdType::RAN_SLICING)
+                    {
+                        if (item->ranParameter_ID == RC_PARAM_RRM_POLICY_RATIO_LIST)
+                        {
+                            ParseRrmPolicyRatioList(&item->ranParameter_valueType);
+                        }
+                        else
+                        {
+                            NS_LOG_WARN("[E2SM-RC] Unexpected top-level RAN Parameter ID "
+                                        << item->ranParameter_ID
+                                        << " for Slice-level PRB quota (expected 1)");
+                        }
+                    }
 
                     // Extract secondary cell ID for Traffic Steering if present
                     if (m_requestType == ControlMessageRequestIdType::TS)
