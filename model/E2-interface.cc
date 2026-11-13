@@ -77,6 +77,41 @@ ConsumeCounterDelta(double current, double& previous)
 }
 } // namespace
 
+E2Interface::PrbGeometry
+E2Interface::GetPrimaryBwpPrbGeometry() const
+{
+    PrbGeometry geometry;
+    auto gnbDevice = DynamicCast<NrGnbNetDevice>(m_netDev);
+    NS_ABORT_MSG_IF(!gnbDevice, "PRB metrics require an NrGnbNetDevice");
+    auto phy = gnbDevice->GetPhy(0); // primary BWP
+    NS_ABORT_MSG_IF(!phy, "PRB metrics require a PHY on the primary BWP");
+    geometry.rbNum = phy->GetRbNum();
+    geometry.symbolsPerSlot = phy->GetSymbolsPerSlot();
+    geometry.slotPeriod = phy->GetSlotPeriod();
+    geometry.subcarrierSpacingHz = phy->GetSubcarrierSpacing();
+    NS_ABORT_MSG_IF(geometry.rbNum == 0 || geometry.symbolsPerSlot == 0 ||
+                        geometry.slotPeriod.IsZero(),
+                    "Invalid primary BWP geometry");
+    return geometry;
+}
+
+double
+E2Interface::GetUePrbUsedDl(uint16_t rnti, const PrbGeometry& geometry) const
+{
+    // Average number of PRBs used by the UE in the reporting window:
+    //   sum(assigned RBs x symbols of each received DL TB) / (slots in window x symbols per slot)
+    // The previous formula (UE symbols / window symbols x 139) assumed that a UE uses the whole
+    // band in its symbols, which only holds for TDMA, and used a fixed 139 PRBs (numerology 2).
+    const double rbSymbols = m_e2DuCalculator->GetMacRbSymbolsUeSpecific(rnti, m_cellId);
+    const Time reportingWindow =
+        Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
+    const double slotsInWindow =
+        std::ceil(static_cast<double>(reportingWindow.GetNanoSeconds()) /
+                  static_cast<double>(geometry.slotPeriod.GetNanoSeconds()));
+    const double windowRbSymbols = slotsInWindow * geometry.symbolsPerSlot;
+    return windowRbSymbols > 0 ? rbSymbols / windowRbSymbols : 0.0;
+}
+
 uint64_t
 E2Interface::SumUeDrbPdcpCounter(
     Ptr<NrUeManager> ue,
@@ -931,6 +966,7 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
     double cellDlTxVolume = 0;
 
     m_cellId = nrCellId;
+    const PrbGeometry prbGeometry = GetPrimaryBwpPrbGeometry();
 
     for (auto ueMap = ueManager.Begin(); ueMap != ueManager.End(); ueMap++)
     {
@@ -960,11 +996,7 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
         mac64QamCellSpecific += m_e2DuCalculator->GetMacPdu64QamUeSpecific(rnti, m_cellId);
         macRetxCellSpecific += m_e2DuCalculator->GetMacPduRetransmissionUeSpecific(rnti, m_cellId);
 
-        double macSymbols = m_e2DuCalculator->GetMacNumberOfSymbolsUeSpecific(rnti, m_cellId);
-        auto slotPeriod = DynamicCast<NrGnbNetDevice>(m_netDev)->GetPhy(0)->GetSlotPeriod();
-        Time reportingWindow = Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
-        double denomPrb = std::ceil(reportingWindow.GetNanoSeconds() / slotPeriod.GetNanoSeconds()) * 14;
-        double macPrb = (denomPrb != 0) ? macSymbols / denomPrb * 139 : 0;
+        double macPrb = GetUePrbUsedDl(rnti, prbGeometry);
         macPrbsCellSpecific += macPrb;
 
         macMac04Cell   += m_e2DuCalculator->GetMacMcs04UeSpecific(rnti, m_cellId);
@@ -983,9 +1015,9 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
         macSinrBin7Cell += m_e2DuCalculator->GetMacSinrBin7UeSpecific(rnti, m_cellId);
     }
 
-    // TODO: make configurable
-    long dlAvailablePrbs = 139;
-    long ulAvailablePrbs = 139;
+    // Primary BWP of the gNB (paired carrier: same geometry in DL and UL)
+    long dlAvailablePrbs = static_cast<long>(prbGeometry.rbNum);
+    long ulAvailablePrbs = static_cast<long>(prbGeometry.rbNum);
 
     // ===== Add all node-level metrics =====
     helper->AddNodeMeasurementInteger("DRB.PdcpSduVolumeDL", (unsigned long)cellDlTxVolume);
@@ -1041,6 +1073,7 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
     }
 
     m_cellId = nrCellId;
+    const PrbGeometry prbGeometry = GetPrimaryBwpPrbGeometry();
 
     for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
     {
@@ -1087,11 +1120,7 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
         uint32_t mac64Qam = m_e2DuCalculator->GetMacPdu64QamUeSpecific(rnti, m_cellId);
         uint32_t macRetx = m_e2DuCalculator->GetMacPduRetransmissionUeSpecific(rnti, m_cellId);
 
-        double macSymbols = m_e2DuCalculator->GetMacNumberOfSymbolsUeSpecific(rnti, m_cellId);
-        auto slotPeriod = DynamicCast<NrGnbNetDevice>(m_netDev)->GetPhy(0)->GetSlotPeriod();
-        Time reportingWindow = Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
-        double denomPrb = std::ceil(reportingWindow.GetNanoSeconds() / slotPeriod.GetNanoSeconds()) * 14;
-        double macPrb = (denomPrb != 0) ? macSymbols / denomPrb * 139 : 0;
+        double macPrb = GetUePrbUsedDl(rnti, prbGeometry);
 
         helper->AddUeMeasurementInteger("TB.TotNbrDl.1", macPduUe);
         helper->AddUeMeasurementInteger("TB.TotNbrDlInitial", macPduInitialUe);
@@ -1215,7 +1244,11 @@ E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
     {
         if (macPrb > 0)
         {
-            spectralEfficiency = dlThroughput / (macPrb * 720000.0);
+            // PRB bandwidth = 12 subcarriers x SCS of the primary BWP (was 720 kHz,
+            // i.e. 60 kHz SCS, fixed)
+            const PrbGeometry prbGeometry = GetPrimaryBwpPrbGeometry();
+            const double prbBandwidthHz = 12.0 * prbGeometry.subcarrierSpacingHz;
+            spectralEfficiency = dlThroughput / (macPrb * prbBandwidthHz);
         }
     }
     uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();

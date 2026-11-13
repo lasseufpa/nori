@@ -95,6 +95,15 @@ class NoriE2Report : public Object
     uint32_t GetMacNumberOfSymbolsUeSpecific(uint16_t rnti, uint16_t cellId);
 
     /**
+     * Gets the sum of (assigned RBs x symbols) of the DL TBs received by the UE
+     * (RxPacketTraceUe), i.e. the PRB-symbol resources actually used by the UE
+     * @param rnti
+     * @param cellId
+     * @return PRB x symbols in the current reporting window
+     */
+    uint32_t GetMacRbSymbolsUeSpecific(uint16_t rnti, uint16_t cellId);
+
+    /**
      * Gets the number of TX with MCS 0-4
      * @param rnti
      * @param cellId
@@ -270,6 +279,7 @@ class NoriE2Report : public Object
         m_macSinrBin7UeSpecific; //!< UE specific TX with SINR > 24 dB
 
     std::map<RntiCellIdPair_t, uint32_t> m_macNumberOfSymbols; //!< UE specific number of symbols
+    std::map<RntiCellIdPair_t, uint32_t> m_macRbSymbols;       //!< UE specific assigned RBs x symbols
 
     std::map<RntiCellIdPair_t, Time> m_lastReset; //! last time UE was reset
 

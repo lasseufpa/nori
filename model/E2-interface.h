@@ -187,6 +187,26 @@ class E2Interface : public Object
     void MLSliceInterface(double macPrb, uint64_t imsi);
 
   private:
+    /// Geometry of the primary BWP used by the PRB metrics
+    struct PrbGeometry
+    {
+        uint32_t rbNum{0};               //!< PRBs in the primary BWP
+        uint32_t symbolsPerSlot{0};      //!< OFDM symbols per slot
+        Time slotPeriod;                 //!< slot duration
+        uint32_t subcarrierSpacingHz{0}; //!< subcarrier spacing
+    };
+
+    /// @brief Read the PRB geometry of the gNB primary BWP from its PHY
+    PrbGeometry GetPrimaryBwpPrbGeometry() const;
+
+    /**
+     * @brief Average number of DL PRBs used by a UE in the current reporting window
+     * @param rnti UE RNTI
+     * @param geometry primary BWP geometry
+     * @return average PRBs (PRB x symbols divided by the window symbols)
+     */
+    double GetUePrbUsedDl(uint16_t rnti, const PrbGeometry& geometry) const;
+
     /**
      * @brief Sum a per-(IMSI, LCID) PDCP counter over all data radio bearers of a UE
      * @param ue UE manager in the gNB RRC
