@@ -22,6 +22,7 @@
 #include "ns3/nstime.h"
 
 #include <deque>
+#include <functional>
 #include <mutex>
 
 namespace ns3
@@ -167,10 +168,27 @@ class E2Interface : public Object
      * @return cumulative bytes reported by the E2 PDCP statistics calculator
      */
     uint64_t GetUePdcpTxBytes(Ptr<NrUeManager> ue, bool downlink) const;
+
+    /**
+     * @brief Cumulative PDCP DL bytes received by a UE, summed over all its data radio bearers
+     * @param ue UE manager in the gNB RRC
+     * @return cumulative bytes reported by the E2 PDCP statistics calculator (DlRxPdu)
+     */
+    uint64_t GetUePdcpDlRxBytes(Ptr<NrUeManager> ue) const;
     
     void MLSliceInterface(double macPrb, uint64_t imsi);
 
   private:
+    /**
+     * @brief Sum a per-(IMSI, LCID) PDCP counter over all data radio bearers of a UE
+     * @param ue UE manager in the gNB RRC
+     * @param counter returns the cumulative counter for one (IMSI, LCID)
+     * @return the sum over the UE data radio bearers
+     */
+    uint64_t SumUeDrbPdcpCounter(
+        Ptr<NrUeManager> ue,
+        const std::function<uint64_t(uint64_t imsi, uint8_t lcid)>& counter) const;
+
     /**
      * @brief Build RIC Indication Header
      * @return the RIC Indication Header
@@ -233,6 +251,8 @@ class E2Interface : public Object
     double m_cellTxDlPackets = 0;                         //<! Number of DL packets
     //double m_cellTxBytes = 0;                             //<! Number of DL bytes
     std::map <uint64_t, double> m_cellTxBytes;                             //<! Cumulative DL volume already reported at node level, per IMSI
+    std::map <uint64_t, Time> m_ueRxLastReportTime;                        //<! Time of the previous UE-level report, per IMSI
+    std::map <uint64_t, double> m_ueRxBytes;                               //<! Cumulative DL volume received by the UE already reported, per IMSI (kbit)
     std::map <uint64_t, double> m_ueTxBytes;                               //<! Cumulative DL volume already reported at UE level, per IMSI
     
     double m_cellRxBytes = 0;                             //<! Number of UL bytes

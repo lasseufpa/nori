@@ -78,7 +78,9 @@ ConsumeCounterDelta(double current, double& previous)
 } // namespace
 
 uint64_t
-E2Interface::GetUePdcpTxBytes(Ptr<NrUeManager> ue, bool downlink) const
+E2Interface::SumUeDrbPdcpCounter(
+    Ptr<NrUeManager> ue,
+    const std::function<uint64_t(uint64_t imsi, uint8_t lcid)>& counter) const
 {
     if (!m_e2PdcpStatsCalculator || !ue)
     {
@@ -99,11 +101,26 @@ E2Interface::GetUePdcpTxBytes(Ptr<NrUeManager> ue, bool downlink) const
         {
             continue;
         }
-        const uint8_t lcid = bearerInfo->m_logicalChannelIdentity;
-        total += downlink ? m_e2PdcpStatsCalculator->GetDlTxData(imsi, lcid)
-                          : m_e2PdcpStatsCalculator->GetUlTxData(imsi, lcid);
+        total += counter(imsi, bearerInfo->m_logicalChannelIdentity);
     }
     return total;
+}
+
+uint64_t
+E2Interface::GetUePdcpTxBytes(Ptr<NrUeManager> ue, bool downlink) const
+{
+    return SumUeDrbPdcpCounter(ue, [this, downlink](uint64_t imsi, uint8_t lcid) {
+        return downlink ? m_e2PdcpStatsCalculator->GetDlTxData(imsi, lcid)
+                        : m_e2PdcpStatsCalculator->GetUlTxData(imsi, lcid);
+    });
+}
+
+uint64_t
+E2Interface::GetUePdcpDlRxBytes(Ptr<NrUeManager> ue) const
+{
+    return SumUeDrbPdcpCounter(ue, [this](uint64_t imsi, uint8_t lcid) {
+        return m_e2PdcpStatsCalculator->GetDlRxData(imsi, lcid);
+    });
 }
 
 E2Interface::E2Interface()
@@ -1031,14 +1048,27 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
         // Begin a new UE report (IMSI as AMF-UE-NGAP-ID for simulation)
         helper->BeginUeReport(imsi, plmId, 0, 0, 0);
 
-        // --- CU-UP per-UE: PDCP throughput ---
+        // --- CU-UP per-UE: PDCP volume (TX) and UE throughput (delivered) ---
         double actualTotalTxBytes = GetUePdcpTxBytes(ue, true) * (8 / 1e3); // kbit, all DRBs
         // Node-level and UE-level reports are built at the same instant, so each
         // one keeps its own reference value (operator[] starts it at zero).
         double txBytes = ConsumeCounterDelta(actualTotalTxBytes, m_ueTxBytes[imsi]);
-        double pdcpThroughput = txBytes / m_e2Periodicity; // kbps
 
-        helper->AddUeMeasurementReal("DRB.UEThpDl", pdcpThroughput);
+        // DRB.UEThpDl (TS 28.552, 5.1.1.3.1) is based on the volume acknowledged by
+        // the UE, not on the volume offered to the gNB. Use the PDCP volume received
+        // by the UE since the previous UE report (all DRBs), divided by the elapsed
+        // simulation time. On the first report the reference time is the simulation
+        // start, so the value is the average since then instead of a spike. The TS
+        // divides by the active transmission time of each data burst; here the divisor
+        // is the whole interval, so bursty traffic is underestimated.
+        double actualTotalRxKbits = GetUePdcpDlRxBytes(ue) * (8 / 1e3); // kbit, all DRBs
+        double rxKbits = ConsumeCounterDelta(actualTotalRxKbits, m_ueRxBytes[imsi]);
+        const Time now = Simulator::Now();
+        const double elapsedS = (now - m_ueRxLastReportTime[imsi]).GetSeconds();
+        m_ueRxLastReportTime[imsi] = now;
+        double ueThroughputDl = elapsedS > 0 ? rxKbits / elapsedS : 0.0; // kbps
+
+        helper->AddUeMeasurementReal("DRB.UEThpDl", ueThroughputDl);
         helper->AddUeMeasurementInteger("QosFlow.PdcpPduVolumeDL_Filter", (unsigned long)txBytes);
 
         // --- DU per-UE: MAC stats ---
