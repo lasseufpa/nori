@@ -148,16 +148,17 @@ class E2Interface : public Object
                               long ricRequestCause);
 
     /**
-     * @brief Start the periodic event that applies queued E2SM-RC controls.
+     * @brief Start the periodic event that handles work queued by the SCTP thread
+     * (E2SM-KPM subscriptions and E2SM-RC controls).
      *
      * Must be scheduled from the simulation (main) thread, before or during Simulator::Run().
-     * E2SM-RC controls arrive on the SCTP thread. With RealtimeSimulatorImpl, an event
-     * scheduled from another thread gets a wall-clock timestamp; when the simulation runs
-     * slower than real time, the event lands in the simulated future and the quota is
-     * applied late (or never, within the run). The SCTP thread therefore only enqueues the
-     * control, and this event applies it at the current simulation time.
+     * Subscriptions and controls arrive on the SCTP thread. With RealtimeSimulatorImpl, an
+     * event scheduled from another thread gets a wall-clock timestamp; when the simulation
+     * runs slower than real time, the event lands in the simulated future and the first KPM
+     * report is sent late or the quota is applied late (or never, within the run). The SCTP
+     * thread therefore only enqueues, and this event acts at the current simulation time.
      */
-    void StartRcControlDrain();
+    void StartSctpQueueDrain();
 
     Ptr<NoriE2Report> GetE2DuCalculator();
 
@@ -259,11 +260,14 @@ class E2Interface : public Object
         long ranFunctionId;
     };
 
-    /// Apply the queued E2SM-RC controls on the simulation thread and answer the RIC
-    void DrainRcControlQueue();
+    /// On the simulation thread: start the reports of the queued KPM subscriptions, apply
+    /// the queued E2SM-RC controls and answer the RIC
+    void DrainSctpQueues();
 
-    std::mutex m_rcControlMutex;                    //<! protects m_pendingRcControls
+    std::mutex m_rcControlMutex;                    //<! protects the two queues below
     std::deque<PendingRcControl> m_pendingRcControls; //<! controls queued by the SCTP thread
+    /// KPM subscriptions accepted on the SCTP thread, waiting for their first report
+    std::deque<E2Termination::RicSubscriptionRequest_rval_s> m_pendingKpmSubscriptions;
     Time m_rcControlDrainPeriod;                    //<! period of the drain event
     EventId m_rcControlDrainEvent;                  //<! drain event
     bool m_rcControlDrainStarted{false};            //<! drain event already started

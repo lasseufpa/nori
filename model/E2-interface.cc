@@ -388,7 +388,8 @@ E2Interface::GetTypeId()
                                           MakeDoubleAccessor(&E2Interface::m_startTime),
                                           MakeDoubleChecker<double>())
                             .AddAttribute("RcControlDrainPeriod",
-                                          "Period of the event that applies E2SM-RC controls "
+                                          "Period of the event that handles KPM subscriptions and "
+                                          "E2SM-RC controls "
                                           "queued by the SCTP thread",
                                           TimeValue(MilliSeconds(1)),
                                           MakeTimeAccessor(&E2Interface::m_rcControlDrainPeriod),
@@ -645,12 +646,17 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
                                                 << params.reportingPeriodMs << " ms, granulPeriod "
                                                 << params.granularityPeriodMs << " ms");
 
-    uint32_t nodeId = m_netDev->GetNode()->GetId();
-    Simulator::ScheduleWithContext(nodeId,
-                                   MicroSeconds(0),
-                                   &E2Interface::BuildAndSendReportMessage,
-                                   this,
-                                   params);
+    // This callback runs on the SCTP thread: only enqueue. DrainSctpQueues() sends the first
+    // report at the current simulation time (see StartSctpQueueDrain()).
+    {
+        std::lock_guard<std::mutex> lock(m_rcControlMutex);
+        m_pendingKpmSubscriptions.push_back(params);
+    }
+    if (!m_rcControlDrainStarted)
+    {
+        NS_LOG_WARN("KPM subscription queued but the drain event is not started; call "
+                    "E2Interface::StartSctpQueueDrain() from the simulation thread");
+    }
 }
 
 void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
@@ -807,8 +813,8 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
                                  CauseRICrequest_control_message_invalid);
             break;
         }
-        // This callback runs on the SCTP thread: only enqueue. DrainRcControlQueue() applies
-        // the quota and answers the RIC on the simulation thread (see StartRcControlDrain()).
+        // This callback runs on the SCTP thread: only enqueue. DrainSctpQueues() applies
+        // the quota and answers the RIC on the simulation thread (see StartSctpQueueDrain()).
         size_t pending = 0;
         {
             std::lock_guard<std::mutex> lock(m_rcControlMutex);
@@ -822,7 +828,7 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
         if (!m_rcControlDrainStarted)
         {
             NS_LOG_WARN("[E2SM-RC] RC control drain event not started; call "
-                        "E2Interface::StartRcControlDrain() from the simulation thread");
+                        "E2Interface::StartSctpQueueDrain() from the simulation thread");
         }
         break;
     }
@@ -851,7 +857,7 @@ E2Interface::ProcessControlMessage([[maybe_unused]] E2AP_PDU_t* pdu)
 }
 
 void
-E2Interface::StartRcControlDrain()
+E2Interface::StartSctpQueueDrain()
 {
     NS_LOG_FUNCTION(this);
     if (m_rcControlDrainStarted)
@@ -860,16 +866,30 @@ E2Interface::StartRcControlDrain()
     }
     m_rcControlDrainStarted = true;
     m_rcControlDrainEvent =
-        Simulator::Schedule(m_rcControlDrainPeriod, &E2Interface::DrainRcControlQueue, this);
+        Simulator::Schedule(m_rcControlDrainPeriod, &E2Interface::DrainSctpQueues, this);
 }
 
 void
-E2Interface::DrainRcControlQueue()
+E2Interface::DrainSctpQueues()
 {
+    std::deque<E2Termination::RicSubscriptionRequest_rval_s> subscriptions;
     std::deque<PendingRcControl> batch;
     {
         std::lock_guard<std::mutex> lock(m_rcControlMutex);
+        subscriptions.swap(m_pendingKpmSubscriptions);
         batch.swap(m_pendingRcControls);
+    }
+
+    // Called on the simulation thread: zero delay means the current simulation time.
+    const uint32_t nodeId = m_netDev->GetNode()->GetId();
+    for (const auto& params : subscriptions)
+    {
+        NS_LOG_INFO("Starting KPM reports for requestorId " << params.requestorId);
+        Simulator::ScheduleWithContext(nodeId,
+                                       Seconds(0),
+                                       &E2Interface::BuildAndSendReportMessage,
+                                       this,
+                                       params);
     }
 
     for (const auto& ctrl : batch)
@@ -886,7 +906,7 @@ E2Interface::DrainRcControlQueue()
 
     // Called on the simulation thread: the next drain is scheduled in simulation time.
     m_rcControlDrainEvent =
-        Simulator::Schedule(m_rcControlDrainPeriod, &E2Interface::DrainRcControlQueue, this);
+        Simulator::Schedule(m_rcControlDrainPeriod, &E2Interface::DrainSctpQueues, this);
 }
 
 void
