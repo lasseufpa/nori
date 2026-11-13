@@ -229,9 +229,13 @@ class E2Interface : public Object
      */
     std::string GetImsiString(uint64_t imsi);
 
-    Ptr<KpmIndicationMessage> BuildNodeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
+    Ptr<KpmIndicationMessage> BuildNodeLevelIndicationMessage(std::string plmId,
+                                                              uint16_t nrCellId,
+                                                              unsigned long granularityPeriodMs);
 
-    Ptr<KpmIndicationMessage> BuildUeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
+    Ptr<KpmIndicationMessage> BuildUeLevelIndicationMessage(std::string plmId,
+                                                            uint16_t nrCellId,
+                                                            unsigned long granularityPeriodMs);
 
     void BuildBwpReport(nlohmann::json& bwpList);
     void BuildCccCellDuIndication(nlohmann::json& payload);

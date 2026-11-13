@@ -266,6 +266,12 @@ void KpmIndicationMessage::FillAndEncodeFormat3(E2SM_KPM_IndicationMessage_t* de
             ASN_SEQUENCE_ADD(&dataItem->measRecord.list, recordItem);
         }
         ASN_SEQUENCE_ADD(&reportItem->measReport.measData.list, dataItem);
+
+        if (values.m_granularityPeriod > 0){
+            auto* granul = (GranularityPeriod_t*)calloc(1, sizeof(GranularityPeriod_t));
+            *granul = values.m_granularityPeriod;
+            reportItem->measReport.granulPeriod = granul;
+        }
         ASN_SEQUENCE_ADD(&format3->ueMeasReportList.list, reportItem);
     }
     

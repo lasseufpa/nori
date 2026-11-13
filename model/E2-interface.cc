@@ -51,7 +51,18 @@ extern "C"
 {
 #include "Cause.h"
 #include "CauseRICrequest.h"
+#include "E2SM-KPM-ActionDefinition-Format1.h"
+#include "E2SM-KPM-ActionDefinition-Format2.h"
+#include "E2SM-KPM-ActionDefinition-Format3.h"
+#include "E2SM-KPM-ActionDefinition-Format4.h"
+#include "E2SM-KPM-ActionDefinition-Format5.h"
+#include "E2SM-KPM-ActionDefinition.h"
+#include "E2SM-KPM-EventTriggerDefinition-Format1.h"
+#include "E2SM-KPM-EventTriggerDefinition.h"
+#include "InitiatingMessage.h"
+#include "ProtocolIE-Field.h"
 #include "RICcontrolFailure.h"
+#include "RICsubscriptionRequest.h"
 #include "UnsuccessfulOutcome.h"
 }
 namespace ns3
@@ -74,6 +85,175 @@ ConsumeCounterDelta(double current, double& previous)
     const double delta = current >= previous ? current - previous : current;
     previous = current;
     return delta;
+}
+
+/// Clamp an ASN.1 INTEGER (1..4294967295) to uint32_t; 0 means "not present"
+uint32_t
+ToPeriodMs(unsigned long value)
+{
+    return value > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(value);
+}
+
+/**
+ * Decode the E2SM-KPM Event Trigger Definition (Format 1) of a subscription and
+ * return its reportingPeriod in ms, or 0 if it cannot be decoded.
+ */
+uint32_t
+DecodeKpmReportingPeriodMs(const RICeventTriggerDefinition_t& trigger)
+{
+    if (trigger.buf == nullptr || trigger.size == 0)
+    {
+        NS_LOG_WARN("KPM subscription without Event Trigger Definition");
+        return 0;
+    }
+
+    E2SM_KPM_EventTriggerDefinition_t* eventTrigger = nullptr;
+    asn_dec_rval_t rval = asn_decode(nullptr,
+                                     ATS_ALIGNED_BASIC_PER,
+                                     &asn_DEF_E2SM_KPM_EventTriggerDefinition,
+                                     (void**)&eventTrigger,
+                                     trigger.buf,
+                                     trigger.size);
+    uint32_t periodMs = 0;
+    if (rval.code == RC_OK && eventTrigger != nullptr &&
+        eventTrigger->eventDefinition_formats.present ==
+            E2SM_KPM_EventTriggerDefinition__eventDefinition_formats_PR_eventDefinition_Format1 &&
+        eventTrigger->eventDefinition_formats.choice.eventDefinition_Format1 != nullptr)
+    {
+        periodMs = ToPeriodMs(
+            eventTrigger->eventDefinition_formats.choice.eventDefinition_Format1->reportingPeriod);
+    }
+    else
+    {
+        NS_LOG_WARN("Failed to decode E2SM-KPM Event Trigger Definition Format 1");
+    }
+
+    if (eventTrigger != nullptr)
+    {
+        ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTrigger);
+    }
+    return periodMs;
+}
+
+/**
+ * Decode the E2SM-KPM Action Definition (Formats 1 to 5) of a subscription action
+ * and return its granulPeriod in ms, or 0 if it cannot be decoded.
+ */
+uint32_t
+DecodeKpmGranularityPeriodMs(const RICactionDefinition_t& definition)
+{
+    if (definition.buf == nullptr || definition.size == 0)
+    {
+        NS_LOG_WARN("KPM action without Action Definition");
+        return 0;
+    }
+
+    E2SM_KPM_ActionDefinition_t* action = nullptr;
+    asn_dec_rval_t rval = asn_decode(nullptr,
+                                     ATS_ALIGNED_BASIC_PER,
+                                     &asn_DEF_E2SM_KPM_ActionDefinition,
+                                     (void**)&action,
+                                     definition.buf,
+                                     definition.size);
+    uint32_t periodMs = 0;
+    if (rval.code == RC_OK && action != nullptr)
+    {
+        const auto& formats = action->actionDefinition_formats;
+        switch (formats.present)
+        {
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format1:
+            periodMs = ToPeriodMs(formats.choice.actionDefinition_Format1->granulPeriod);
+            break;
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format2:
+            periodMs = ToPeriodMs(
+                formats.choice.actionDefinition_Format2->subscriptInfo.granulPeriod);
+            break;
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format3:
+            periodMs = ToPeriodMs(formats.choice.actionDefinition_Format3->granulPeriod);
+            break;
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format4:
+            periodMs = ToPeriodMs(
+                formats.choice.actionDefinition_Format4->subscriptionInfo.granulPeriod);
+            break;
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format5:
+            periodMs = ToPeriodMs(
+                formats.choice.actionDefinition_Format5->subscriptionInfo.granulPeriod);
+            break;
+        default:
+            NS_LOG_WARN("Unknown E2SM-KPM Action Definition format " << formats.present);
+            break;
+        }
+    }
+    else
+    {
+        NS_LOG_WARN("Failed to decode E2SM-KPM Action Definition");
+    }
+
+    if (action != nullptr)
+    {
+        ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, action);
+    }
+    return periodMs;
+}
+
+/**
+ * Fill the reporting and granularity periods requested by a KPM subscription.
+ * The granularity is read from the action accepted by ProcessRicSubscriptionRequest().
+ */
+void
+DecodeKpmSubscriptionPeriods(const E2AP_PDU_t* pdu,
+                             E2Termination::RicSubscriptionRequest_rval_s& params)
+{
+    if (pdu == nullptr || pdu->present != E2AP_PDU_PR_initiatingMessage ||
+        pdu->choice.initiatingMessage == nullptr ||
+        pdu->choice.initiatingMessage->value.present !=
+            InitiatingMessage__value_PR_RICsubscriptionRequest)
+    {
+        NS_LOG_WARN("KPM subscription PDU is not a RIC Subscription Request");
+        return;
+    }
+
+    const RICsubscriptionRequest_t& request =
+        pdu->choice.initiatingMessage->value.choice.RICsubscriptionRequest;
+    const RICsubscriptionDetails_t* details = nullptr;
+    for (int i = 0; i < request.protocolIEs.list.count; i++)
+    {
+        auto* ie = (RICsubscriptionRequest_IEs_t*)request.protocolIEs.list.array[i];
+        if (ie != nullptr &&
+            ie->value.present == RICsubscriptionRequest_IEs__value_PR_RICsubscriptionDetails)
+        {
+            details = &ie->value.choice.RICsubscriptionDetails;
+            break;
+        }
+    }
+    if (details == nullptr)
+    {
+        NS_LOG_WARN("KPM subscription without RIC Subscription Details");
+        return;
+    }
+
+    params.reportingPeriodMs = DecodeKpmReportingPeriodMs(details->ricEventTriggerDefinition);
+
+    const auto& actions = details->ricAction_ToBeSetup_List;
+    for (int i = 0; i < actions.list.count; i++)
+    {
+        auto* ie = (RICaction_ToBeSetup_ItemIEs_t*)actions.list.array[i];
+        if (ie == nullptr ||
+            ie->value.present != RICaction_ToBeSetup_ItemIEs__value_PR_RICaction_ToBeSetup_Item)
+        {
+            continue;
+        }
+        const auto& item = ie->value.choice.RICaction_ToBeSetup_Item;
+        if (item.ricActionID != params.actionId)
+        {
+            continue;
+        }
+        if (item.ricActionDefinition != nullptr)
+        {
+            params.granularityPeriodMs = DecodeKpmGranularityPeriodMs(*item.ricActionDefinition);
+        }
+        break;
+    }
 }
 } // namespace
 
@@ -196,7 +376,9 @@ E2Interface::GetTypeId()
                                           MakePointerAccessor(&E2Interface::m_netDev),
                                           MakePointerChecker<NetDevice>())
                             .AddAttribute("E2Periodicity",
-                                          "The periodicity of the E2 report messages",
+                                          "Period (s) of the CCC indications and of the KPM "
+                                          "reports whose subscription has no E2SM-KPM "
+                                          "reportingPeriod",
                                           DoubleValue(0.01),
                                           MakeDoubleAccessor(&E2Interface::m_e2Periodicity),
                                           MakeDoubleChecker<double>())
@@ -293,11 +475,19 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     m_cellId = gnbNode->GetCellId();
     std::string gnbId = std::to_string(m_cellId);
     NS_LOG_DEBUG("PLMN ID: " << plmId << " gNB cell ID: " << gnbId);
-    
+
+    // Period requested by the subscription (E2SM-KPM Event Trigger), or E2Periodicity
+    const Time reportingPeriod = params.reportingPeriodMs > 0
+                                     ? MilliSeconds(params.reportingPeriodMs)
+                                     : Seconds(m_e2Periodicity);
+    // One record per indication: the measurements cover the whole reporting period
+    const auto granularityPeriodMs =
+        static_cast<unsigned long>(reportingPeriod.GetMilliSeconds());
+
     // ---- Node-Level Message (Report Style 1, Format 1) ----
     {
         auto header = BuildRicIndicationHeader();
-        auto nodeMsg = BuildNodeLevelIndicationMessage(plmId, m_cellId);
+        auto nodeMsg = BuildNodeLevelIndicationMessage(plmId, m_cellId, granularityPeriodMs);
 
         if (header != nullptr && nodeMsg != nullptr)
         {
@@ -322,7 +512,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     // ---- UE-Level Message (Report Style 4, Format 3) ----
     {
         auto header = BuildRicIndicationHeader();
-        auto ueMsg = BuildUeLevelIndicationMessage(plmId, m_cellId);
+        auto ueMsg = BuildUeLevelIndicationMessage(plmId, m_cellId, granularityPeriodMs);
 
         if (header != nullptr && ueMsg != nullptr)
         {
@@ -346,7 +536,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
 
     uint32_t nodeId = m_netDev->GetNode()->GetId();
     Simulator::ScheduleWithContext(nodeId,
-                                   Seconds(m_e2Periodicity),
+                                   reportingPeriod,
                                    &E2Interface::BuildAndSendReportMessage,
                                    this,
                                    params);
@@ -433,6 +623,27 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
     NS_LOG_DEBUG("requestorId " << +params.requestorId << ", instanceId " << +params.instanceId
                                 << ", ranFuncionId " << +params.ranFuncionId << ", actionId "
                                 << +params.actionId);
+
+    DecodeKpmSubscriptionPeriods(sub_req_pdu, params);
+    if (params.reportingPeriodMs == 0)
+    {
+        NS_LOG_WARN("KPM subscription without a valid reportingPeriod; using E2Periodicity ("
+                    << m_e2Periodicity * 1000 << " ms)");
+    }
+    const double reportingPeriodMs =
+        params.reportingPeriodMs > 0 ? params.reportingPeriodMs : m_e2Periodicity * 1000;
+    if (params.granularityPeriodMs != 0 && params.granularityPeriodMs != reportingPeriodMs)
+    {
+        // Each indication carries one measurement record collected over the whole
+        // reporting period, so the granularity period reported is the reporting period.
+        NS_LOG_WARN("KPM granulPeriod " << params.granularityPeriodMs
+                                        << " ms differs from the reporting period "
+                                        << reportingPeriodMs
+                                        << " ms; NORI reports one record per period");
+    }
+    NS_LOG_INFO("KPM subscription requestorId " << params.requestorId << ": reportingPeriod "
+                                                << params.reportingPeriodMs << " ms, granulPeriod "
+                                                << params.granularityPeriodMs << " ms");
 
     uint32_t nodeId = m_netDev->GetNode()->GetId();
     Simulator::ScheduleWithContext(nodeId,
@@ -937,11 +1148,13 @@ E2Interface ::BuildRicIndicationHeader() const
 
 }
 
-Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::string plmId, uint16_t nrCellId){
-    
+Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::string plmId,
+                                                                      uint16_t nrCellId,
+                                                                      unsigned long granularityPeriodMs){
+
     auto helper = Create<NoriIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::NodeLevel, false, false);
 
-    helper->SetGranularityPeriod((unsigned long)(m_e2Periodicity * 1000));
+    helper->SetGranularityPeriod(granularityPeriodMs);
     ObjectMapValue ueManager;
     m_rrc->GetAttribute("UeMap", ueManager);
 
@@ -1058,9 +1271,12 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
     return helper->CreateIndicationMessage();
 }
 
-Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string plmId, uint16_t nrCellId){
+Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string plmId,
+                                                                    uint16_t nrCellId,
+                                                                    unsigned long granularityPeriodMs){
 
     auto helper = Create<NoriIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::UeLevel, false, false);
+    helper->SetGranularityPeriod(granularityPeriodMs);
 
     ObjectMapValue ueManager;
     m_rrc->GetAttribute("UeMap", ueManager);
