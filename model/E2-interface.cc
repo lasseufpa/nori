@@ -388,8 +388,8 @@ E2Interface::GetTypeId()
                                           MakeDoubleAccessor(&E2Interface::m_startTime),
                                           MakeDoubleChecker<double>())
                             .AddAttribute("RcControlDrainPeriod",
-                                          "Period of the event that handles KPM subscriptions and "
-                                          "E2SM-RC controls "
+                                          "Period of the event that handles KPM/CCC subscriptions and "
+                                          "RC/CCC controls "
                                           "queued by the SCTP thread",
                                           TimeValue(MilliSeconds(1)),
                                           MakeTimeAccessor(&E2Interface::m_rcControlDrainPeriod),
@@ -676,11 +676,19 @@ void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
         auto e2Term = m_netDev->GetObject<E2Termination>();
         if (!e2Term) return;
         auto params = e2Term->ProcessRicSubscriptionRequest(subReqPdu);
-        NS_LOG_INFO("CCC Subscription accepted, scheduling periodic indications.");
+        NS_LOG_INFO("CCC Subscription accepted, queued for periodic indications.");
 
-        uint32_t nodeId = m_netDev->GetNode()->GetId();
-        Simulator::ScheduleWithContext(nodeId, MicroSeconds(0),
-                                       &E2Interface::BuildAndSendCccIndication, this, params);
+        // This callback runs on the SCTP thread: only enqueue. DrainSctpQueues() sends the
+        // first indication at the current simulation time (see StartSctpQueueDrain()).
+        {
+            std::lock_guard<std::mutex> lock(m_rcControlMutex);
+            m_pendingCccSubscriptions.push_back(params);
+        }
+        if (!m_rcControlDrainStarted)
+        {
+            NS_LOG_WARN("CCC subscription queued but the drain event is not started; call "
+                        "E2Interface::StartSctpQueueDrain() from the simulation thread");
+        }
 
         } else if (procedureCode == ProcedureCode_id_RICcontrol) {
         NS_LOG_INFO("CCC RIC Control received.");
@@ -690,28 +698,47 @@ void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
             return;
         }
 
-        auto quotas = ctrlMsg.GetPrbQuotas();
-        NS_LOG_INFO("CCC Control: " << quotas.size() << " quotas received.");
+        PendingCccControl pending;
+        pending.quotas = ctrlMsg.GetPrbQuotas();
+        pending.ricRequestorId = 0;
+        pending.ricInstanceId = 0;
+        pending.ranFunctionId = 4;
+        auto& ies = subReqPdu->choice.initiatingMessage->value.choice.RICcontrolRequest.protocolIEs.list;
+        for (int i = 0; i < ies.count; ++i) {
+            auto* ie = reinterpret_cast<RICcontrolRequest_IEs_t*>(ies.array[i]);
+            if (ie->value.present == RICcontrolRequest_IEs__value_PR_RICrequestID) {
+                pending.ricRequestorId = ie->value.choice.RICrequestID.ricRequestorID;
+                pending.ricInstanceId = ie->value.choice.RICrequestID.ricInstanceID;
+            } else if (ie->value.present == RICcontrolRequest_IEs__value_PR_RANfunctionID) {
+                pending.ranFunctionId = ie->value.choice.RANfunctionID;
+            }
+        }
 
-        // uint32_t nodeId = m_netDev->GetNode()->GetId();
-        // Simulator::ScheduleWithContext(nodeId, MicroSeconds(0),
-        //                                &E2Interface::ApplyCccSlicingControl, this, quotas);
-        ApplyCccSlicingControl(quotas);
+        // This callback runs on the SCTP thread, concurrent with the simulation: only enqueue.
+        // DrainSctpQueues() applies the quotas and acknowledges on the simulation thread.
+        size_t queued = 0;
+        {
+            std::lock_guard<std::mutex> lock(m_rcControlMutex);
+            m_pendingCccControls.push_back(std::move(pending));
+            queued = m_pendingCccControls.size();
+        }
+        NS_LOG_INFO("CCC Control queued (" << queued << " pending).");
+        if (!m_rcControlDrainStarted)
+        {
+            NS_LOG_WARN("CCC control queued but the drain event is not started; call "
+                        "E2Interface::StartSctpQueueDrain() from the simulation thread");
+        }
+    }
+}
 
+void
+E2Interface::SendCccControlAck(long ricRequestorId, long ricInstanceId, long ranFunctionId)
+{
+        const long reqId = ricRequestorId;
+        const long instId = ricInstanceId;
+        const long ranFuncId = ranFunctionId;
         auto e2Term = m_netDev->GetObject<E2Termination>();
         if (e2Term) {
-            long reqId = 0, instId = 0, ranFuncId = 4;
-            auto& ies = subReqPdu->choice.initiatingMessage->value.choice.RICcontrolRequest.protocolIEs.list;
-            for (int i = 0; i < ies.count; ++i) {
-                auto* ie = reinterpret_cast<RICcontrolRequest_IEs_t*>(ies.array[i]);
-                if (ie->value.present == RICcontrolRequest_IEs__value_PR_RICrequestID) {
-                    reqId = ie->value.choice.RICrequestID.ricRequestorID;
-                    instId = ie->value.choice.RICrequestID.ricInstanceID;
-                } else if (ie->value.present == RICcontrolRequest_IEs__value_PR_RANfunctionID) {
-                    ranFuncId = ie->value.choice.RANfunctionID;
-                }
-            }
-
             auto* ackPdu = (E2AP_PDU_t*)calloc(1, sizeof(E2AP_PDU_t));
             ackPdu->present = E2AP_PDU_PR_successfulOutcome;
             ackPdu->choice.successfulOutcome = (SuccessfulOutcome_t*)calloc(1, sizeof(SuccessfulOutcome_t));
@@ -741,7 +768,6 @@ void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
             e2Term->SendE2Message(ackPdu);
             NS_LOG_INFO("RIC control Acknowledgement successfully sent to reqId=" << reqId);
         }
-    }
 }
 
 void E2Interface::BuildAndSendCccIndication(E2Termination::RicSubscriptionRequest_rval_s params)
@@ -873,11 +899,15 @@ void
 E2Interface::DrainSctpQueues()
 {
     std::deque<E2Termination::RicSubscriptionRequest_rval_s> subscriptions;
+    std::deque<E2Termination::RicSubscriptionRequest_rval_s> cccSubscriptions;
     std::deque<PendingRcControl> batch;
+    std::deque<PendingCccControl> cccBatch;
     {
         std::lock_guard<std::mutex> lock(m_rcControlMutex);
         subscriptions.swap(m_pendingKpmSubscriptions);
+        cccSubscriptions.swap(m_pendingCccSubscriptions);
         batch.swap(m_pendingRcControls);
+        cccBatch.swap(m_pendingCccControls);
     }
 
     // Called on the simulation thread: zero delay means the current simulation time.
@@ -890,6 +920,24 @@ E2Interface::DrainSctpQueues()
                                        &E2Interface::BuildAndSendReportMessage,
                                        this,
                                        params);
+    }
+    for (const auto& params : cccSubscriptions)
+    {
+        NS_LOG_INFO("Starting CCC indications for requestorId " << params.requestorId);
+        Simulator::ScheduleWithContext(nodeId,
+                                       Seconds(0),
+                                       &E2Interface::BuildAndSendCccIndication,
+                                       this,
+                                       params);
+    }
+
+    for (const auto& ctrl : cccBatch)
+    {
+        NS_LOG_INFO("Applying CCC control from RIC (requestorId=" << ctrl.ricRequestorId << ", "
+                                                                  << ctrl.quotas.size()
+                                                                  << " quotas)");
+        ApplyCccSlicingControl(ctrl.quotas);
+        SendCccControlAck(ctrl.ricRequestorId, ctrl.ricInstanceId, ctrl.ranFunctionId);
     }
 
     for (const auto& ctrl : batch)
