@@ -43,6 +43,10 @@ extern "C"
 namespace ns3
 {
 
+/**
+ * @ingroup nori-rc
+ * @brief Decoder of E2SM-RC RIC Control Requests (slice-level PRB quota).
+ */
 class RicControlMessage : public SimpleRefCount<RicControlMessage>
 {
   public:

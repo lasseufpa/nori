@@ -25,10 +25,13 @@ struct SlicePRBQuota
 };
 
 /**
- * @ingroup scheduler
- * @brief Simple RL scheduler for RAN slicing allocation
+ * @ingroup nori-slicing
+ * @brief OFDMA round-robin scheduler with per-slice DL RBG quotas.
  *
- * @todo Simple examplanation here
+ * Splits the DL RBGs of each beam among slices in three phases (dedicated, min and
+ * max ratios, see AssignDLRBG()). The quotas are set with SetSlicingParameters(),
+ * usually from E2SM-RC or E2SM-CCC controls received by ns3::E2Interface. Without
+ * slices (SetSliceUeMapping() not called) it behaves as NrMacSchedulerOfdmaRR.
  */
 class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
 {
@@ -60,7 +63,7 @@ class NrRLMacSchedulerOfdma : public NrMacSchedulerOfdmaRR
      * 
      *  - Maximum physical resource block per slice
      * 
-     * @param slicePRBQuota The slice PRB quota
+     * @param quotas PRB quota of each slice (identified by SST)
      */
     void SetSlicingParameters(const std::vector<SlicePRBQuota>& quotas);
     

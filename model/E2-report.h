@@ -10,6 +10,10 @@ namespace ns3
 typedef std::pair<uint16_t, uint16_t> RntiCellIdPair_t;
 class NrBearerStatsCalculator;
 
+/**
+ * @ingroup nori-kpm
+ * @brief Per-UE MAC/PHY counters for E2SM-KPM, fed by the RxPacketTraceUe trace.
+ */
 class NoriE2Report : public Object
 {
   public:
@@ -223,9 +227,8 @@ class NoriE2Report : public Object
 
     /**
      * @brief Update PHY traces
-     * @param phyStats The object to the class
      * @param path The path
-     * @param params The parameters
+     * @param params RX packet trace parameters of one DL TB
      */
     void UpdateTraces(/**[[maybe_unused]] Ptr<NoriE2Report> phyStats,*/
                       [[maybe_unused]] std::string path,

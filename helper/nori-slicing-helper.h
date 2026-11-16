@@ -18,6 +18,7 @@ namespace ns3
  * This helper retrieves the UEs' RNTIs and configures the RL scheduler
  * (NrRLMacSchedulerOfdma) with the UE/slice mapping in a scheduled event
  * after the random access / RRC procedure has completed.
+ * @ingroup nori-slicing
  */
 class NoriSlicingHelper
 {

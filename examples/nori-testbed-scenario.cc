@@ -317,6 +317,7 @@ main(int argc, char* argv[])
     double ueTxPower = kUeTxPowerDbm;             // 23.0 dBm
     double e2Periodicity = kE2PeriodicitySec;      // 1.0s (1000 ms)
     double statsInterval = 1.0;                    // FlowMonitor reporting interval
+    double trafficScale = 1.0;                     // Multiplier for the DL rates of the profiles
 
     // =========================================================================
     // Command Line Flags (Simulation and Near-RT RIC Connection)
@@ -334,7 +335,11 @@ main(int argc, char* argv[])
     cmd.AddValue("ipE2TermRic", "IP do Near-RT RIC E2Term", ipE2TermRic);
     cmd.AddValue("ipE2TermRicPort", "Porta SCTP do RIC E2Term", ipE2TermRicPort);
     cmd.AddValue("statsInterval", "Intervalo das estatísticas locais em segundos", statsInterval);
+    cmd.AddValue("trafficScale",
+                 "Multiplicador das taxas DL dos perfis (1 = perfis do testbed)",
+                 trafficScale);
     cmd.Parse(argc, argv);
+    NS_ABORT_MSG_IF(trafficScale <= 0.0, "trafficScale must be positive");
 
     if (enableRealtime || enableE2)
     {
@@ -536,7 +541,7 @@ main(int argc, char* argv[])
     struct TrafficProfile
     {
         uint16_t port;
-        std::string dataRate;
+        uint64_t dataRateBps;
         uint32_t packetSize;
         double onTime;
         double offTime;
@@ -544,9 +549,9 @@ main(int argc, char* argv[])
     };
 
     const std::vector<TrafficProfile> profiles = {
-        {1234, "30Mbps", 1400, 1.0, 0.0, "Slice 1: Video Streaming (SST 1)"},
-        {1235, "10Mbps", 1200, 0.5, 0.5, "Slice 2: Social Network (SST 2)"},
-        {1236, "18Mbps", 1100, 1.0, 0.01, "Slice 3: Cloud Gaming (SST 3)"}
+        {1234, 30000000, 1400, 1.0, 0.0, "Slice 1: Video Streaming (SST 1)"},
+        {1235, 10000000, 1200, 0.5, 0.5, "Slice 2: Social Network (SST 2)"},
+        {1236, 18000000, 1100, 1.0, 0.01, "Slice 3: Cloud Gaming (SST 3)"}
     };
 
     std::map<Ipv4Address, uint32_t> ueIpToIndex;
@@ -556,6 +561,7 @@ main(int argc, char* argv[])
         Ipv4Address ueIp = ueIpIfaces.GetAddress(i);
         ueIpToIndex[ueIp] = i;
         const auto& prof = profiles[i];
+        const DataRate dataRate(static_cast<uint64_t>(prof.dataRateBps * trafficScale));
 
         // Dedicated DL bearer (LCID 4): E2Interface reads PDCP statistics from this LCID.
         NrQosFlow bearer(NrQosFlow::NGBR_LOW_LAT_EMBB);
@@ -579,7 +585,7 @@ main(int argc, char* argv[])
         // Downlink sender on RemoteHost (OnOffApplication)
         OnOffHelper clientHelper("ns3::UdpSocketFactory", InetSocketAddress(ueIp, prof.port));
         clientHelper.SetAttribute("PacketSize", UintegerValue(prof.packetSize));
-        clientHelper.SetAttribute("DataRate", DataRateValue(DataRate(prof.dataRate)));
+        clientHelper.SetAttribute("DataRate", DataRateValue(dataRate));
         clientHelper.SetAttribute("OnTime",
                                   StringValue("ns3::ConstantRandomVariable[Constant=" +
                                               std::to_string(prof.onTime) + "]"));
@@ -595,7 +601,7 @@ main(int argc, char* argv[])
         }
 
         NS_LOG_INFO("Configurado " << prof.name << " -> UE[" << i << "] (" << ueIp
-                    << ":" << prof.port << ") - Taxa: " << prof.dataRate
+                    << ":" << prof.port << ") - Taxa: " << dataRate.GetBitRate() / 1e6 << " Mbps"
                     << ", Pacote: " << prof.packetSize << " B, On: " << prof.onTime
                     << "s, Off: " << prof.offTime << "s");
     }

@@ -10,6 +10,23 @@ This project enables:
 
 ---
 
+## Documentation
+
+- User manual (Sphinx): architecture, E2AP procedures, E2SM-KPM measurements, E2SM-RC and E2SM-CCC controls, slicing scheduler, examples and validation.
+- API reference (Doxygen).
+
+Published by the `docs` workflow at [https://lasseufpa.github.io/nori/](https://lasseufpa.github.io/nori/) (manual) and [https://lasseufpa.github.io/nori/api/](https://lasseufpa.github.io/nori/api/) (API). To build locally:
+
+```bash
+python3 -m pip install -r doc/requirements.txt
+make -C doc html       # doc/build/html
+make -C doc doxygen    # doc/build/doxygen/html (needs doxygen and graphviz)
+```
+
+API and behavior changes are listed in [CHANGES.md](CHANGES.md); features, fixes and known issues in [RELEASE_NOTES.md](RELEASE_NOTES.md).
+
+---
+
 ## Getting Started with Docker
 
 NORI is containerized with **Docker** and **Docker Compose**, providing a pre-configured environment with all necessary toolchains (Ubuntu 24.04, GCC 13, CMake 3.28, Nokia ASN1C, E2AP/E2SM-KPM/E2SM-RC v3.01 ASN.1 compilation, and patched `e2sim-dev`).

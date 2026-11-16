@@ -26,6 +26,10 @@ extern "C"
 namespace ns3
 {
 
+/**
+ * @ingroup nori-kpm
+ * @brief Assembles the node-level and UE-level E2SM-KPM measurements of NORI.
+ */
 class NoriIndicationMessageHelper : public IndicationMessageHelper
 {
     public:

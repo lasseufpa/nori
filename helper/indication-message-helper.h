@@ -26,6 +26,10 @@ namespace ns3
 
 // Short-lived message builder created with Create<>(): reference counting only
 // (ns-3.48 forbids Create<>() for Object subclasses).
+/**
+ * @ingroup nori-kpm
+ * @brief Base class to assemble E2SM-KPM indication messages (Format 1 or 3).
+ */
 class IndicationMessageHelper : public SimpleRefCount<IndicationMessageHelper>
 {
   public:

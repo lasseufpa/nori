@@ -7,6 +7,10 @@
 
 namespace ns3 {
 
+/**
+ * @ingroup nori-ccc
+ * @brief Builds the JSON payload of E2SM-CCC indications.
+ */
 class CccIndicationMessage {
 public:
     /**

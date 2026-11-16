@@ -1,0 +1,69 @@
+name: docs
+
+# Builds the Sphinx manual (warnings are errors) and the Doxygen API reference.
+# On pushes to main, publishes both on GitHub Pages:
+#   /       manual
+#   /api/   Doxygen reference
+# Requires Settings > Pages > Source = "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+    paths: ["doc/**", "model/**", "helper/**", "README.md", ".github/workflows/docs.yml"]
+  pull_request:
+    paths: ["doc/**", "model/**", "helper/**", "README.md", ".github/workflows/docs.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends doxygen graphviz
+          python3 -m pip install --user -r doc/requirements.txt
+
+      - name: Sphinx manual
+        run: make -C doc html SPHINXOPTS="-W --keep-going"
+
+      - name: Doxygen reference
+        run: |
+          make -C doc doxygen
+          if [ -s doc/build/doxygen/warnings.log ]; then
+            echo "::group::Doxygen warnings"; cat doc/build/doxygen/warnings.log; echo "::endgroup::"
+          fi
+
+      - name: Assemble site
+        run: |
+          mkdir -p site/api
+          cp -r doc/build/html/. site/
+          cp -r doc/build/doxygen/html/. site/api/
+          touch site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

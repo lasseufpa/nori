@@ -32,6 +32,10 @@ class NrUeManager;
 
 typedef std::pair<uint64_t, uint16_t> ImsiCellIdPair_t;
 
+/**
+ * @ingroup nori-e2
+ * @brief E2 node logic of one gNB: KPM/CCC subscriptions, KPM indications, RC/CCC controls.
+ */
 class E2Interface : public Object
 {
   public:
@@ -65,7 +69,7 @@ class E2Interface : public Object
      * @brief Function Service Subscription Request callback.
      * This function is triggered whenever a RIC Subscription Request is received.
      *
-     * @param pdu request message
+     * @param sub_req_pdu request message
      */
     void FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
     void CccSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
@@ -92,7 +96,6 @@ class E2Interface : public Object
     /**
      * @brief Build and send report message
      * @param params subscription request parameters
-     * @param nodeBNetdev the net device of the nodeB
      *
      */
     void BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rval_s params);

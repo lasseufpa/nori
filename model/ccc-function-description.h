@@ -7,6 +7,10 @@
 namespace ns3
 {
 
+/**
+ * @ingroup nori-ccc
+ * @brief E2SM-CCC RAN function definition (JSON).
+ */
 class CccFunctionDescription : public FunctionDescription
 {
   public:

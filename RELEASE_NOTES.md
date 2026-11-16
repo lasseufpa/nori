@@ -1,0 +1,42 @@
+# NORI release notes
+
+## Unreleased (ns-3.48, nr v5.1)
+
+Branch `fix/e2sm-rc-spec-slice-quota`, commits `bf3581a` to `edd98f6`, plus the
+documentation.
+
+### Availability
+
+- Docker image `nori-nori-dev:ns3.48-nr5.1` (Ubuntu 24.04). The previous environment is
+  kept as `nori-nori-dev:ns3.42-nr78b7179e`. Results of the two versions are not
+  directly comparable (nr v4.0 to v5.1 changed RLC, HARQ, TB size, MIMO SINR and the
+  scheduler base classes).
+
+### New features
+
+- E2SM-RC slice PRB quota aligned with E2SM-RC v03.00 (Style 2, Action 6, RAN
+  parameters 1 to 13), with RIC Control Acknowledge and Failure.
+- RIC Control Acknowledge for E2SM-CCC controls.
+- `StartStagger` attribute and `nori-handover-scenario`.
+- `--trafficScale` option in `nori-testbed-scenario`.
+- User manual (Sphinx), API reference (Doxygen) and the `docs` GitHub Actions
+  workflow.
+
+### Bugs fixed
+
+- KPM throughput and volumes were 0 when the traffic did not use LCID 4.
+- `RRU.PrbUsedDl` was the same for all UEs and assumed a fixed 139-PRB band.
+- The first KPM report, RC quotas and CCC subscriptions could be delayed (or never
+  applied) when the simulation ran slower than real time.
+- Data race between the SCTP thread and the simulation in the CCC control path.
+- With 80% + 20% dedicated quotas, a slice with 0% received one RBG (rounding).
+
+### Known issues
+
+- Only DL quotas are enforced.
+- The PLMN identity is fixed (`268413`).
+- `DRB.BufferSize.Qos` is always 0; several measurements announced in the RAN function
+  definition are not reported (see the KPM chapter of the manual).
+- The RNTI to SST map is global and keyed by RNTI, which is not unique across cells.
+- ACKs of different xApps collide in the RIC unless each xApp routes 12041 by its own
+  `ricInstanceID`.
