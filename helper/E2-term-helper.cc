@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
+ * Copyright (c) 2024 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #include "E2-term-helper.h"
 
 #include "ns3/E2-report.h"

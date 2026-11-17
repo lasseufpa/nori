@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #include "ccc-indication-message.h"
 #include "ns3/nr-gnb-net-device.h"
 #include "ns3/nr-gnb-phy.h"

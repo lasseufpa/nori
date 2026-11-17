@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2024 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #include "E2-report.h"
 
 #include "ns3/core-module.h"

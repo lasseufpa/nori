@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2024 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #pragma once
 
 #include "ns3/nr-bearer-stats-calculator.h"

@@ -186,5 +186,11 @@ Access the full documentation in the project’s **Wiki**:
 
 ---
 
+## License
+
+NORI is licensed under the GNU General Public License, version 2 only (`GPL-2.0-only`), the same license as ns-3 and nr. See [LICENSE](LICENSE). The exception is `model/e2sim-mod.h`, adapted from the O-RAN SC `e2sim` and licensed under Apache-2.0 ([LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt)). Code derived from ns-O-RAN (Northeastern University) and nr (CTTC), external dependencies with other licenses (O-RAN SC `e2sim`, Apache-2.0) and the origin of the O-RAN ASN.1 files are listed in [NOTICE.md](NOTICE.md).
+
+---
+
 ## 📬 Contact
 * Technical contact: [andrey.oliveira@itec.ufpa.br](mailto:andrey.oliveira@itec.ufpa.br)

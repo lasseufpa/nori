@@ -1,5 +1,11 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 /*
+ * Copyright (c) 2026 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
+/*
  * NORI Benchmark Scenario for Performance & Execution Time Evaluation
  *
  * Designed to match the GUARA-ns / RAN Fusion evaluation methodology:
