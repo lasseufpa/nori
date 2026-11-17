@@ -24,6 +24,8 @@ html_theme_options = {
     "sidebar_width": "240px",
 }
 html_static_path = ["_static"]
+html_logo = "_static/logo/nori-symbol-light.png"
+html_favicon = "_static/logo/nori-symbol-light.png"
 html_title = "NORI manual"
 
 latex_documents = [

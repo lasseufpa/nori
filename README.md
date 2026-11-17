@@ -1,20 +1,73 @@
-# NORI - New Open RAN Interface (Module for ns-3)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="doc/source/_static/logo/nori-logo-dark.png">
+    <img src="doc/source/_static/logo/nori-logo-light.png" alt="NORI" width="380">
+  </picture>
+</p>
 
-[![ci](https://github.com/lasseufpa/nori/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lasseufpa/nori/actions/workflows/ci.yml)
-[![docs](https://github.com/lasseufpa/nori/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/lasseufpa/nori/actions/workflows/docs.yml)
+<p align="center">
+  <b>O-RAN E2 interface for ns-3 and 5G-LENA</b><br>
+  Connect simulated 5G NR cells to a Near-RT RIC and test real xApps against them.
+</p>
 
-**NORI** (New Open RAN Interface) is a module for the **ns-3** simulator that integrates the **NR 5G LENA** module with a **Near-RT RIC (Release I)** from the **O-RAN** architecture via the standardized **E2 interface**.
+<p align="center">
+  <a href="https://github.com/lasseufpa/nori/actions/workflows/ci.yml"><img src="https://github.com/lasseufpa/nori/actions/workflows/ci.yml/badge.svg?branch=main" alt="ci"></a>
+  <a href="https://github.com/lasseufpa/nori/actions/workflows/docs.yml"><img src="https://github.com/lasseufpa/nori/actions/workflows/docs.yml/badge.svg?branch=main" alt="docs"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--2.0--only-blue" alt="License: GPL-2.0-only"></a>
+  <img src="https://img.shields.io/badge/ns--3-3.48-2B5240" alt="ns-3.48">
+  <img src="https://img.shields.io/badge/nr%20(5G--LENA)-v5.1-2B5240" alt="nr v5.1">
+  <img src="https://img.shields.io/badge/O--RAN%20SC-Release%20I-4E9A31" alt="O-RAN SC Release I">
+</p>
 
-This project enables:
-- Metric collection via **KPM Service Model (E2SM-KPM v3.00)**
-- Network control and dynamic slicing via **RAN Control Service Model (E2SM-RC v3.01)**
-- Integration with custom xApps
-- Operation in simulated environments without modifying the ns-3 core
+<p align="center">
+  <a href="https://lasseufpa.github.io/nori/">Manual</a> ·
+  <a href="https://lasseufpa.github.io/nori/api/">API reference</a> ·
+  <a href="#quick-start-with-docker">Quick start</a> ·
+  <a href="#examples">Examples</a> ·
+  <a href="CHANGES.md">Changes</a> ·
+  <a href="https://github.com/lasseufpa/nori/wiki">Wiki</a>
+</p>
+
+---
+
+**NORI** (New Open RAN Interface) is an [ns-3](https://www.nsnam.org) contrib module. It adds an
+O-RAN **E2 termination** to the gNBs of the [nr (5G-LENA)](https://gitlab.com/cttc-lena/nr) module,
+so a simulated network talks E2AP over SCTP to a real **Near-RT RIC** (O-RAN SC Release I): xApps
+receive measurements from the simulation and send controls back, without changes to the ns-3 core.
+
+## What you get
+
+| Service model | RAN function ID | What the xApp sees or controls |
+|---|:---:|---|
+| **E2SM-KPM** v03.00 | 200 | Per-UE and per-cell measurements: throughput, PDCP volume, PRB usage and more, at the granularity period the xApp requests |
+| **E2SM-RC** v03.01 | 300 | Slice PRB quotas (Control Style 2, Action 6, RAN parameters 1–13), answered with RIC Control Acknowledge or Failure |
+| **E2SM-CCC** v07.00 | 4 | Cell configuration in JSON: `O-RRMPolicyRatio` slice quotas and MIMO rank limit |
+
+It also brings a slice-aware MAC scheduler (`NrRLMacSchedulerOfdma`), multi-cell scenarios with X2
+handover, and runs either in simulated time or synchronized with the wall clock for live RIC tests.
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph sim["ns-3 simulation"]
+    direction LR
+    UE["UEs"] ---|"NR radio"| GNB["gNB<br/>(nr / 5G-LENA)"]
+    GNB --- E2T["NORI<br/>E2 termination"]
+  end
+  subgraph ric["Near-RT RIC (O-RAN SC Release I)"]
+    direction LR
+    TERM["E2Term"] --- XAPP["xApps<br/>KPM · RC · CCC"]
+  end
+  E2T <-->|"E2AP over SCTP<br/>indications · controls"| TERM
+```
+
+The [manual](https://lasseufpa.github.io/nori/) describes the E2AP procedures, each KPM measurement
+and how RC and CCC controls reach the scheduler.
 
 ## Compatibility
 
-NORI is an ns-3 contrib module (`ns-3-dev/contrib/nori`). Each NORI release is tested
-against one ns-3 release and one nr (5G-LENA) version:
+Each NORI release is tested against one ns-3 release and one nr version.
 
 | NORI | ns-3 | nr (5G-LENA) | E2AP / E2SM-KPM / E2SM-RC |
 |---|---|---|---|
@@ -22,28 +75,112 @@ against one ns-3 release and one nr (5G-LENA) version:
 | v2.00 | ns-3.42 | not pinned | — |
 | v1.00 | ns-3.42 | not pinned | — |
 
-Between v2.00 and v3.00, `main` used ns-3.42 with nr `78b7179e`. Results obtained with
-that environment and with v3.00 are not directly comparable: nr v4.0 to v5.1 changed
-the RLC, HARQ, TB size, MIMO SINR and scheduler models.
+> [!NOTE]
+> Between v2.00 and v3.00, `main` used ns-3.42 with nr `78b7179e`. Results from that environment
+> and from v3.00 are not directly comparable: nr v4.0 to v5.1 changed the RLC, HARQ, TB size,
+> MIMO SINR and scheduler models.
 
----
+## Quick start with Docker
 
-## Documentation
+The Docker environment builds every dependency (Ubuntu 24.04, GCC 13, Nokia `asn1c`, the patched
+O-RAN SC `e2sim` and the ns-3/nr versions above) and mounts this repository at
+`ns-3-dev/contrib/nori`, so you edit on the host and build in the container.
 
-- User manual (Sphinx): architecture, E2AP procedures, E2SM-KPM measurements, E2SM-RC and E2SM-CCC controls, slicing scheduler, examples and validation.
-- API reference (Doxygen).
+```bash
+git clone https://github.com/lasseufpa/nori.git && cd nori
+docker compose up -d                 # builds the image nori:dev on the first run
+docker compose exec nori-dev bash
 
-Published by the `docs` workflow at [https://lasseufpa.github.io/nori/](https://lasseufpa.github.io/nori/) (manual) and [https://lasseufpa.github.io/nori/api/](https://lasseufpa.github.io/nori/api/) (API). To build locally:
+# inside the container (/home/developer/ns-3-dev)
+./ns3 configure --enable-examples --enable-modules=nori
+./ns3 build
+./ns3 run "nori-testbed-scenario --simTime=5"     # runs without a RIC
+```
+
+<details>
+<summary><b>Optimized standalone image</b> (<code>-d optimized</code>, for long runs)</summary>
+
+```bash
+docker build -t nori .
+docker run -it --name nori --network host nori bash
+./ns3 run "nori-rc-slicing-demo --ipE2TermRic=<E2TERM_IP>"
+```
+
+The image copies the working tree and builds every module with `-O3`. Release environments are
+also published as `ghcr.io/lasseufpa/nori:X.YY-dev`; the image labels `org.nsnam.ns3.version`
+and `org.cttc-lena.nr.version` record the versions inside.
+</details>
+
+## Installing as an ns-3 module
+
+NORI follows the ns-3 contrib layout: clone it into `contrib/` of an ns-3 tree that has nr.
+
+```bash
+git clone https://gitlab.com/nsnam/ns-3-dev.git
+cd ns-3-dev && git checkout ns-3.48
+git clone https://gitlab.com/cttc-lena/nr.git contrib/nr && git -C contrib/nr checkout v5.1
+git clone https://github.com/lasseufpa/nori.git contrib/nori
+
+./ns3 configure --enable-examples --enable-modules=nori
+./ns3 build
+./ns3 run nori-print-attributes
+```
+
+<details>
+<summary><b>Requirements</b></summary>
+
+- C++23 compiler (GCC 13), CMake ≥ 3.25, Python ≥ 3.10
+- `libsctp-dev`, Boost, Eigen 3, nlohmann-json
+- The O-RAN SC `e2sim` library (`/usr/local/lib/libe2sim.a`) compiled with the ASN.1 files of
+  `asn/v03`, the Nokia `asn1c` and a patch for CHOICE extensions. Stages 2 and 4 of the
+  [`Dockerfile`](Dockerfile) show the commands.
+</details>
+
+## Examples
+
+| Example | What it shows | Needs a RIC |
+|---|---|:---:|
+| `nori-testbed-scenario` | Copy of the LASSE OCUDU testbed: 1 gNB (n78, 100 MHz), 3 UEs, 3 slices, KPM + RC + CCC | optional (`--enableE2`) |
+| `nori-rc-slicing-demo` | 2 saturated slices; PRB quotas from an E2SM-RC xApp | yes |
+| `nori-ccc-slicing-demo` | Same topology; PRB quotas through E2SM-CCC | yes |
+| `nori-handover-scenario` | 3 gNBs, 2 moving UEs, X2 handover seen by a KPM xApp | optional (`--enableE2`) |
+| `nori-benchmark-scenario` | Scalable UMi topology for execution-time measurements | optional (`--enableE2`) |
+| `nori-sample` | Minimal KPM example: 1 gNB, 1 UE | yes |
+| `nori-mimo-demo` | MIMO; the E2SM-CCC `maxMimoLayers` changes the rank limit | yes |
+| `nori-print-attributes` | Prints the NORI attributes as reStructuredText for the manual | no |
+
+Examples that talk to a RIC take `--ipE2TermRic` and `--ipE2TermRicPort`; `--PrintHelp` lists every
+option.
+
+```bash
+./ns3 run "nori-rc-slicing-demo --ipE2TermRic=<E2TERM_IP> --simTime=0"   # 0 = until Ctrl+C
+```
+
+> [!TIP]
+> Find the E2Term address with `kubectl get pods -A -o wide` and follow its log with
+> `kubectl logs -n ricplt deployment-ricplt-e2term-alpha-<id>`. When the link is up, the ns-3 output
+> shows E2 Setup, RIC Subscription, RIC Indication and RIC Control messages.
+
+Ready-made environments with ns-3, nr, NORI and sample xApps (**blueprints**) are described in the
+[project wiki](https://github.com/lasseufpa/nori/wiki).
+
+## Documentation and development
+
+- **Manual** (Sphinx): <https://lasseufpa.github.io/nori/> · **API** (Doxygen): <https://lasseufpa.github.io/nori/api/>
+- **Changes**: [CHANGES.md](CHANGES.md) lists API and behavior changes; [RELEASE_NOTES.md](RELEASE_NOTES.md) lists features, fixes and known issues.
+
+<details>
+<summary><b>Build the documentation locally</b></summary>
 
 ```bash
 python3 -m pip install -r doc/requirements.txt
 make -C doc html       # doc/build/html
 make -C doc doxygen    # doc/build/doxygen/html (needs doxygen and graphviz)
 ```
+</details>
 
-API and behavior changes are listed in [CHANGES.md](CHANGES.md); features, fixes and known issues in [RELEASE_NOTES.md](RELEASE_NOTES.md).
-
-## Continuous Integration
+<details>
+<summary><b>Continuous integration</b></summary>
 
 | Workflow | Trigger | What it does |
 |---|---|---|
@@ -51,146 +188,23 @@ API and behavior changes are listed in [CHANGES.md](CHANGES.md); features, fixes
 | `image` | changes to `Dockerfile` or `asn/`, release tags `nori-v*` | Builds the `ci` and `dev` targets of the Dockerfile and publishes `ghcr.io/lasseufpa/nori:ci`, `:dev` and `:X.YY-dev` |
 | `docs` | changes to `doc/`, `model/`, `helper/` | Builds the manual and the API reference; publishes on GitHub Pages from `main` |
 
-The same scripts run locally in the dev container (they reconfigure ns-3 with `-d default --enable-modules=nori`):
+The same scripts run in the dev container (they reconfigure ns-3 with `-d default --enable-modules=nori`):
 
 ```bash
 docker compose run --rm nori-dev bash -c \
   "contrib/nori/.github/scripts/ci-build.sh && contrib/nori/.github/scripts/smoke.sh"
 ```
-
----
-
-## Installing NORI as an ns-3 module
-
-NORI follows the ns-3 contrib module layout: clone it into `contrib/` of an ns-3 tree
-that has the nr module, then enable it with `./ns3 configure`.
-
-```bash
-# 1. ns-3 and nr (versions from the Compatibility table)
-git clone https://gitlab.com/nsnam/ns-3-dev.git
-cd ns-3-dev && git checkout ns-3.48
-cd contrib
-git clone https://gitlab.com/cttc-lena/nr.git && git -C nr checkout v5.1
-
-# 2. NORI
-git clone https://github.com/lasseufpa/nori.git
-cd ..
-
-# 3. Build and check
-./ns3 configure --enable-examples --enable-modules=nori
-./ns3 build
-./ns3 run nori-print-attributes
-```
-
-Requirements: a C++23 compiler (GCC 13), CMake >= 3.25, Python >= 3.10, `libsctp-dev`,
-Boost, Eigen 3 and nlohmann-json. NORI also links the O-RAN SC `e2sim` library
-(`/usr/local/lib/libe2sim.a`), compiled with the ASN.1 files of `asn/v03`, the Nokia
-`asn1c` and a patch for CHOICE extensions; stages 2 and 4 of the `Dockerfile` show the
-commands. The Docker environment below builds all of it.
-
----
-
-## Getting Started with Docker
-
-NORI is containerized with **Docker** and **Docker Compose**, providing a pre-configured environment with all necessary toolchains (Ubuntu 24.04, GCC 13, CMake 3.28, Nokia ASN1C, E2AP/E2SM-KPM/E2SM-RC v3.01 ASN.1 compilation, and patched `e2sim-dev`).
-
-The image is `nori:dev` (ns-3 and nr versions as in the Compatibility table, recorded in
-the image labels `org.nsnam.ns3.version` and `org.cttc-lena.nr.version`). Release
-environments are also published as `ghcr.io/lasseufpa/nori:X.YY-dev`. The previous
-environment (ns-3.42, nr `78b7179e`) is kept locally as `nori-nori-dev:ns3.42-nr78b7179e`.
-
-### Option 1: Development Mode with Live Code Mounting (Recommended)
-Edit source files directly on your host machine while building and running inside Docker in real-time:
-
-```bash
-# Start the container with host volume mounted into ns-3-dev/contrib/nori
-docker compose up -d
-
-# Open a shell inside the container
-docker compose exec nori-dev bash
-
-# Inside the container:
-./ns3 configure --enable-examples
-./ns3 build
-./ns3 run nori-rc-slicing-demo -- --simTime=0
-```
-
-### Option 2: High-Performance Standalone Image (`-d optimized`)
-Builds a fully self-contained Docker image with `-d optimized` (`-O3` compiler optimizations) using your local working tree for maximum simulation execution speed:
-
-```bash
-# Build the standalone image
-docker build -t nori .
-
-# Run the container
-docker run -it --name nori --network host nori bash
-
-# Inside the container:
-./ns3 run nori-rc-slicing-demo -- --simTime=0
-```
-
----
-
-## Running Examples
-
-Example scenarios are provided to demonstrate the core functionality of the **NORI** module:
-
-### 1. `nori-rc-slicing-demo` (E2SM-RC v3.01 Dynamic Slicing)
-
-Simulates 2 network slices (eMBB on SST=1, URLLC on SST=2) with real-time PRB quota adjustments received from a Near-RT RIC xApp via E2SM-RC v3.01:
-
-```bash
-./ns3 run nori-rc-slicing-demo -- --ipE2TermRic="YOUR_E2TERM_IP" --simTime=0
-```
-
-### 2. `nori-sample` (E2SM-KPM v3.00 Telemetry)
-
-Simulates one **gNB** and one **UE**, with UDP traffic and KPM metric reporting enabled.
-
-```bash
-./ns3 run nori-sample -- --ipE2TermRic="YOUR_E2TERM_IP"
-```
-
-> You can find the E2Term pod IP in your Kubernetes cluster with:
-> ```bash
-> kubectl get pods -A -o wide
-> ```
-> To follow the E2Term logs:
-> ```bash
-> kubectl logs deployment-ricplt-e2term-alpha-XYZ -n ricplt
-> ```
-
-### 3. `nori-mimo-demo`
-
-A variation of the sample scenario with **MIMO** (multiple antennas) support.
-
-```bash
-./ns3 run nori-mimo-demo -- --IpE2TermRic="YOUR_E2TERM_IP"
-```
-
----
-
-## Available Blueprints
-
-To simplify the setup and experimentation with the **NORI** module, we provide pre-configured **blueprints** including **ns-3**, **NR 5G LENA**, **NORI**, and sample **xApps**:
-
-Access the full documentation in the project’s **Wiki**:
-[https://github.com/lasseufpa/nori/wiki](https://github.com/lasseufpa/nori/wiki)
-
----
-
-## Tips
-
-* Ensure the **Near-RT RIC stack** is up and running before executing ns-3 examples.
-* The ns-3 terminal output will log **E2-SETUP**, **RIC Subscription**, **RIC Indication**, and **RIC Control** messages upon successful operation.
-
----
+</details>
 
 ## License
 
-NORI is licensed under the GNU General Public License, version 2 only (`GPL-2.0-only`), the same license as ns-3 and nr. See [LICENSE](LICENSE). The exception is `model/e2sim-mod.h`, adapted from the O-RAN SC `e2sim` and licensed under Apache-2.0 ([LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt)). Code derived from ns-O-RAN (Northeastern University) and nr (CTTC), external dependencies with other licenses (O-RAN SC `e2sim`, Apache-2.0) and the origin of the O-RAN ASN.1 files are listed in [NOTICE.md](NOTICE.md).
+NORI is licensed under the GNU General Public License, version 2 only (`GPL-2.0-only`), the same
+license as ns-3 and nr; see [LICENSE](LICENSE). The exception is `model/e2sim-mod.h`, adapted from the
+O-RAN SC `e2sim` and licensed under Apache-2.0 ([LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt)).
+Code derived from ns-O-RAN (Northeastern University) and nr (CTTC), external dependencies and the
+origin of the O-RAN ASN.1 files are listed in [NOTICE.md](NOTICE.md).
 
----
+## Contact
 
-## 📬 Contact
-* Technical contact: [andrey.oliveira@itec.ufpa.br](mailto:andrey.oliveira@itec.ufpa.br)
+Developed at LASSE, Federal University of Pará (UFPA).
+Technical contact: andrey.oliveira@itec.ufpa.br
