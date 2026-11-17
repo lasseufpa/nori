@@ -25,7 +25,7 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("nori-embb-urllc-scenario");
 
-// Função auxiliar para imprimir estatísticas periódicas por UE
+// Helper to print periodic per-UE statistics
 void PrintPeriodicStats(Ptr<FlowMonitor> monitor,
                         FlowMonitorHelper* flowmonHelper,
                         const std::map<Ipv4Address, uint32_t>& ueIpToIndex,
@@ -47,10 +47,10 @@ void PrintPeriodicStats(Ptr<FlowMonitor> monitor,
 
     if (statsMap.empty())
     {
-        std::cout << "[t=" << now << "s] Nenhum fluxo ainda registrado pelo FlowMonitor." << std::endl;
+        std::cout << "[t=" << now << "s] No flow registered by FlowMonitor yet." << std::endl;
     }
 
-    // Descobrir quantidade de UEs a partir do mapa IP -> índice
+    // Get the number of UEs from the IP -> index map
     uint32_t maxIndex = 0;
     for (const auto& it : ueIpToIndex)
     {
@@ -83,7 +83,7 @@ void PrintPeriodicStats(Ptr<FlowMonitor> monitor,
             continue;
         }
 
-        // Ignorar fluxo de teste de eco
+        // Skip the echo test flow
         if (t.sourcePort == echoPort || t.destinationPort == echoPort)
         {
             continue;
@@ -120,7 +120,7 @@ void PrintPeriodicStats(Ptr<FlowMonitor> monitor,
         }
     }
 
-    std::cout << "\n[t=" << now << "s] Estatísticas por UE:" << std::endl;
+    std::cout << "\n[t=" << now << "s] Per-UE statistics:" << std::endl;
     for (uint32_t i = 0; i < ueCount; ++i)
     {
         double throughput = 0.0;
@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
     };
     std::map<std::string, TrafficProfile> trafficProfiles;
 
-    // Caminho correto do arquivo de configuração (ajuste conforme a sua árvore de diretórios)
+    // Path to the configuration file (adjust to your directory tree)
     std::ifstream configFile("/home/openran-br/ns-3-dev/contrib/nori/examples/config.json");
     if (configFile.is_open()) {
         nlohmann::json configJson;
@@ -227,7 +227,7 @@ int main(int argc, char* argv[])
             }
         }
 
-            // Ler parâmetros de tráfego para cada tipo (aceita qualquer chave em "traffic")
+            // Read the traffic parameters of each type (any key under "traffic" is accepted)
             if (configJson.contains("traffic") && configJson["traffic"].is_object())
             {
                 for (auto& item : configJson["traffic"].items())
@@ -314,7 +314,7 @@ int main(int argc, char* argv[])
     //nrHelper->SetGnbPhyAttribute("DciProcessingDelay", TimeValue(MicroSeconds(1.0)));
     //nrHelper->SetUePhyAttribute("DciProcessingDelay", TimeValue(MicroSeconds(1.0)));
     
-    // Configurar scheduler: RL com slicing ou RoundRobin padrão
+    // Scheduler: RL with slicing or default round robin
     std::string schedulerType = enableRanSlicing ? "ns3::NrRLMacSchedulerOfdma" : "ns3::NrMacSchedulerOfdmaRR";
     nrHelper->SetSchedulerTypeId(TypeId::LookupByName(schedulerType));
     NS_LOG_INFO("Scheduler selecionado: " << schedulerType);
@@ -436,21 +436,21 @@ int main(int argc, char* argv[])
     p2ph.SetChannelAttribute("Delay", StringValue("1ms"));
     NetDeviceContainer internetDevices = p2ph.Install(epcHelper->GetPgwNode(), remoteHostContainer.Get(0));
 
-    // Endereçamento do link PGW <-> remoteHost
+    // Addressing of the PGW <-> remoteHost link
     Ipv4AddressHelper ipv4h;
     ipv4h.SetBase("1.0.0.0", "255.255.255.252");
     Ipv4InterfaceContainer internetIpIfaces = ipv4h.Assign(internetDevices);
-    Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress(1); // endereço do servidor
+    Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress(1); // server address
     Ipv4Address pgwAddr = internetIpIfaces.GetAddress(0);
 
     // epcHelper assigns IPv4 addresses to UEs
     Ipv4InterfaceContainer ueIpIfaces = epcHelper->AssignUeIpv4Address(ueDevs);
-    // Em muitas versões: Ipv4InterfaceContainer ueIpIfaces = epcHelper->AssignUeIpv4Address(ueDevs);
+    // In many versions: Ipv4InterfaceContainer ueIpIfaces = epcHelper->AssignUeIpv4Address(ueDevs);
 
     // Map IP -> UE index for FlowMonitor classification
     std::map<Ipv4Address, uint32_t> ueIpToIndex;
 
-    // Rede dos UEs usada para classificação (DL/UL) e estatísticas periódicas
+    // UE network used for DL/UL classification and periodic statistics
     Ipv4Address ueNetworkAddress("7.0.0.0");
     Ipv4Mask ueNetworkMask("255.0.0.0");
 
@@ -598,8 +598,8 @@ int main(int argc, char* argv[])
     FlowMonitorHelper flowmonHelper;
     Ptr<FlowMonitor> monitor = flowmonHelper.InstallAll();
 
-    // Estatísticas periódicas por UE durante a simulação (por ex. a cada 1s)
-    double statsInterval = 0.1; // segundos
+    // Periodic per-UE statistics during the simulation (e.g. every 1 s)
+    double statsInterval = 0.1; // seconds
     Simulator::Schedule(Seconds(statsInterval),
                         &PrintPeriodicStats,
                         monitor,

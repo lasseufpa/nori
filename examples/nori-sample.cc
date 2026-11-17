@@ -57,7 +57,7 @@ SendContinuousPacket(Ptr<NetDevice> device, Address addr, uint32_t packetSize, T
     pkt->AddPacketTag(tag);
     device->Send(pkt, addr, Ipv4L3Protocol::PROT_NUMBER);
 
-    // Agendar próximo envio
+    // Schedule the next transmission
     Simulator::Schedule(interval, &SendContinuousPacket, device, addr, packetSize, interval);
 }
 

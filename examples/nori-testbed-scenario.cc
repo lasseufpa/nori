@@ -91,8 +91,8 @@ constexpr double kUeHeightMeters = 1.5;
 void
 SignalHandler(int signum)
 {
-    std::cout << "\n[SINAL " << signum
-              << "] Interrupção recebida. Encerrando simulação//..." << std::endl;
+    std::cout << "\n[SIGNAL " << signum
+              << "] Interrupt received. Stopping the simulation..." << std::endl;
     Simulator::Stop(Seconds(0.0));
 }
 } // namespace
@@ -265,28 +265,28 @@ ValidateSpectrumConfiguration(Ptr<NetDevice> gnbDev,
 
     std::cout << "\n========================================================" << std::endl;
     std::cout << "[t = " << std::fixed << std::setprecision(1) << Simulator::Now().GetSeconds()
-              << "s] Validação de Espectro e Rádio na gNodeB (OCUDU + RU):" << std::endl;
-    std::cout << "  - Frequência Central: " << std::setprecision(5) << (centralFrequency / 1e9)
-              << " GHz (Banda n78, ARFCN 623334)" << std::endl;
-    std::cout << "  - Largura de Banda:   " << std::setprecision(1) << (bandwidth / 1e6) << " MHz"
+              << "s] gNodeB spectrum and radio check (OCUDU + RU):" << std::endl;
+    std::cout << "  - Center frequency: " << std::setprecision(5) << (centralFrequency / 1e9)
+              << " GHz (band n78, ARFCN 623334)" << std::endl;
+    std::cout << "  - Bandwidth:        " << std::setprecision(1) << (bandwidth / 1e6) << " MHz"
               << std::endl;
-    std::cout << "  - Numerologia (SCS):  " << numerology << " (30 kHz)" << std::endl;
-    std::cout << "  - Padrão TDD:         " << pattern << std::endl;
-    std::cout << "  - Potência TX (RU):   " << txPower << " dBm" << std::endl;
-    std::cout << "  - Antenas (MIMO):     " << (kGnbAntRows * kGnbAntCols) << "T"
+    std::cout << "  - Numerology (SCS): " << numerology << " (30 kHz)" << std::endl;
+    std::cout << "  - TDD pattern:      " << pattern << std::endl;
+    std::cout << "  - TX power (RU):    " << txPower << " dBm" << std::endl;
+    std::cout << "  - Antennas (MIMO):  " << (kGnbAntRows * kGnbAntCols) << "T"
               << (kGnbAntRows * kGnbAntCols) << "R (gNB " << kGnbAntRows << "x" << kGnbAntCols
               << ", UE " << kUeAntRows << "x" << kUeAntCols << ")" << std::endl;
-    std::cout << "  - Tabela MCS PDSCH:   64-QAM (" << kErrorModelType << ")" << std::endl;
-    std::cout << "  - PRBs Físicos Ativos: " << numPrb << " PRBs (Esperado: " << kExpectedPrbs
+    std::cout << "  - PDSCH MCS table:  64-QAM (" << kErrorModelType << ")" << std::endl;
+    std::cout << "  - Active PRBs:      " << numPrb << " PRBs (expected: " << kExpectedPrbs
               << " PRBs)" << std::endl;
     if (numPrb == kExpectedPrbs)
     {
-        std::cout << "  - Status: SUCESSO! " << kExpectedPrbs
-                  << " PRBs físicos confirmados na gNodeB!" << std::endl;
+        std::cout << "  - Status: OK, " << kExpectedPrbs
+                  << " PRBs confirmed on the gNodeB" << std::endl;
     }
     else
     {
-        std::cout << "  - Status: ATENÇÃO! PRBs obtidos = " << numPrb << " (esperado "
+        std::cout << "  - Status: WARNING, PRBs = " << numPrb << " (expected "
                   << kExpectedPrbs << ")" << std::endl;
     }
     std::cout << "========================================================\n" << std::endl;
@@ -329,14 +329,14 @@ main(int argc, char* argv[])
     uint16_t ipE2TermRicPort = 36421;          // E2Term SCTP port (values.yaml: 36421 or NodePort 32222)
 
     CommandLine cmd(__FILE__);
-    cmd.AddValue("simTime", "Duração da simulação em segundos (0 para contínuo)", simTime);
-    cmd.AddValue("enableRealtime", "Sincronizar com relógio de parede", enableRealtime);
-    cmd.AddValue("enableE2", "Habilitar interface E2", enableE2);
-    cmd.AddValue("ipE2TermRic", "IP do Near-RT RIC E2Term", ipE2TermRic);
-    cmd.AddValue("ipE2TermRicPort", "Porta SCTP do RIC E2Term", ipE2TermRicPort);
-    cmd.AddValue("statsInterval", "Intervalo das estatísticas locais em segundos", statsInterval);
+    cmd.AddValue("simTime", "Simulation time in seconds (0 = run until Ctrl+C)", simTime);
+    cmd.AddValue("enableRealtime", "Synchronize with the wall clock", enableRealtime);
+    cmd.AddValue("enableE2", "Enable the E2 interface", enableE2);
+    cmd.AddValue("ipE2TermRic", "Near-RT RIC E2Term IP address", ipE2TermRic);
+    cmd.AddValue("ipE2TermRicPort", "Near-RT RIC E2Term SCTP port", ipE2TermRicPort);
+    cmd.AddValue("statsInterval", "Local statistics interval in seconds", statsInterval);
     cmd.AddValue("trafficScale",
-                 "Multiplicador das taxas DL dos perfis (1 = perfis do testbed)",
+                 "Multiplier of the DL rate of the traffic profiles (1 = testbed profiles)",
                  trafficScale);
     cmd.Parse(argc, argv);
     NS_ABORT_MSG_IF(trafficScale <= 0.0, "trafficScale must be positive");
@@ -346,18 +346,18 @@ main(int argc, char* argv[])
         GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
     }
 
-    NS_LOG_INFO("Configurando Cenário Testbed Equivalente no NORI (Especificações Reais OCUDU/RU):");
-    NS_LOG_INFO("  - gNodeB: 1 (Banda n78 @ " << (centralFrequency / 1e9)
+    NS_LOG_INFO("Configuring the NORI testbed-equivalent scenario (OCUDU/RU specifications):");
+    NS_LOG_INFO("  - gNodeB: 1 (band n78 @ " << (centralFrequency / 1e9)
                 << " GHz, BW = " << (bandwidth / 1e6) << " MHz, SCS = 30 kHz, TxPower = "
                 << txPower << " dBm, TDD = " << kTddPattern << ")");
-    NS_LOG_INFO("  - Antenas: 4T4R (gNB " << kGnbAntRows << "x" << kGnbAntCols << ", UE "
+    NS_LOG_INFO("  - Antennas: 4T4R (gNB " << kGnbAntRows << "x" << kGnbAntCols << ", UE "
                 << kUeAntRows << "x" << kUeAntCols << "), MCS Table = 64-QAM (" << kErrorModelType
                 << ")");
-    NS_LOG_INFO("  - UEs: " << ueNum << " (Distância ~" << kUeDistanceMeters
+    NS_LOG_INFO("  - UEs: " << ueNum << " (distance ~" << kUeDistanceMeters
                 << "m, TxPower = " << ueTxPower << " dBm)");
-    NS_LOG_INFO("  - Interface E2: " << (enableE2 ? "Habilitada" : "Desabilitada")
+    NS_LOG_INFO("  - E2 interface: " << (enableE2 ? "enabled" : "disabled")
                 << " (RIC: " << ipE2TermRic << ":" << ipE2TermRicPort
-                << ", Periodicidade: " << e2Periodicity << "s)");
+                << ", periodicity: " << e2Periodicity << "s)");
 
     // =========================================================================
     // Node Creation and Mobility Topology (Indoor Bench ~25m)
@@ -518,9 +518,9 @@ main(int argc, char* argv[])
     Ptr<E2TermHelper> e2Helper;
     if (enableE2)
     {
-        NS_LOG_INFO("Inicializando Interface E2 para o Near-RT RIC ("
+        NS_LOG_INFO("Initializing the E2 interface to the Near-RT RIC ("
                     << ipE2TermRic << ":" << ipE2TermRicPort
-                    << ") com periodicidade de telemetria " << e2Periodicity << "s...");
+                    << ") with telemetry periodicity " << e2Periodicity << "s...");
         Config::SetDefault("ns3::E2Interface::E2Periodicity", DoubleValue(e2Periodicity));
         e2Helper = CreateObject<E2TermHelper>();
         e2Helper->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
@@ -600,9 +600,9 @@ main(int argc, char* argv[])
             clientApps.Stop(Seconds(simTime));
         }
 
-        NS_LOG_INFO("Configurado " << prof.name << " -> UE[" << i << "] (" << ueIp
-                    << ":" << prof.port << ") - Taxa: " << dataRate.GetBitRate() / 1e6 << " Mbps"
-                    << ", Pacote: " << prof.packetSize << " B, On: " << prof.onTime
+        NS_LOG_INFO("Configured " << prof.name << " -> UE[" << i << "] (" << ueIp
+                    << ":" << prof.port << ") - rate: " << dataRate.GetBitRate() / 1e6 << " Mbps"
+                    << ", packet: " << prof.packetSize << " B, On: " << prof.onTime
                     << "s, Off: " << prof.offTime << "s");
     }
 
@@ -632,17 +632,17 @@ main(int argc, char* argv[])
     // =========================================================================
     if (simTime > 0.0)
     {
-        NS_LOG_INFO("Iniciando Simulação por " << simTime << " segundos...");
+        NS_LOG_INFO("Starting simulation for " << simTime << " seconds...");
         Simulator::Stop(Seconds(simTime));
     }
     else
     {
-        NS_LOG_INFO("Iniciando Simulação Contínua (executando até Ctrl+C)...");
+        NS_LOG_INFO("Starting continuous simulation (running until Ctrl+C)...");
     }
 
     Simulator::Run();
 
     Simulator::Destroy();
-    NS_LOG_INFO("Simulação concluída com sucesso.");
+    NS_LOG_INFO("Simulation finished.");
     return 0;
 }

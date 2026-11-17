@@ -1102,8 +1102,8 @@ E2Interface::ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas)
                     if (ueDev && ueDev->GetPhy(0) && ueDev->GetPhy(0)->GetPmSearch())
                     {
                         ueDev->GetPhy(0)->GetPmSearch()->SetAttribute("RankLimit", UintegerValue(q.maxMimoLayers));
-                        std::cout << "\n>>> [MIMO CONTROL VIA xAPP] RankLimit atualizado para: " 
-                                  << q.maxMimoLayers << " layer(s) no UE (Node " << node->GetId() << ") <<<\n" << std::endl;
+                        std::cout << "\n>>> [MIMO CONTROL VIA xAPP] RankLimit updated to: " 
+                                  << q.maxMimoLayers << " layer(s) on UE (Node " << node->GetId() << ") <<<\n" << std::endl;
                     }
                 }
             }
