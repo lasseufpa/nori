@@ -4,7 +4,7 @@ This file lists the changes that can break user scenarios or xApps, in the forma
 the nr (5G-LENA) `CHANGES.md`. User-visible features and fixed bugs are in
 `RELEASE_NOTES.md`.
 
-## Unreleased (ns-3.48, nr v5.1)
+## NORI v3.00 (ns-3.48, nr v5.1)
 
 ### New API
 

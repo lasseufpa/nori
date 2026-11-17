@@ -1,5 +1,8 @@
 # NORI - New Open RAN Interface (Module for ns-3)
 
+[![ci](https://github.com/lasseufpa/nori/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lasseufpa/nori/actions/workflows/ci.yml)
+[![docs](https://github.com/lasseufpa/nori/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/lasseufpa/nori/actions/workflows/docs.yml)
+
 **NORI** (New Open RAN Interface) is a module for the **ns-3** simulator that integrates the **NR 5G LENA** module with a **Near-RT RIC (Release I)** from the **O-RAN** architecture via the standardized **E2 interface**.
 
 This project enables:
@@ -7,6 +10,21 @@ This project enables:
 - Network control and dynamic slicing via **RAN Control Service Model (E2SM-RC v3.01)**
 - Integration with custom xApps
 - Operation in simulated environments without modifying the ns-3 core
+
+## Compatibility
+
+NORI is an ns-3 contrib module (`ns-3-dev/contrib/nori`). Each NORI release is tested
+against one ns-3 release and one nr (5G-LENA) version:
+
+| NORI | ns-3 | nr (5G-LENA) | E2AP / E2SM-KPM / E2SM-RC |
+|---|---|---|---|
+| **v3.00** | ns-3.48 | v5.1 | v03.01 / v03.00 / v03.01 |
+| v2.00 | ns-3.42 | not pinned | — |
+| v1.00 | ns-3.42 | not pinned | — |
+
+Between v2.00 and v3.00, `main` used ns-3.42 with nr `78b7179e`. Results obtained with
+that environment and with v3.00 are not directly comparable: nr v4.0 to v5.1 changed
+the RLC, HARQ, TB size, MIMO SINR and scheduler models.
 
 ---
 
@@ -25,18 +43,61 @@ make -C doc doxygen    # doc/build/doxygen/html (needs doxygen and graphviz)
 
 API and behavior changes are listed in [CHANGES.md](CHANGES.md); features, fixes and known issues in [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
+## Continuous Integration
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci` | push to `main`, pull requests | Builds `libnori` and the examples in the CI image and runs the examples that work without a RIC for 2 simulated seconds |
+| `image` | changes to `Dockerfile` or `asn/`, release tags `nori-v*` | Builds the `ci` and `dev` targets of the Dockerfile and publishes `ghcr.io/lasseufpa/nori:ci`, `:dev` and `:X.YY-dev` |
+| `docs` | changes to `doc/`, `model/`, `helper/` | Builds the manual and the API reference; publishes on GitHub Pages from `main` |
+
+The same scripts run locally in the dev container (they reconfigure ns-3 with `-d default --enable-modules=nori`):
+
+```bash
+docker compose run --rm nori-dev bash -c \
+  "contrib/nori/.github/scripts/ci-build.sh && contrib/nori/.github/scripts/smoke.sh"
+```
+
+---
+
+## Installing NORI as an ns-3 module
+
+NORI follows the ns-3 contrib module layout: clone it into `contrib/` of an ns-3 tree
+that has the nr module, then enable it with `./ns3 configure`.
+
+```bash
+# 1. ns-3 and nr (versions from the Compatibility table)
+git clone https://gitlab.com/nsnam/ns-3-dev.git
+cd ns-3-dev && git checkout ns-3.48
+cd contrib
+git clone https://gitlab.com/cttc-lena/nr.git && git -C nr checkout v5.1
+
+# 2. NORI
+git clone https://github.com/lasseufpa/nori.git
+cd ..
+
+# 3. Build and check
+./ns3 configure --enable-examples --enable-modules=nori
+./ns3 build
+./ns3 run nori-print-attributes
+```
+
+Requirements: a C++23 compiler (GCC 13), CMake >= 3.25, Python >= 3.10, `libsctp-dev`,
+Boost, Eigen 3 and nlohmann-json. NORI also links the O-RAN SC `e2sim` library
+(`/usr/local/lib/libe2sim.a`), compiled with the ASN.1 files of `asn/v03`, the Nokia
+`asn1c` and a patch for CHOICE extensions; stages 2 and 4 of the `Dockerfile` show the
+commands. The Docker environment below builds all of it.
+
 ---
 
 ## Getting Started with Docker
 
 NORI is containerized with **Docker** and **Docker Compose**, providing a pre-configured environment with all necessary toolchains (Ubuntu 24.04, GCC 13, CMake 3.28, Nokia ASN1C, E2AP/E2SM-KPM/E2SM-RC v3.01 ASN.1 compilation, and patched `e2sim-dev`).
 
-| Component | Version |
-| --- | --- |
-| ns-3 | `ns-3.48` |
-| nr (5G-LENA) | `v5.1` |
-
-The previous environment (ns-3.42 with nr commit `78b7179e`) is kept as the image tag `nori-nori-dev:ns3.42-nr78b7179e`. Results obtained with the two versions are not directly comparable: nr v4.0 to v5.1 changed the RLC, HARQ, TB size, MIMO SINR and scheduler models.
+The image is `nori:dev` (ns-3 and nr versions as in the Compatibility table, recorded in
+the image labels `org.nsnam.ns3.version` and `org.cttc-lena.nr.version`). Release
+environments are also published as `ghcr.io/lasseufpa/nori:X.YY-dev`. The previous
+environment (ns-3.42, nr `78b7179e`) is kept locally as `nori-nori-dev:ns3.42-nr78b7179e`.
 
 ### Option 1: Development Mode with Live Code Mounting (Recommended)
 Edit source files directly on your host machine while building and running inside Docker in real-time:

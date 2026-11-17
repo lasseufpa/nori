@@ -10,7 +10,7 @@ them on Ubuntu 24.04 (GCC 13, CMake 3.28, Python 3.12).
 
 .. code-block:: bash
 
-   # image nori-nori-dev:ns3.48-nr5.1, container nori-dev
+   # image nori:dev, container nori-dev
    docker compose up -d
    docker compose exec nori-dev bash
 

@@ -3,8 +3,8 @@
 project = "NORI"
 author = "LASSE/UFPA"
 copyright = "2026, LASSE/UFPA"
-release = "dev"
-version = "dev"
+release = "3.00"
+version = "3.00"
 
 extensions = []
 

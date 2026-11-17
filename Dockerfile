@@ -116,13 +116,34 @@ RUN git clone https://gitlab.com/nsnam/ns-3-dev.git /home/developer/ns-3-dev && 
     git clone https://gitlab.com/cttc-lena/nr.git && \
     cd nr && git checkout ${NR_VERSION}
 
+# NORI is the product; ns-3 and nr versions are metadata of the image
+ARG NORI_VERSION=3.00
+LABEL org.opencontainers.image.title="NORI" \
+      org.opencontainers.image.description="NORI: O-RAN E2 interface module for ns-3 and nr (5G-LENA)" \
+      org.opencontainers.image.version="${NORI_VERSION}" \
+      org.opencontainers.image.source="https://github.com/lasseufpa/nori" \
+      org.nsnam.ns3.version="${NS3_VERSION}" \
+      org.cttc-lena.nr.version="${NR_VERSION}"
+
 WORKDIR /home/developer/ns-3-dev
 
 # 6. DEV target: development environment with a bind mount
 FROM ns3-env AS dev
 CMD ["/bin/bash"]
 
-# 7. FINAL target: self-contained optimized image (production / CI)
+# 7. CI target: ns3-env + ccache, published on GHCR by .github/workflows/image.yml.
+# ci.yml mounts the NORI checkout at contrib/nori and the ccache directory.
+FROM ns3-env AS ci
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends ccache && \
+    rm -rf /var/lib/apt/lists/*
+USER developer
+ENV CCACHE_DIR=/home/developer/.ccache \
+    CCACHE_MAXSIZE=3G \
+    CCACHE_COMPRESS=1
+CMD ["/bin/bash"]
+
+# 8. FINAL target: self-contained optimized image (production)
 FROM ns3-env AS final
 
 # Copy the local NORI source (including examples, models, helpers and asn/)

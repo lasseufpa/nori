@@ -1,14 +1,15 @@
 # NORI release notes
 
-## Unreleased (ns-3.48, nr v5.1)
+## NORI v3.00 (ns-3.48, nr v5.1)
 
 Branch `fix/e2sm-rc-spec-slice-quota`, commits `bf3581a` to `edd98f6`, plus the
 documentation.
 
 ### Availability
 
-- Docker image `nori-nori-dev:ns3.48-nr5.1` (Ubuntu 24.04). The previous environment is
-  kept as `nori-nori-dev:ns3.42-nr78b7179e`. Results of the two versions are not
+- Docker image `nori:dev` (Ubuntu 24.04, built by `docker compose build`; published as
+  `ghcr.io/lasseufpa/nori:3.00-dev` with the release tag `nori-v3.00`). The previous
+  environment is kept as `nori-nori-dev:ns3.42-nr78b7179e`. Results of the two versions are not
   directly comparable (nr v4.0 to v5.1 changed RLC, HARQ, TB size, MIMO SINR and the
   scheduler base classes).
 
@@ -21,6 +22,9 @@ documentation.
 - `--trafficScale` option in `nori-testbed-scenario`.
 - User manual (Sphinx), API reference (Doxygen) and the `docs` GitHub Actions
   workflow.
+- `ci` GitHub Actions workflow (build of `libnori` and the examples, smoke test of the
+  examples that run without a RIC) and `image` workflow (images `nori:ci` and
+  `nori:dev` on GHCR).
 
 ### Bugs fixed
 
