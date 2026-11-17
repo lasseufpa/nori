@@ -48,20 +48,6 @@ handover, and runs either in simulated time or synchronized with the wall clock 
 
 ## How it works
 
-```mermaid
-flowchart LR
-  subgraph sim["ns-3 simulation"]
-    direction LR
-    UE["UEs"] ---|"NR radio"| GNB["gNB<br/>(nr / 5G-LENA)"]
-    GNB --- E2T["NORI<br/>E2 termination"]
-  end
-  subgraph ric["Near-RT RIC (O-RAN SC Release I)"]
-    direction LR
-    TERM["E2Term"] --- XAPP["xApps<br/>KPM · RC · CCC"]
-  end
-  E2T <-->|"E2AP over SCTP<br/>indications · controls"| TERM
-```
-
 The [manual](https://lasseufpa.github.io/nori/) describes the E2AP procedures, each KPM measurement
 and how RC and CCC controls reach the scheduler.
 
