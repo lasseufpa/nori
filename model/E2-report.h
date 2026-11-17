@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2024 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #pragma once
 
 #include "ns3/nr-bearer-stats-calculator.h"
@@ -10,6 +16,10 @@ namespace ns3
 typedef std::pair<uint16_t, uint16_t> RntiCellIdPair_t;
 class NrBearerStatsCalculator;
 
+/**
+ * @ingroup nori-kpm
+ * @brief Per-UE MAC/PHY counters for E2SM-KPM, fed by the RxPacketTraceUe trace.
+ */
 class NoriE2Report : public Object
 {
   public:
@@ -93,6 +103,15 @@ class NoriE2Report : public Object
      * @return number of symbols
      */
     uint32_t GetMacNumberOfSymbolsUeSpecific(uint16_t rnti, uint16_t cellId);
+
+    /**
+     * Gets the sum of (assigned RBs x symbols) of the DL TBs received by the UE
+     * (RxPacketTraceUe), i.e. the PRB-symbol resources actually used by the UE
+     * @param rnti
+     * @param cellId
+     * @return PRB x symbols in the current reporting window
+     */
+    uint32_t GetMacRbSymbolsUeSpecific(uint16_t rnti, uint16_t cellId);
 
     /**
      * Gets the number of TX with MCS 0-4
@@ -214,9 +233,8 @@ class NoriE2Report : public Object
 
     /**
      * @brief Update PHY traces
-     * @param phyStats The object to the class
      * @param path The path
-     * @param params The parameters
+     * @param params RX packet trace parameters of one DL TB
      */
     void UpdateTraces(/**[[maybe_unused]] Ptr<NoriE2Report> phyStats,*/
                       [[maybe_unused]] std::string path,
@@ -270,6 +288,7 @@ class NoriE2Report : public Object
         m_macSinrBin7UeSpecific; //!< UE specific TX with SINR > 24 dB
 
     std::map<RntiCellIdPair_t, uint32_t> m_macNumberOfSymbols; //!< UE specific number of symbols
+    std::map<RntiCellIdPair_t, uint32_t> m_macRbSymbols;       //!< UE specific assigned RBs x symbols
 
     std::map<RntiCellIdPair_t, Time> m_lastReset; //! last time UE was reset
 

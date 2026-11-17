@@ -23,7 +23,7 @@ $ ./ns3 run cttc-nr-mimo-demo -- --PrintHelp
  *
  * MIMO is enabled by default. To disable it run:
  *  * \code{.unparsed}
-$  ./ns3 run cttc-nr-mimo-demo -- --enableMimoFeedback=0
+$  ./ns3 run cttc-nr-mimo-demo -- --csiFeedbackFlags=1
     \endcode
  *
  *
@@ -47,7 +47,8 @@ NS_LOG_COMPONENT_DEFINE("CttcNrMimoDemo");
 int
 main(int argc, char* argv[])
 {
-    Config::SetDefault("ns3::NrHelper::EnableMimoFeedback", BooleanValue(true));
+    // NR v4.1.1+: MIMO feedback follows CsiFeedbackFlags (EnableMimoFeedback was removed)
+    Config::SetDefault("ns3::NrHelper::CsiFeedbackFlags", UintegerValue(CQI_PDSCH_MIMO));
     Config::SetDefault("ns3::NrPmSearch::SubbandSize", UintegerValue(16));
 
     NrHelper::AntennaParams apUe;
@@ -114,7 +115,7 @@ main(int argc, char* argv[])
     /**
      * The main parameters for testing MIMO
      */
-    cmd.AddValue("enableMimoFeedback", "ns3::NrHelper::EnableMimoFeedback");
+    cmd.AddValue("csiFeedbackFlags", "ns3::NrHelper::CsiFeedbackFlags");
     cmd.AddValue("pmSearchMethod", "ns3::NrHelper::PmSearchMethod");
     cmd.AddValue("fullSearchCb", "ns3::NrPmSearchFull::CodebookType");
     cmd.AddValue("rankLimit", "ns3::NrPmSearch::RankLimit");
@@ -432,11 +433,11 @@ main(int argc, char* argv[])
     dlClient.SetAttribute("Interval", TimeValue(packetInterval));
 
     // The bearer that will carry the traffic
-    NrEpsBearer epsBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
+    NrQosFlow epsBearer(NrQosFlow::NGBR_LOW_LAT_EMBB);
 
     // The filter for the traffic
-    Ptr<NrEpcTft> dlTft = Create<NrEpcTft>();
-    NrEpcTft::PacketFilter dlPktFilter;
+    Ptr<NrQosRule> dlTft = Create<NrQosRule>();
+    NrQosRule::PacketFilter dlPktFilter;
     dlPktFilter.localPortStart = dlPort;
     dlPktFilter.localPortEnd = dlPort;
     dlTft->Add(dlPktFilter);
@@ -458,7 +459,7 @@ main(int argc, char* argv[])
         clientApps.Add(dlClient.Install(remoteHost));
 
         // Activate a dedicated bearer for the traffic
-        nrHelper->ActivateDedicatedEpsBearer(ueDevice, epsBearer, dlTft);
+        nrHelper->ActivateDedicatedQosFlow(ueDevice, epsBearer, dlTft);
     }
 
     // start UDP server and client apps

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #pragma once
 
 #include "function-description.h"
@@ -7,6 +13,10 @@
 namespace ns3
 {
 
+/**
+ * @ingroup nori-ccc
+ * @brief E2SM-CCC RAN function definition (JSON).
+ */
 class CccFunctionDescription : public FunctionDescription
 {
   public:

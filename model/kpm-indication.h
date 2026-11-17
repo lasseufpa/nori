@@ -54,6 +54,10 @@ extern "C"
 namespace ns3
 {
 
+/**
+ * @ingroup nori-kpm
+ * @brief KpmIndicationHeader
+ */
 class KpmIndicationHeader : public SimpleRefCount<KpmIndicationHeader>
 {
   public:
@@ -87,6 +91,10 @@ MeasurementRecordItem_t* CreateMeasurementRecordItemNoValue();
 
 MeasurementInfoItem_t* CreateMeasurementInfoItemName(const std::string& measName);
 
+/**
+ * @ingroup nori-kpm
+ * @brief KpmIndicationMessage
+ */
 class KpmIndicationMessage : public SimpleRefCount<KpmIndicationMessage>
 {
   public:

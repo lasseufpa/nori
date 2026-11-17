@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #pragma once
 
 #include "ccc-data-models.h"
@@ -7,6 +13,10 @@
 
 namespace ns3 {
 
+/**
+ * @ingroup nori-ccc
+ * @brief Builds the JSON payload of E2SM-CCC indications.
+ */
 class CccIndicationMessage {
 public:
     /**

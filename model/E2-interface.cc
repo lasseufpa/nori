@@ -25,6 +25,7 @@
 #include "ns3/nr-gnb-mac.h"
 #include "ns3/nr-gnb-net-device.h"
 #include "ns3/nr-gnb-rrc.h"
+#include "ns3/nr-radio-bearer-info.h"
 #include "ns3/nr-mac-sched-sap.h"
 #include "ns3/nr-rl-mac-scheduler-ofdma.h"
 #include "ns3/nr-rlc-am.h"
@@ -45,11 +46,305 @@
 #include "ns3/nr-pm-search.h"
 
 #include <encode_e2apv1.hpp>
+
+extern "C"
+{
+#include "Cause.h"
+#include "CauseRICrequest.h"
+#include "E2SM-KPM-ActionDefinition-Format1.h"
+#include "E2SM-KPM-ActionDefinition-Format2.h"
+#include "E2SM-KPM-ActionDefinition-Format3.h"
+#include "E2SM-KPM-ActionDefinition-Format4.h"
+#include "E2SM-KPM-ActionDefinition-Format5.h"
+#include "E2SM-KPM-ActionDefinition.h"
+#include "E2SM-KPM-EventTriggerDefinition-Format1.h"
+#include "E2SM-KPM-EventTriggerDefinition.h"
+#include "InitiatingMessage.h"
+#include "ProtocolIE-Field.h"
+#include "RICcontrolFailure.h"
+#include "RICsubscriptionRequest.h"
+#include "UnsuccessfulOutcome.h"
+}
 namespace ns3
 {
 
 NS_LOG_COMPONENT_DEFINE("E2Interface");
 NS_OBJECT_ENSURE_REGISTERED(E2Interface);
+
+namespace
+{
+/**
+ * Return the increment of a cumulative counter since the previous report and
+ * advance the stored reference. A current value smaller than the reference
+ * means the statistics calculator was reset (or a bearer was released); the
+ * current value is then the whole increment.
+ */
+double
+ConsumeCounterDelta(double current, double& previous)
+{
+    const double delta = current >= previous ? current - previous : current;
+    previous = current;
+    return delta;
+}
+
+/// Clamp an ASN.1 INTEGER (1..4294967295) to uint32_t; 0 means "not present"
+uint32_t
+ToPeriodMs(unsigned long value)
+{
+    return value > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(value);
+}
+
+/**
+ * Decode the E2SM-KPM Event Trigger Definition (Format 1) of a subscription and
+ * return its reportingPeriod in ms, or 0 if it cannot be decoded.
+ */
+uint32_t
+DecodeKpmReportingPeriodMs(const RICeventTriggerDefinition_t& trigger)
+{
+    if (trigger.buf == nullptr || trigger.size == 0)
+    {
+        NS_LOG_WARN("KPM subscription without Event Trigger Definition");
+        return 0;
+    }
+
+    E2SM_KPM_EventTriggerDefinition_t* eventTrigger = nullptr;
+    asn_dec_rval_t rval = asn_decode(nullptr,
+                                     ATS_ALIGNED_BASIC_PER,
+                                     &asn_DEF_E2SM_KPM_EventTriggerDefinition,
+                                     (void**)&eventTrigger,
+                                     trigger.buf,
+                                     trigger.size);
+    uint32_t periodMs = 0;
+    if (rval.code == RC_OK && eventTrigger != nullptr &&
+        eventTrigger->eventDefinition_formats.present ==
+            E2SM_KPM_EventTriggerDefinition__eventDefinition_formats_PR_eventDefinition_Format1 &&
+        eventTrigger->eventDefinition_formats.choice.eventDefinition_Format1 != nullptr)
+    {
+        periodMs = ToPeriodMs(
+            eventTrigger->eventDefinition_formats.choice.eventDefinition_Format1->reportingPeriod);
+    }
+    else
+    {
+        NS_LOG_WARN("Failed to decode E2SM-KPM Event Trigger Definition Format 1");
+    }
+
+    if (eventTrigger != nullptr)
+    {
+        ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTrigger);
+    }
+    return periodMs;
+}
+
+/**
+ * Decode the E2SM-KPM Action Definition (Formats 1 to 5) of a subscription action
+ * and return its granulPeriod in ms, or 0 if it cannot be decoded.
+ */
+uint32_t
+DecodeKpmGranularityPeriodMs(const RICactionDefinition_t& definition)
+{
+    if (definition.buf == nullptr || definition.size == 0)
+    {
+        NS_LOG_WARN("KPM action without Action Definition");
+        return 0;
+    }
+
+    E2SM_KPM_ActionDefinition_t* action = nullptr;
+    asn_dec_rval_t rval = asn_decode(nullptr,
+                                     ATS_ALIGNED_BASIC_PER,
+                                     &asn_DEF_E2SM_KPM_ActionDefinition,
+                                     (void**)&action,
+                                     definition.buf,
+                                     definition.size);
+    uint32_t periodMs = 0;
+    if (rval.code == RC_OK && action != nullptr)
+    {
+        const auto& formats = action->actionDefinition_formats;
+        switch (formats.present)
+        {
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format1:
+            periodMs = ToPeriodMs(formats.choice.actionDefinition_Format1->granulPeriod);
+            break;
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format2:
+            periodMs = ToPeriodMs(
+                formats.choice.actionDefinition_Format2->subscriptInfo.granulPeriod);
+            break;
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format3:
+            periodMs = ToPeriodMs(formats.choice.actionDefinition_Format3->granulPeriod);
+            break;
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format4:
+            periodMs = ToPeriodMs(
+                formats.choice.actionDefinition_Format4->subscriptionInfo.granulPeriod);
+            break;
+        case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format5:
+            periodMs = ToPeriodMs(
+                formats.choice.actionDefinition_Format5->subscriptionInfo.granulPeriod);
+            break;
+        default:
+            NS_LOG_WARN("Unknown E2SM-KPM Action Definition format " << formats.present);
+            break;
+        }
+    }
+    else
+    {
+        NS_LOG_WARN("Failed to decode E2SM-KPM Action Definition");
+    }
+
+    if (action != nullptr)
+    {
+        ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, action);
+    }
+    return periodMs;
+}
+
+/**
+ * Fill the reporting and granularity periods requested by a KPM subscription.
+ * The granularity is read from the action accepted by ProcessRicSubscriptionRequest().
+ */
+void
+DecodeKpmSubscriptionPeriods(const E2AP_PDU_t* pdu,
+                             E2Termination::RicSubscriptionRequest_rval_s& params)
+{
+    if (pdu == nullptr || pdu->present != E2AP_PDU_PR_initiatingMessage ||
+        pdu->choice.initiatingMessage == nullptr ||
+        pdu->choice.initiatingMessage->value.present !=
+            InitiatingMessage__value_PR_RICsubscriptionRequest)
+    {
+        NS_LOG_WARN("KPM subscription PDU is not a RIC Subscription Request");
+        return;
+    }
+
+    const RICsubscriptionRequest_t& request =
+        pdu->choice.initiatingMessage->value.choice.RICsubscriptionRequest;
+    const RICsubscriptionDetails_t* details = nullptr;
+    for (int i = 0; i < request.protocolIEs.list.count; i++)
+    {
+        auto* ie = (RICsubscriptionRequest_IEs_t*)request.protocolIEs.list.array[i];
+        if (ie != nullptr &&
+            ie->value.present == RICsubscriptionRequest_IEs__value_PR_RICsubscriptionDetails)
+        {
+            details = &ie->value.choice.RICsubscriptionDetails;
+            break;
+        }
+    }
+    if (details == nullptr)
+    {
+        NS_LOG_WARN("KPM subscription without RIC Subscription Details");
+        return;
+    }
+
+    params.reportingPeriodMs = DecodeKpmReportingPeriodMs(details->ricEventTriggerDefinition);
+
+    const auto& actions = details->ricAction_ToBeSetup_List;
+    for (int i = 0; i < actions.list.count; i++)
+    {
+        auto* ie = (RICaction_ToBeSetup_ItemIEs_t*)actions.list.array[i];
+        if (ie == nullptr ||
+            ie->value.present != RICaction_ToBeSetup_ItemIEs__value_PR_RICaction_ToBeSetup_Item)
+        {
+            continue;
+        }
+        const auto& item = ie->value.choice.RICaction_ToBeSetup_Item;
+        if (item.ricActionID != params.actionId)
+        {
+            continue;
+        }
+        if (item.ricActionDefinition != nullptr)
+        {
+            params.granularityPeriodMs = DecodeKpmGranularityPeriodMs(*item.ricActionDefinition);
+        }
+        break;
+    }
+}
+} // namespace
+
+E2Interface::PrbGeometry
+E2Interface::GetPrimaryBwpPrbGeometry() const
+{
+    PrbGeometry geometry;
+    auto gnbDevice = DynamicCast<NrGnbNetDevice>(m_netDev);
+    NS_ABORT_MSG_IF(!gnbDevice, "PRB metrics require an NrGnbNetDevice");
+    auto phy = gnbDevice->GetPhy(0); // primary BWP
+    NS_ABORT_MSG_IF(!phy, "PRB metrics require a PHY on the primary BWP");
+    geometry.rbNum = phy->GetRbNum();
+    geometry.symbolsPerSlot = phy->GetSymbolsPerSlot();
+    geometry.slotPeriod = phy->GetSlotPeriod();
+    geometry.subcarrierSpacingHz = phy->GetSubcarrierSpacing();
+    NS_ABORT_MSG_IF(geometry.rbNum == 0 || geometry.symbolsPerSlot == 0 ||
+                        geometry.slotPeriod.IsZero(),
+                    "Invalid primary BWP geometry");
+    return geometry;
+}
+
+double
+E2Interface::GetUePrbUsedDl(uint16_t rnti, const PrbGeometry& geometry) const
+{
+    // Average number of PRBs used by the UE in the reporting window:
+    //   sum(assigned RBs x symbols of each received DL TB) / (slots in window x symbols per slot)
+    // The previous formula (UE symbols / window symbols x 139) assumed that a UE uses the whole
+    // band in its symbols, which only holds for TDMA, and used a fixed 139 PRBs (numerology 2).
+    const double rbSymbols = m_e2DuCalculator->GetMacRbSymbolsUeSpecific(rnti, m_cellId);
+    const Time reportingWindow =
+        Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
+    const double slotsInWindow =
+        std::ceil(static_cast<double>(reportingWindow.GetNanoSeconds()) /
+                  static_cast<double>(geometry.slotPeriod.GetNanoSeconds()));
+    const double windowRbSymbols = slotsInWindow * geometry.symbolsPerSlot;
+    return windowRbSymbols > 0 ? rbSymbols / windowRbSymbols : 0.0;
+}
+
+uint64_t
+E2Interface::SumUeDrbPdcpCounter(
+    Ptr<NrUeManager> ue,
+    const std::function<uint64_t(uint64_t imsi, uint8_t lcid)>& counter) const
+{
+    if (!m_e2PdcpStatsCalculator || !ue)
+    {
+        return 0;
+    }
+
+    // Sum every data radio bearer of the UE. Reading a fixed LCID (previously 4)
+    // returned zero for UEs that only have the default bearer.
+    const uint64_t imsi = ue->GetImsi();
+    ObjectMapValue drbMap;
+    ue->GetAttribute("DataRadioBearerMap", drbMap);
+
+    uint64_t total = 0;
+    for (auto drb = drbMap.Begin(); drb != drbMap.End(); ++drb)
+    {
+        Ptr<NrDataRadioBearerInfo> bearerInfo = drb->second->GetObject<NrDataRadioBearerInfo>();
+        if (!bearerInfo)
+        {
+            continue;
+        }
+        total += counter(imsi, bearerInfo->m_logicalChannelIdentity);
+    }
+    return total;
+}
+
+uint64_t
+E2Interface::GetUePdcpTxBytes(Ptr<NrUeManager> ue, bool downlink) const
+{
+    return SumUeDrbPdcpCounter(ue, [this, downlink](uint64_t imsi, uint8_t lcid) {
+        return downlink ? m_e2PdcpStatsCalculator->GetDlTxData(imsi, lcid)
+                        : m_e2PdcpStatsCalculator->GetUlTxData(imsi, lcid);
+    });
+}
+
+uint64_t
+E2Interface::GetUePdcpDlRxBytes(Ptr<NrUeManager> ue) const
+{
+    return SumUeDrbPdcpCounter(ue, [this](uint64_t imsi, uint8_t lcid) {
+        return m_e2PdcpStatsCalculator->GetDlRxData(imsi, lcid);
+    });
+}
+
+uint64_t
+E2Interface::GetUePdcpUlRxBytes(Ptr<NrUeManager> ue) const
+{
+    return SumUeDrbPdcpCounter(ue, [this](uint64_t imsi, uint8_t lcid) {
+        return m_e2PdcpStatsCalculator->GetUlRxData(imsi, lcid);
+    });
+}
 
 E2Interface::E2Interface()
 {
@@ -81,7 +376,9 @@ E2Interface::GetTypeId()
                                           MakePointerAccessor(&E2Interface::m_netDev),
                                           MakePointerChecker<NetDevice>())
                             .AddAttribute("E2Periodicity",
-                                          "The periodicity of the E2 report messages",
+                                          "Period (s) of the CCC indications and of the KPM "
+                                          "reports whose subscription has no E2SM-KPM "
+                                          "reportingPeriod",
                                           DoubleValue(0.01),
                                           MakeDoubleAccessor(&E2Interface::m_e2Periodicity),
                                           MakeDoubleChecker<double>())
@@ -89,7 +386,14 @@ E2Interface::GetTypeId()
                                           "The start time of the E2 report messages",
                                           DoubleValue(0),
                                           MakeDoubleAccessor(&E2Interface::m_startTime),
-                                          MakeDoubleChecker<double>());
+                                          MakeDoubleChecker<double>())
+                            .AddAttribute("RcControlDrainPeriod",
+                                          "Period of the event that handles KPM/CCC subscriptions and "
+                                          "RC/CCC controls "
+                                          "queued by the SCTP thread",
+                                          TimeValue(MilliSeconds(1)),
+                                          MakeTimeAccessor(&E2Interface::m_rcControlDrainPeriod),
+                                          MakeTimeChecker(MicroSeconds(1)));
     return tid;
 }
 
@@ -113,7 +417,8 @@ E2Interface::RegisterNewSinrReadingCallback([[maybe_unused]] std::string path,
     {
         return;
     }
-    for (auto id : gnbNode->GetCellIds())
+    // NR v4.2+: a gNB has a single CellId (GetCellIds() was removed)
+    for (auto id : {gnbNode->GetCellId()})
     {
         NS_LOG_DEBUG("CellId: " << cellId << " gNB cellId: " << id);
         if (id == cellId)
@@ -172,11 +477,19 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     m_cellId = gnbNode->GetCellId();
     std::string gnbId = std::to_string(m_cellId);
     NS_LOG_DEBUG("PLMN ID: " << plmId << " gNB cell ID: " << gnbId);
-    
+
+    // Period requested by the subscription (E2SM-KPM Event Trigger), or E2Periodicity
+    const Time reportingPeriod = params.reportingPeriodMs > 0
+                                     ? MilliSeconds(params.reportingPeriodMs)
+                                     : Seconds(m_e2Periodicity);
+    // One record per indication: the measurements cover the whole reporting period
+    const auto granularityPeriodMs =
+        static_cast<unsigned long>(reportingPeriod.GetMilliSeconds());
+
     // ---- Node-Level Message (Report Style 1, Format 1) ----
     {
         auto header = BuildRicIndicationHeader();
-        auto nodeMsg = BuildNodeLevelIndicationMessage(plmId, m_cellId);
+        auto nodeMsg = BuildNodeLevelIndicationMessage(plmId, m_cellId, granularityPeriodMs);
 
         if (header != nullptr && nodeMsg != nullptr)
         {
@@ -201,7 +514,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     // ---- UE-Level Message (Report Style 4, Format 3) ----
     {
         auto header = BuildRicIndicationHeader();
-        auto ueMsg = BuildUeLevelIndicationMessage(plmId, m_cellId);
+        auto ueMsg = BuildUeLevelIndicationMessage(plmId, m_cellId, granularityPeriodMs);
 
         if (header != nullptr && ueMsg != nullptr)
         {
@@ -225,7 +538,7 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
 
     uint32_t nodeId = m_netDev->GetNode()->GetId();
     Simulator::ScheduleWithContext(nodeId,
-                                   Seconds(m_e2Periodicity),
+                                   reportingPeriod,
                                    &E2Interface::BuildAndSendReportMessage,
                                    this,
                                    params);
@@ -313,12 +626,38 @@ E2Interface::FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu)
                                 << ", ranFuncionId " << +params.ranFuncionId << ", actionId "
                                 << +params.actionId);
 
-    uint32_t nodeId = m_netDev->GetNode()->GetId();
-    Simulator::ScheduleWithContext(nodeId,
-                                   MicroSeconds(0),
-                                   &E2Interface::BuildAndSendReportMessage,
-                                   this,
-                                   params);
+    DecodeKpmSubscriptionPeriods(sub_req_pdu, params);
+    if (params.reportingPeriodMs == 0)
+    {
+        NS_LOG_WARN("KPM subscription without a valid reportingPeriod; using E2Periodicity ("
+                    << m_e2Periodicity * 1000 << " ms)");
+    }
+    const double reportingPeriodMs =
+        params.reportingPeriodMs > 0 ? params.reportingPeriodMs : m_e2Periodicity * 1000;
+    if (params.granularityPeriodMs != 0 && params.granularityPeriodMs != reportingPeriodMs)
+    {
+        // Each indication carries one measurement record collected over the whole
+        // reporting period, so the granularity period reported is the reporting period.
+        NS_LOG_WARN("KPM granulPeriod " << params.granularityPeriodMs
+                                        << " ms differs from the reporting period "
+                                        << reportingPeriodMs
+                                        << " ms; NORI reports one record per period");
+    }
+    NS_LOG_INFO("KPM subscription requestorId " << params.requestorId << ": reportingPeriod "
+                                                << params.reportingPeriodMs << " ms, granulPeriod "
+                                                << params.granularityPeriodMs << " ms");
+
+    // This callback runs on the SCTP thread: only enqueue. DrainSctpQueues() sends the first
+    // report at the current simulation time (see StartSctpQueueDrain()).
+    {
+        std::lock_guard<std::mutex> lock(m_rcControlMutex);
+        m_pendingKpmSubscriptions.push_back(params);
+    }
+    if (!m_rcControlDrainStarted)
+    {
+        NS_LOG_WARN("KPM subscription queued but the drain event is not started; call "
+                    "E2Interface::StartSctpQueueDrain() from the simulation thread");
+    }
 }
 
 void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
@@ -338,11 +677,19 @@ void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
         auto e2Term = m_netDev->GetObject<E2Termination>();
         if (!e2Term) return;
         auto params = e2Term->ProcessRicSubscriptionRequest(subReqPdu);
-        NS_LOG_INFO("CCC Subscription accepted, scheduling periodic indications.");
+        NS_LOG_INFO("CCC Subscription accepted, queued for periodic indications.");
 
-        uint32_t nodeId = m_netDev->GetNode()->GetId();
-        Simulator::ScheduleWithContext(nodeId, MicroSeconds(0),
-                                       &E2Interface::BuildAndSendCccIndication, this, params);
+        // This callback runs on the SCTP thread: only enqueue. DrainSctpQueues() sends the
+        // first indication at the current simulation time (see StartSctpQueueDrain()).
+        {
+            std::lock_guard<std::mutex> lock(m_rcControlMutex);
+            m_pendingCccSubscriptions.push_back(params);
+        }
+        if (!m_rcControlDrainStarted)
+        {
+            NS_LOG_WARN("CCC subscription queued but the drain event is not started; call "
+                        "E2Interface::StartSctpQueueDrain() from the simulation thread");
+        }
 
         } else if (procedureCode == ProcedureCode_id_RICcontrol) {
         NS_LOG_INFO("CCC RIC Control received.");
@@ -352,28 +699,47 @@ void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
             return;
         }
 
-        auto quotas = ctrlMsg.GetPrbQuotas();
-        NS_LOG_INFO("CCC Control: " << quotas.size() << " quotas received.");
+        PendingCccControl pending;
+        pending.quotas = ctrlMsg.GetPrbQuotas();
+        pending.ricRequestorId = 0;
+        pending.ricInstanceId = 0;
+        pending.ranFunctionId = 4;
+        auto& ies = subReqPdu->choice.initiatingMessage->value.choice.RICcontrolRequest.protocolIEs.list;
+        for (int i = 0; i < ies.count; ++i) {
+            auto* ie = reinterpret_cast<RICcontrolRequest_IEs_t*>(ies.array[i]);
+            if (ie->value.present == RICcontrolRequest_IEs__value_PR_RICrequestID) {
+                pending.ricRequestorId = ie->value.choice.RICrequestID.ricRequestorID;
+                pending.ricInstanceId = ie->value.choice.RICrequestID.ricInstanceID;
+            } else if (ie->value.present == RICcontrolRequest_IEs__value_PR_RANfunctionID) {
+                pending.ranFunctionId = ie->value.choice.RANfunctionID;
+            }
+        }
 
-        // uint32_t nodeId = m_netDev->GetNode()->GetId();
-        // Simulator::ScheduleWithContext(nodeId, MicroSeconds(0),
-        //                                &E2Interface::ApplyCccSlicingControl, this, quotas);
-        ApplyCccSlicingControl(quotas);
+        // This callback runs on the SCTP thread, concurrent with the simulation: only enqueue.
+        // DrainSctpQueues() applies the quotas and acknowledges on the simulation thread.
+        size_t queued = 0;
+        {
+            std::lock_guard<std::mutex> lock(m_rcControlMutex);
+            m_pendingCccControls.push_back(std::move(pending));
+            queued = m_pendingCccControls.size();
+        }
+        NS_LOG_INFO("CCC Control queued (" << queued << " pending).");
+        if (!m_rcControlDrainStarted)
+        {
+            NS_LOG_WARN("CCC control queued but the drain event is not started; call "
+                        "E2Interface::StartSctpQueueDrain() from the simulation thread");
+        }
+    }
+}
 
+void
+E2Interface::SendCccControlAck(long ricRequestorId, long ricInstanceId, long ranFunctionId)
+{
+        const long reqId = ricRequestorId;
+        const long instId = ricInstanceId;
+        const long ranFuncId = ranFunctionId;
         auto e2Term = m_netDev->GetObject<E2Termination>();
         if (e2Term) {
-            long reqId = 0, instId = 0, ranFuncId = 4;
-            auto& ies = subReqPdu->choice.initiatingMessage->value.choice.RICcontrolRequest.protocolIEs.list;
-            for (int i = 0; i < ies.count; ++i) {
-                auto* ie = reinterpret_cast<RICcontrolRequest_IEs_t*>(ies.array[i]);
-                if (ie->value.present == RICcontrolRequest_IEs__value_PR_RICrequestID) {
-                    reqId = ie->value.choice.RICrequestID.ricRequestorID;
-                    instId = ie->value.choice.RICrequestID.ricInstanceID;
-                } else if (ie->value.present == RICcontrolRequest_IEs__value_PR_RANfunctionID) {
-                    ranFuncId = ie->value.choice.RANfunctionID;
-                }
-            }
-
             auto* ackPdu = (E2AP_PDU_t*)calloc(1, sizeof(E2AP_PDU_t));
             ackPdu->present = E2AP_PDU_PR_successfulOutcome;
             ackPdu->choice.successfulOutcome = (SuccessfulOutcome_t*)calloc(1, sizeof(SuccessfulOutcome_t));
@@ -403,7 +769,6 @@ void E2Interface::CccSubscriptionCallback(E2AP_PDU_t* subReqPdu)
             e2Term->SendE2Message(ackPdu);
             NS_LOG_INFO("RIC control Acknowledgement successfully sent to reqId=" << reqId);
         }
-    }
 }
 
 void E2Interface::BuildAndSendCccIndication(E2Termination::RicSubscriptionRequest_rval_s params)
@@ -465,16 +830,41 @@ E2Interface::ControlMessageReceivedCallback(E2AP_PDU_t* sub_req_pdu)
     {
     case RicControlMessage::RAN_SLICING:
     {
-        NS_LOG_INFO("Applying RAN Slicing control directive from RIC");
         auto quotas = ctrlMsg.GetPrbQuotas();
-        uint32_t nodeId = m_netDev->GetNode()->GetId();
-        Simulator::ScheduleWithContext(nodeId,
-                                       MicroSeconds(0),
-                                       &E2Interface::ApplySlicingControl,
-                                       this,
-                                       quotas);
+        if (quotas.empty())
+        {
+            NS_LOG_WARN("[E2SM-RC] Slice-level PRB quota without valid RRM Policy Ratio Group");
+            SendRcControlOutcome(ctrlMsg.GetRicRequestId(),
+                                 ctrlMsg.GetRanFunctionId(),
+                                 false,
+                                 CauseRICrequest_control_message_invalid);
+            break;
+        }
+        // This callback runs on the SCTP thread: only enqueue. DrainSctpQueues() applies
+        // the quota and answers the RIC on the simulation thread (see StartSctpQueueDrain()).
+        size_t pending = 0;
+        {
+            std::lock_guard<std::mutex> lock(m_rcControlMutex);
+            m_pendingRcControls.push_back(
+                {quotas, ctrlMsg.GetRicRequestId(), static_cast<long>(ctrlMsg.GetRanFunctionId())});
+            pending = m_pendingRcControls.size();
+        }
+        NS_LOG_INFO("RAN Slicing control directive from RIC queued (" << quotas.size()
+                                                                     << " slice quotas, "
+                                                                     << pending << " pending)");
+        if (!m_rcControlDrainStarted)
+        {
+            NS_LOG_WARN("[E2SM-RC] RC control drain event not started; call "
+                        "E2Interface::StartSctpQueueDrain() from the simulation thread");
+        }
         break;
     }
+    case RicControlMessage::UNSUPPORTED:
+        SendRcControlOutcome(ctrlMsg.GetRicRequestId(),
+                             ctrlMsg.GetRanFunctionId(),
+                             false,
+                             CauseRICrequest_action_not_supported);
+        break;
     case RicControlMessage::TS:
         NS_LOG_INFO("Traffic Steering control directive received: SecondaryCell="
                     << ctrlMsg.GetSecondaryCellIdHO());
@@ -494,6 +884,167 @@ E2Interface::ProcessControlMessage([[maybe_unused]] E2AP_PDU_t* pdu)
 }
 
 void
+E2Interface::StartSctpQueueDrain()
+{
+    NS_LOG_FUNCTION(this);
+    if (m_rcControlDrainStarted)
+    {
+        return;
+    }
+    m_rcControlDrainStarted = true;
+    m_rcControlDrainEvent =
+        Simulator::Schedule(m_rcControlDrainPeriod, &E2Interface::DrainSctpQueues, this);
+}
+
+void
+E2Interface::DrainSctpQueues()
+{
+    std::deque<E2Termination::RicSubscriptionRequest_rval_s> subscriptions;
+    std::deque<E2Termination::RicSubscriptionRequest_rval_s> cccSubscriptions;
+    std::deque<PendingRcControl> batch;
+    std::deque<PendingCccControl> cccBatch;
+    {
+        std::lock_guard<std::mutex> lock(m_rcControlMutex);
+        subscriptions.swap(m_pendingKpmSubscriptions);
+        cccSubscriptions.swap(m_pendingCccSubscriptions);
+        batch.swap(m_pendingRcControls);
+        cccBatch.swap(m_pendingCccControls);
+    }
+
+    // Called on the simulation thread: zero delay means the current simulation time.
+    const uint32_t nodeId = m_netDev->GetNode()->GetId();
+    for (const auto& params : subscriptions)
+    {
+        NS_LOG_INFO("Starting KPM reports for requestorId " << params.requestorId);
+        Simulator::ScheduleWithContext(nodeId,
+                                       Seconds(0),
+                                       &E2Interface::BuildAndSendReportMessage,
+                                       this,
+                                       params);
+    }
+    for (const auto& params : cccSubscriptions)
+    {
+        NS_LOG_INFO("Starting CCC indications for requestorId " << params.requestorId);
+        Simulator::ScheduleWithContext(nodeId,
+                                       Seconds(0),
+                                       &E2Interface::BuildAndSendCccIndication,
+                                       this,
+                                       params);
+    }
+
+    for (const auto& ctrl : cccBatch)
+    {
+        NS_LOG_INFO("Applying CCC control from RIC (requestorId=" << ctrl.ricRequestorId << ", "
+                                                                  << ctrl.quotas.size()
+                                                                  << " quotas)");
+        ApplyCccSlicingControl(ctrl.quotas);
+        SendCccControlAck(ctrl.ricRequestorId, ctrl.ricInstanceId, ctrl.ranFunctionId);
+    }
+
+    for (const auto& ctrl : batch)
+    {
+        NS_LOG_INFO("Applying RAN Slicing control directive from RIC (requestorId="
+                    << ctrl.ricRequestId.ricRequestorID << ", " << ctrl.quotas.size()
+                    << " slice quotas)");
+        bool applied = ApplySlicingControl(ctrl.quotas);
+        SendRcControlOutcome(ctrl.ricRequestId,
+                             ctrl.ranFunctionId,
+                             applied,
+                             CauseRICrequest_control_failed_to_execute);
+    }
+
+    // Called on the simulation thread: the next drain is scheduled in simulation time.
+    m_rcControlDrainEvent =
+        Simulator::Schedule(m_rcControlDrainPeriod, &E2Interface::DrainSctpQueues, this);
+}
+
+void
+E2Interface::SendRcControlOutcome(const RICrequestID_t& ricRequestId,
+                                  long ranFunctionId,
+                                  bool success,
+                                  long ricRequestCause)
+{
+    auto e2Term = m_netDev->GetObject<E2Termination>();
+    if (!e2Term)
+    {
+        NS_LOG_ERROR("[E2SM-RC] E2Termination not found, cannot send control outcome");
+        return;
+    }
+
+    const auto& reqId = ricRequestId;
+    long ranFuncId = ranFunctionId;
+
+    auto* pdu = (E2AP_PDU_t*)calloc(1, sizeof(E2AP_PDU_t));
+    if (success)
+    {
+        pdu->present = E2AP_PDU_PR_successfulOutcome;
+        pdu->choice.successfulOutcome = (SuccessfulOutcome_t*)calloc(1, sizeof(SuccessfulOutcome_t));
+        pdu->choice.successfulOutcome->procedureCode = ProcedureCode_id_RICcontrol;
+        pdu->choice.successfulOutcome->criticality = Criticality_reject;
+        pdu->choice.successfulOutcome->value.present =
+            SuccessfulOutcome__value_PR_RICcontrolAcknowledge;
+        auto* ack = &pdu->choice.successfulOutcome->value.choice.RICcontrolAcknowledge;
+
+        auto* ieReqId = (RICcontrolAcknowledge_IEs_t*)calloc(1, sizeof(RICcontrolAcknowledge_IEs_t));
+        ieReqId->id = ProtocolIE_ID_id_RICrequestID;
+        ieReqId->criticality = Criticality_reject;
+        ieReqId->value.present = RICcontrolAcknowledge_IEs__value_PR_RICrequestID;
+        ieReqId->value.choice.RICrequestID.ricRequestorID = reqId.ricRequestorID;
+        ieReqId->value.choice.RICrequestID.ricInstanceID = reqId.ricInstanceID;
+        ASN_SEQUENCE_ADD(&ack->protocolIEs.list, ieReqId);
+
+        auto* ieFuncId = (RICcontrolAcknowledge_IEs_t*)calloc(1, sizeof(RICcontrolAcknowledge_IEs_t));
+        ieFuncId->id = ProtocolIE_ID_id_RANfunctionID;
+        ieFuncId->criticality = Criticality_reject;
+        ieFuncId->value.present = RICcontrolAcknowledge_IEs__value_PR_RANfunctionID;
+        ieFuncId->value.choice.RANfunctionID = ranFuncId;
+        ASN_SEQUENCE_ADD(&ack->protocolIEs.list, ieFuncId);
+    }
+    else
+    {
+        pdu->present = E2AP_PDU_PR_unsuccessfulOutcome;
+        pdu->choice.unsuccessfulOutcome =
+            (UnsuccessfulOutcome_t*)calloc(1, sizeof(UnsuccessfulOutcome_t));
+        pdu->choice.unsuccessfulOutcome->procedureCode = ProcedureCode_id_RICcontrol;
+        pdu->choice.unsuccessfulOutcome->criticality = Criticality_reject;
+        pdu->choice.unsuccessfulOutcome->value.present =
+            UnsuccessfulOutcome__value_PR_RICcontrolFailure;
+        auto* fail = &pdu->choice.unsuccessfulOutcome->value.choice.RICcontrolFailure;
+
+        auto* ieReqId = (RICcontrolFailure_IEs_t*)calloc(1, sizeof(RICcontrolFailure_IEs_t));
+        ieReqId->id = ProtocolIE_ID_id_RICrequestID;
+        ieReqId->criticality = Criticality_reject;
+        ieReqId->value.present = RICcontrolFailure_IEs__value_PR_RICrequestID;
+        ieReqId->value.choice.RICrequestID.ricRequestorID = reqId.ricRequestorID;
+        ieReqId->value.choice.RICrequestID.ricInstanceID = reqId.ricInstanceID;
+        ASN_SEQUENCE_ADD(&fail->protocolIEs.list, ieReqId);
+
+        auto* ieFuncId = (RICcontrolFailure_IEs_t*)calloc(1, sizeof(RICcontrolFailure_IEs_t));
+        ieFuncId->id = ProtocolIE_ID_id_RANfunctionID;
+        ieFuncId->criticality = Criticality_reject;
+        ieFuncId->value.present = RICcontrolFailure_IEs__value_PR_RANfunctionID;
+        ieFuncId->value.choice.RANfunctionID = ranFuncId;
+        ASN_SEQUENCE_ADD(&fail->protocolIEs.list, ieFuncId);
+
+        auto* ieCause = (RICcontrolFailure_IEs_t*)calloc(1, sizeof(RICcontrolFailure_IEs_t));
+        ieCause->id = ProtocolIE_ID_id_Cause;
+        ieCause->criticality = Criticality_ignore;
+        ieCause->value.present = RICcontrolFailure_IEs__value_PR_Cause;
+        ieCause->value.choice.Cause.present = Cause_PR_ricRequest;
+        ieCause->value.choice.Cause.choice.ricRequest = ricRequestCause;
+        ASN_SEQUENCE_ADD(&fail->protocolIEs.list, ieCause);
+    }
+
+    e2Term->SendE2Message(pdu);
+    NS_LOG_INFO("[E2SM-RC] RIC Control " << (success ? "Acknowledge" : "Failure")
+                                         << " sent: requestorId=" << reqId.ricRequestorID
+                                         << " instanceId=" << reqId.ricInstanceID
+                                         << " ranFunctionId=" << ranFuncId
+                                         << (success ? "" : " cause=")
+                                         << (success ? "" : std::to_string(ricRequestCause)));
+}
+
+bool
 E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas)
 {
     NS_LOG_FUNCTION(this);
@@ -502,7 +1053,7 @@ E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQu
     if (!gnbNode)
     {
         NS_LOG_ERROR("NetDevice is not a NrGnbNetDevice");
-        return;
+        return false;
     }
 
     Ptr<NrMacScheduler> scheduler = gnbNode->GetScheduler(0);
@@ -511,7 +1062,7 @@ E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQu
     if (!rlScheduler)
     {
         NS_LOG_WARN("Scheduler is not NrRLMacSchedulerOfdma, cannot apply slicing quotas");
-        return;
+        return false;
     }
 
     std::vector<SlicePRBQuota> macQuotas;
@@ -531,6 +1082,7 @@ E2Interface::ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQu
     }
 
     rlScheduler->SetSlicingParameters(macQuotas);
+    return true;
 }
 
 void
@@ -550,8 +1102,8 @@ E2Interface::ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas)
                     if (ueDev && ueDev->GetPhy(0) && ueDev->GetPhy(0)->GetPmSearch())
                     {
                         ueDev->GetPhy(0)->GetPmSearch()->SetAttribute("RankLimit", UintegerValue(q.maxMimoLayers));
-                        std::cout << "\n>>> [MIMO CONTROL VIA xAPP] RankLimit atualizado para: " 
-                                  << q.maxMimoLayers << " layer(s) no UE (Node " << node->GetId() << ") <<<\n" << std::endl;
+                        std::cout << "\n>>> [MIMO CONTROL VIA xAPP] RankLimit updated to: " 
+                                  << q.maxMimoLayers << " layer(s) on UE (Node " << node->GetId() << ") <<<\n" << std::endl;
                     }
                 }
             }
@@ -665,11 +1217,13 @@ E2Interface ::BuildRicIndicationHeader() const
 
 }
 
-Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::string plmId, uint16_t nrCellId){
-    
+Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::string plmId,
+                                                                      uint16_t nrCellId,
+                                                                      unsigned long granularityPeriodMs){
+
     auto helper = Create<NoriIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::NodeLevel, false, false);
 
-    helper->SetGranularityPeriod((unsigned long)(m_e2Periodicity * 1000));
+    helper->SetGranularityPeriod(granularityPeriodMs);
     ObjectMapValue ueManager;
     m_rrc->GetAttribute("UeMap", ueManager);
 
@@ -694,6 +1248,7 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
     double cellDlTxVolume = 0;
 
     m_cellId = nrCellId;
+    const PrbGeometry prbGeometry = GetPrimaryBwpPrbGeometry();
 
     for (auto ueMap = ueManager.Begin(); ueMap != ueManager.End(); ueMap++)
     {
@@ -706,11 +1261,8 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
         uint16_t rnti = ue->GetRnti();
 
         // --- CU-UP: aggregate PDCP volume ---
-        double actualTotalTxBytes = m_e2PdcpStatsCalculator ? (m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3)) : 0.0;
-        if (m_cellTxBytes.find(imsi) == m_cellTxBytes.end())
-            m_cellTxBytes.insert(std::make_pair(imsi, 0));
-        double txBytes = actualTotalTxBytes - m_cellTxBytes[imsi];
-        m_cellTxBytes[imsi] += txBytes;
+        double actualTotalTxBytes = GetUePdcpTxBytes(ue, true) * (8 / 1e3); // kbit, all DRBs
+        double txBytes = ConsumeCounterDelta(actualTotalTxBytes, m_cellTxBytes[imsi]);
         cellDlTxVolume += txBytes;
 
         // --- TX PDU counting reset for this frame ---
@@ -726,11 +1278,7 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
         mac64QamCellSpecific += m_e2DuCalculator->GetMacPdu64QamUeSpecific(rnti, m_cellId);
         macRetxCellSpecific += m_e2DuCalculator->GetMacPduRetransmissionUeSpecific(rnti, m_cellId);
 
-        double macSymbols = m_e2DuCalculator->GetMacNumberOfSymbolsUeSpecific(rnti, m_cellId);
-        auto slotPeriod = DynamicCast<NrGnbNetDevice>(m_netDev)->GetPhy(0)->GetSlotPeriod();
-        Time reportingWindow = Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
-        double denomPrb = std::ceil(reportingWindow.GetNanoSeconds() / slotPeriod.GetNanoSeconds()) * 14;
-        double macPrb = (denomPrb != 0) ? macSymbols / denomPrb * 139 : 0;
+        double macPrb = GetUePrbUsedDl(rnti, prbGeometry);
         macPrbsCellSpecific += macPrb;
 
         macMac04Cell   += m_e2DuCalculator->GetMacMcs04UeSpecific(rnti, m_cellId);
@@ -749,9 +1297,9 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
         macSinrBin7Cell += m_e2DuCalculator->GetMacSinrBin7UeSpecific(rnti, m_cellId);
     }
 
-    // TODO: make configurable
-    long dlAvailablePrbs = 139;
-    long ulAvailablePrbs = 139;
+    // Primary BWP of the gNB (paired carrier: same geometry in DL and UL)
+    long dlAvailablePrbs = static_cast<long>(prbGeometry.rbNum);
+    long ulAvailablePrbs = static_cast<long>(prbGeometry.rbNum);
 
     // ===== Add all node-level metrics =====
     helper->AddNodeMeasurementInteger("DRB.PdcpSduVolumeDL", (unsigned long)cellDlTxVolume);
@@ -792,9 +1340,12 @@ Ptr<KpmIndicationMessage> E2Interface::BuildNodeLevelIndicationMessage(std::stri
     return helper->CreateIndicationMessage();
 }
 
-Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string plmId, uint16_t nrCellId){
+Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string plmId,
+                                                                    uint16_t nrCellId,
+                                                                    unsigned long granularityPeriodMs){
 
     auto helper = Create<NoriIndicationMessageHelper>(IndicationMessageHelper::IndicationMessageType::UeLevel, false, false);
+    helper->SetGranularityPeriod(granularityPeriodMs);
 
     ObjectMapValue ueManager;
     m_rrc->GetAttribute("UeMap", ueManager);
@@ -807,6 +1358,7 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
     }
 
     m_cellId = nrCellId;
+    const PrbGeometry prbGeometry = GetPrimaryBwpPrbGeometry();
 
     for (auto ueObject = ueManager.Begin(); ueObject != ueManager.End(); ueObject++)
     {
@@ -822,15 +1374,27 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
         // Begin a new UE report (IMSI as AMF-UE-NGAP-ID for simulation)
         helper->BeginUeReport(imsi, plmId, 0, 0, 0);
 
-        // --- CU-UP per-UE: PDCP throughput ---
-        double actualTotalTxBytes = m_e2PdcpStatsCalculator ? (m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) * (8 / 1e3)) : 0.0;
+        // --- CU-UP per-UE: PDCP volume (TX) and UE throughput (delivered) ---
+        double actualTotalTxBytes = GetUePdcpTxBytes(ue, true) * (8 / 1e3); // kbit, all DRBs
         // Node-level and UE-level reports are built at the same instant, so each
         // one keeps its own reference value (operator[] starts it at zero).
-        double txBytes = actualTotalTxBytes - m_ueTxBytes[imsi];
-        m_ueTxBytes[imsi] = actualTotalTxBytes;
-        double pdcpThroughput = txBytes / m_e2Periodicity; // kbps
+        double txBytes = ConsumeCounterDelta(actualTotalTxBytes, m_ueTxBytes[imsi]);
 
-        helper->AddUeMeasurementReal("DRB.UEThpDl", pdcpThroughput);
+        // DRB.UEThpDl (TS 28.552, 5.1.1.3.1) is based on the volume acknowledged by
+        // the UE, not on the volume offered to the gNB. Use the PDCP volume received
+        // by the UE since the previous UE report (all DRBs), divided by the elapsed
+        // simulation time. On the first report the reference time is the simulation
+        // start, so the value is the average since then instead of a spike. The TS
+        // divides by the active transmission time of each data burst; here the divisor
+        // is the whole interval, so bursty traffic is underestimated.
+        double actualTotalRxKbits = GetUePdcpDlRxBytes(ue) * (8 / 1e3); // kbit, all DRBs
+        double rxKbits = ConsumeCounterDelta(actualTotalRxKbits, m_ueRxBytes[imsi]);
+        const Time now = Simulator::Now();
+        const double elapsedS = (now - m_ueRxLastReportTime[imsi]).GetSeconds();
+        m_ueRxLastReportTime[imsi] = now;
+        double ueThroughputDl = elapsedS > 0 ? rxKbits / elapsedS : 0.0; // kbps
+
+        helper->AddUeMeasurementReal("DRB.UEThpDl", ueThroughputDl);
         helper->AddUeMeasurementInteger("QosFlow.PdcpPduVolumeDL_Filter", (unsigned long)txBytes);
 
         // --- DU per-UE: MAC stats ---
@@ -841,11 +1405,7 @@ Ptr<KpmIndicationMessage>E2Interface::BuildUeLevelIndicationMessage(std::string 
         uint32_t mac64Qam = m_e2DuCalculator->GetMacPdu64QamUeSpecific(rnti, m_cellId);
         uint32_t macRetx = m_e2DuCalculator->GetMacPduRetransmissionUeSpecific(rnti, m_cellId);
 
-        double macSymbols = m_e2DuCalculator->GetMacNumberOfSymbolsUeSpecific(rnti, m_cellId);
-        auto slotPeriod = DynamicCast<NrGnbNetDevice>(m_netDev)->GetPhy(0)->GetSlotPeriod();
-        Time reportingWindow = Simulator::Now() - m_e2DuCalculator->GetLastResetTime(rnti, m_cellId);
-        double denomPrb = std::ceil(reportingWindow.GetNanoSeconds() / slotPeriod.GetNanoSeconds()) * 14;
-        double macPrb = (denomPrb != 0) ? macSymbols / denomPrb * 139 : 0;
+        double macPrb = GetUePrbUsedDl(rnti, prbGeometry);
 
         helper->AddUeMeasurementInteger("TB.TotNbrDl.1", macPduUe);
         helper->AddUeMeasurementInteger("TB.TotNbrDlInitial", macPduInitialUe);
@@ -929,30 +1489,56 @@ E2Interface::MLSliceInterface(double macPrb, uint64_t imsi)
     csv.seekp(0, std::ios::end);
     if (csv.tellp() == 0)
     {
-        csv << "timestamp,imsi,dlThroughput,ulThroughput,spectralEfficiency\n";
+        csv << "timestamp,imsi,dlThroughput,ulThroughput,spectralEfficiency,dlOffered,ulOffered\n";
     }
 
     double currentTime = Simulator::Now().GetMilliSeconds();
     double deltatime = currentTime - m_previousTime[imsi];
 
-    double currentDlTxData = m_e2PdcpStatsCalculator ? m_e2PdcpStatsCalculator->GetDlTxData(imsi, 4) : 0.0;
-    double dlThroughput = (currentTime > m_previousTime[imsi]) ? ((currentDlTxData - m_previousDlTxData[imsi]) * 8 / deltatime) : 0.0;
-    m_previousDlTxData[imsi] = currentDlTxData;
-    double currentUlTxData = m_e2PdcpStatsCalculator ? m_e2PdcpStatsCalculator->GetUlTxData(imsi, 4) : 0.0;
-    double ulThroughput = (currentTime > m_previousTime[imsi]) ? ((currentUlTxData - m_previousUlTxData[imsi]) * 8 / deltatime) : 0.0;
-    m_previousUlTxData[imsi] = currentUlTxData;
+    Ptr<NrUeManager> ueManager;
+    ObjectMapValue ueMap;
+    m_rrc->GetAttribute("UeMap", ueMap);
+    for (auto it = ueMap.Begin(); it != ueMap.End(); ++it)
+    {
+        auto candidate = DynamicCast<NrUeManager>(it->second);
+        if (candidate && candidate->GetImsi() == imsi)
+        {
+            ueManager = candidate;
+            break;
+        }
+    }
+
+    // All DRBs of the UE. Throughput columns use the delivered volume (PDCP RX: at the
+    // UE for DL, at the gNB for UL), as DRB.UEThpDl does; the offered load (PDCP TX)
+    // goes to separate columns. Units: kbit/s (bytes * 8 / ms).
+    const bool validInterval = currentTime > m_previousTime[imsi];
+    auto rate = [validInterval, deltatime](double deltaBytes) {
+        return validInterval ? deltaBytes * 8 / deltatime : 0.0;
+    };
+    double dlThroughput = rate(ConsumeCounterDelta(
+        static_cast<double>(GetUePdcpDlRxBytes(ueManager)), m_previousDlRxData[imsi]));
+    double ulThroughput = rate(ConsumeCounterDelta(
+        static_cast<double>(GetUePdcpUlRxBytes(ueManager)), m_previousUlRxData[imsi]));
+    double dlOffered = rate(ConsumeCounterDelta(
+        static_cast<double>(GetUePdcpTxBytes(ueManager, true)), m_previousDlTxData[imsi]));
+    double ulOffered = rate(ConsumeCounterDelta(
+        static_cast<double>(GetUePdcpTxBytes(ueManager, false)), m_previousUlTxData[imsi]));
     m_previousTime[imsi] = currentTime;
     double spectralEfficiency = 0.0;
     if (m_e2DuCalculator)
     {
         if (macPrb > 0)
         {
-            spectralEfficiency = dlThroughput / (macPrb * 720000.0);
+            // PRB bandwidth = 12 subcarriers x SCS of the primary BWP (was 720 kHz,
+            // i.e. 60 kHz SCS, fixed)
+            const PrbGeometry prbGeometry = GetPrimaryBwpPrbGeometry();
+            const double prbBandwidthHz = 12.0 * prbGeometry.subcarrierSpacingHz;
+            spectralEfficiency = dlThroughput / (macPrb * prbBandwidthHz);
         }
     }
     uint64_t timestamp = m_startTime + (uint64_t)Simulator::Now().GetMilliSeconds();
     csv << timestamp << "," << imsi << "," << dlThroughput << "," << ulThroughput << ","
-        << spectralEfficiency << "\n";
+        << spectralEfficiency << "," << dlOffered << "," << ulOffered << "\n";
 
     csv.close();
 }

@@ -1,0 +1,89 @@
+name: ci
+
+# Builds libnori and the examples inside the CI image (see image.yml) and runs
+# the examples that work without a Near-RT RIC for a few simulated seconds.
+# ccache is kept between runs with actions/cache: the first run compiles
+# ns-3 + NR (~40 min); later runs reuse the cache.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI_IMAGE: ghcr.io/${{ github.repository_owner }}/nori:ci
+  NS3_DIR: /home/developer/ns-3-dev
+  CCACHE_HOST_DIR: ${{ github.workspace }}/../ccache
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull CI image
+        id: pull
+        continue-on-error: true
+        run: docker pull "$CI_IMAGE"
+
+      # Fallback while the image is not on GHCR yet (first PR, before image.yml
+      # runs on main). Shares the buildx cache with image.yml.
+      - uses: docker/setup-buildx-action@v3
+        if: steps.pull.outcome == 'failure'
+
+      - name: Build CI image
+        if: steps.pull.outcome == 'failure'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ci
+          load: true
+          tags: ${{ env.CI_IMAGE }}
+          cache-from: type=gha,scope=nori-ci
+          cache-to: type=gha,scope=nori-ci,mode=max
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_HOST_DIR }}
+          key: ccache-${{ hashFiles('Dockerfile') }}-${{ github.sha }}
+          restore-keys: ccache-${{ hashFiles('Dockerfile') }}-
+
+      # The container user "developer" has UID 1000; the runner user does not.
+      - name: Prepare ccache directory
+        run: |
+          mkdir -p "$CCACHE_HOST_DIR"
+          sudo chown -R 1000:1000 "$CCACHE_HOST_DIR"
+
+      - name: Build and smoke test
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:$NS3_DIR/contrib/nori:ro" \
+            -v "$CCACHE_HOST_DIR:/home/developer/.ccache" \
+            "$CI_IMAGE" \
+            bash -c "contrib/nori/.github/scripts/ci-build.sh && contrib/nori/.github/scripts/smoke.sh"
+
+      # Also saved on PRs: the cache then serves later pushes to the same PR.
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_HOST_DIR }}
+          key: ccache-${{ hashFiles('Dockerfile') }}-${{ github.sha }}

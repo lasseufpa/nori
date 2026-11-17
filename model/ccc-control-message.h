@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #pragma once
 
 #include "ccc-data-models.h"
@@ -10,6 +16,10 @@ extern "C" {
 
 namespace ns3 {
 
+/**
+ * @ingroup nori-ccc
+ * @brief Decoder of E2SM-CCC RIC Control Requests (O-RRMPolicyRatio and legacy format).
+ */
 class CccControlMessage {
 public:
     explicit CccControlMessage(E2AP_PDU_t* pdu);

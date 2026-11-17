@@ -102,16 +102,16 @@ RicControlFunctionDescription::FillAndEncodeRCFunctionDescription(
     ranfunc_desc->ranFunctionDefinition_Control =
         (struct RANFunctionDefinition_Control*)calloc(1, sizeof(struct RANFunctionDefinition_Control));
 
-    // Control Style 1: "Radio Bearer Control"
-    auto* controlStyle1 =
+    // Control Style 2: "Radio Resource Allocation Control" (E2SM-RC v03.00 section 7.6.3)
+    auto* controlStyle2 =
         (RANFunctionDefinition_Control_Item_t*)calloc(1, sizeof(RANFunctionDefinition_Control_Item_t));
-    controlStyle1->ric_ControlStyle_Type = 1;
-    OCTET_STRING_fromString(&controlStyle1->ric_ControlStyle_Name, "Radio Bearer Control");
-    controlStyle1->ric_ControlHeaderFormat_Type = 1;
-    controlStyle1->ric_ControlMessageFormat_Type = 1;
-    controlStyle1->ric_ControlOutcomeFormat_Type = 1;
+    controlStyle2->ric_ControlStyle_Type = 2;
+    OCTET_STRING_fromString(&controlStyle2->ric_ControlStyle_Name, "Radio Resource Allocation Control");
+    controlStyle2->ric_ControlHeaderFormat_Type = 1;
+    controlStyle2->ric_ControlMessageFormat_Type = 1;
+    controlStyle2->ric_ControlOutcomeFormat_Type = 1;
 
-    controlStyle1->ric_ControlAction_List =
+    controlStyle2->ric_ControlAction_List =
         (RANFunctionDefinition_Control_Item::
              RANFunctionDefinition_Control_Item__ric_ControlAction_List*)
             calloc(1,
@@ -132,18 +132,25 @@ RicControlFunctionDescription::FillAndEncodeRCFunctionDescription(
                    sizeof(RANFunctionDefinition_Control_Action_Item::
                               RANFunctionDefinition_Control_Action_Item__ran_ControlActionParameters_List));
 
-    // RAN Parameters for Action 6 (Slice-level PRB quota)
-    AddControlActionRanParameter(controlAction6->ran_ControlActionParameters_List, 1, "RRM Policy Ratio List");
-    AddControlActionRanParameter(controlAction6->ran_ControlActionParameters_List, 2, "RRM Policy Ratio Group");
-    AddControlActionRanParameter(controlAction6->ran_ControlActionParameters_List, 3, "RRM Policy SST");
-    AddControlActionRanParameter(controlAction6->ran_ControlActionParameters_List, 4, "Max PRB Policy Ratio");
-    AddControlActionRanParameter(controlAction6->ran_ControlActionParameters_List, 5, "Min PRB Policy Ratio");
-    AddControlActionRanParameter(controlAction6->ran_ControlActionParameters_List, 6, "Dedicated PRB Policy Ratio");
+    // RAN Parameters for Action 6 (E2SM-RC v03.00 section 8.4.3.6)
+    auto* params = controlAction6->ran_ControlActionParameters_List;
+    AddControlActionRanParameter(params, 1, "RRM Policy Ratio List");
+    AddControlActionRanParameter(params, 2, "RRM Policy Ratio Group");
+    AddControlActionRanParameter(params, 3, "RRM Policy");
+    AddControlActionRanParameter(params, 5, "RRM Policy Member List");
+    AddControlActionRanParameter(params, 6, "RRM Policy Member");
+    AddControlActionRanParameter(params, 7, "PLMN Identity");
+    AddControlActionRanParameter(params, 8, "S-NSSAI");
+    AddControlActionRanParameter(params, 9, "SST");
+    AddControlActionRanParameter(params, 10, "SD");
+    AddControlActionRanParameter(params, 11, "Min PRB Policy Ratio");
+    AddControlActionRanParameter(params, 12, "Max PRB Policy Ratio");
+    AddControlActionRanParameter(params, 13, "Dedicated PRB Policy Ratio");
 
-    ASN_SEQUENCE_ADD(&controlStyle1->ric_ControlAction_List->list, controlAction6);
+    ASN_SEQUENCE_ADD(&controlStyle2->ric_ControlAction_List->list, controlAction6);
 
     ASN_SEQUENCE_ADD(&ranfunc_desc->ranFunctionDefinition_Control->ric_ControlStyle_List.list,
-                     controlStyle1);
+                     controlStyle2);
 
     Encode(ranfunc_desc);
 

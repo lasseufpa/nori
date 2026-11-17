@@ -11,6 +11,8 @@
 #include "ns3/nr-fh-control.h"
 
 #include <algorithm>
+#include <cmath>
+#include <numeric>
 #include <random>
 #include <sstream>
 
@@ -108,191 +110,210 @@ NrRLMacSchedulerOfdma::SetSliceUeMapping(uint32_t numSlices,
     }
 }
 
+void
+NrRLMacSchedulerOfdma::AllocateRbgToUe(const std::shared_ptr<NrMacSchedulerUeInfo>& ue,
+                                       uint32_t rbg,
+                                       uint32_t beamSym,
+                                       FTResources& assigned)
+{
+    // Same representation as NrMacSchedulerOfdma: one entry per (RBG, symbol) pair
+    auto& rbgs = ue->m_dlRBG;
+    rbgs.insert(rbgs.end(), beamSym, static_cast<uint16_t>(rbg));
+    auto& syms = ue->m_dlSym;
+    const auto first = syms.size();
+    syms.resize(first + beamSym);
+    std::iota(syms.begin() + first, syms.end(), 0);
+    assigned.m_rbg++;
+    assigned.m_sym = beamSym;
+}
+
+void
+NrRLMacSchedulerOfdma::ReleaseUeRbgs(const std::shared_ptr<NrMacSchedulerUeInfo>& ue,
+                                     std::set<uint32_t>& candidates,
+                                     FTResources& assigned)
+{
+    std::set<uint32_t> released(ue->m_dlRBG.begin(), ue->m_dlRBG.end());
+    for (auto rbg : released)
+    {
+        candidates.insert(rbg);
+        NS_ASSERT(assigned.m_rbg > 0);
+        assigned.m_rbg--;
+    }
+    assigned.m_sym = assigned.m_rbg == 0 ? 0 : assigned.m_sym;
+    ue->m_dlRBG.clear();
+    ue->m_dlSym.clear();
+}
+
+uint32_t
+NrRLMacSchedulerOfdma::AllocateSliceRbgs(std::vector<UePtrAndBufferReq>& ueVector,
+                                         std::set<uint32_t>& candidates,
+                                         uint32_t budget,
+                                         uint32_t beamSym,
+                                         FTResources& assigned) const
+{
+    constexpr uint32_t minDlTbSize = 10; // minimum TB to create a DL DCI (CreateDlDci)
+    GetFirst GetUe;
+    uint32_t allocated = 0;
+
+    while (budget > 0 && !candidates.empty())
+    {
+        std::stable_sort(ueVector.begin(), ueVector.end(), GetUeCompareDlFn());
+
+        // Skip UEs whose TB already covers their buffer
+        auto it = std::find_if(ueVector.begin(), ueVector.end(), [&](const auto& ue) {
+            return GetUe(ue)->m_dlTbSize < std::max(ue.second, minDlTbSize);
+        });
+        if (it == ueVector.end())
+        {
+            break; // every UE of the slice is served
+        }
+
+        // Give consecutive RBGs to the same UE until its TB reaches the DCI minimum
+        do
+        {
+            const uint32_t rbg = *candidates.begin();
+            candidates.erase(candidates.begin());
+            AllocateRbgToUe(GetUe(*it), rbg, beamSym, assigned);
+            AssignedDlResources(*it, FTResources(beamSym, beamSym), assigned);
+            budget--;
+            allocated++;
+            NS_LOG_DEBUG("Assigned DL RBG " << rbg << " over " << beamSym << " symbols to UE "
+                                            << GetUe(*it)->m_rnti);
+        } while (GetUe(*it)->m_dlTbSize < minDlTbSize && budget > 0 && !candidates.empty());
+
+        for (auto& ue : ueVector)
+        {
+            if (GetUe(ue)->m_rnti != GetUe(*it)->m_rnti)
+            {
+                NotAssignedDlResources(ue, FTResources(beamSym, beamSym), assigned);
+            }
+        }
+    }
+
+    // A UE below the DCI minimum would get its DCI dropped: return its RBGs to the set
+    for (auto& ue : ueVector)
+    {
+        auto ueInfo = GetUe(ue);
+        if (!ueInfo->m_dlRBG.empty() && ueInfo->m_dlTbSize < minDlTbSize)
+        {
+            const auto rbgs = std::set<uint32_t>(ueInfo->m_dlRBG.begin(), ueInfo->m_dlRBG.end());
+            ReleaseUeRbgs(ueInfo, candidates, assigned);
+            allocated -= rbgs.size();
+            AssignedDlResources(ue, FTResources(beamSym, beamSym), assigned);
+            NS_LOG_DEBUG("UE " << ueInfo->m_rnti << " below the minimum TB; released "
+                               << rbgs.size() << " RBGs");
+        }
+    }
+    return allocated;
+}
+
 NrMacSchedulerNs3::BeamSymbolMap
 NrRLMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl) const
 {
     NS_LOG_FUNCTION(this);
 
+    if (m_numberSlices == 0)
+    {
+        // No slice mapping configured: plain round-robin OFDMA allocation
+        return NrMacSchedulerOfdmaRR::AssignDLRBG(symAvail, activeDl);
+    }
+
     NS_LOG_DEBUG("# beams active flows: " << activeDl.size() << ", # sym: " << symAvail);
 
     GetFirst GetBeamId;
     GetSecond GetUeVector;
+    GetFirst GetUe;
     BeamSymbolMap symPerBeam = GetSymPerBeam(symAvail, activeDl);
 
-    // RAN slicing addition
-    std::vector<uint32_t> minRbPerSlicesOnly(m_minRbPercSlices.size());
-    std::vector<uint32_t> maxRbPerSlicesOnly(m_maxRbPercSlices.size());
-    std::vector<std::vector<UePtrAndBufferReq>> ranSliceUeVector(m_numberSlices);
+    NS_ASSERT(std::accumulate(m_dedicatedRbPercSlices.begin(), m_dedicatedRbPercSlices.end(), 0U) <=
+              100);
+    NS_ASSERT(std::accumulate(m_minRbPercSlices.begin(), m_minRbPercSlices.end(), 0U) <= 100);
 
-    std::vector<uint32_t> dedicatedRbPercSlices = m_dedicatedRbPercSlices;
-    std::vector<uint32_t> minRbPercSlices = m_minRbPercSlices;
-    std::vector<uint32_t> maxRbPercSlices = m_maxRbPercSlices;
-
-    // Iterate through the different beams
     for (const auto& el : activeDl)
     {
-        // Distribute the RBG evenly among UEs of the same beam
-        uint32_t beamSym = symPerBeam.at(GetBeamId(el));
-        uint32_t rbgAssignable = 1 * beamSym;
+        const uint32_t beamSym = symPerBeam.at(GetBeamId(el));
         FTResources assigned(0, 0);
-        const std::vector<bool> dlNotchedRBGsMask = GetDlNotchedRbgMask();
-        uint32_t resources = !dlNotchedRBGsMask.empty()
-                                 ? std::count(dlNotchedRBGsMask.begin(), dlNotchedRBGsMask.end(), 1)
-                                 : GetBandwidthInRbg();
-        uint32_t total_resources = resources;
-        NS_ASSERT(resources > 0);
 
-        // RAN slicing addition
-        // uint32_t m_numberSlices = 2;
-
-        for (uint16_t sliceIdx = 0; sliceIdx < m_numberSlices; sliceIdx++)
+        // RBGs usable in this beam (notching applied)
+        std::set<uint32_t> pool;
+        const std::vector<bool> bitmask = GetDlBitmask();
+        for (uint32_t i = 0; i < bitmask.size(); ++i)
         {
-            NS_ASSERT(dedicatedRbPercSlices[sliceIdx] <= minRbPercSlices[sliceIdx]);
-            NS_ASSERT(minRbPercSlices[sliceIdx] <= maxRbPercSlices[sliceIdx]);
-            minRbPerSlicesOnly[sliceIdx] =
-                minRbPercSlices[sliceIdx] - dedicatedRbPercSlices[sliceIdx];
-            maxRbPerSlicesOnly[sliceIdx] = maxRbPercSlices[sliceIdx] - minRbPercSlices[sliceIdx];
-
-            for (const auto& ue : GetUeVector(el))
+            if (bitmask[i])
             {
-                for (uint16_t rnti : m_sliceUeRnti[sliceIdx])
+                pool.insert(i);
+            }
+        }
+        const auto totalRbgs = static_cast<uint32_t>(pool.size());
+        NS_ASSERT(totalRbgs > 0);
+
+        // Active UEs of each slice in this beam
+        std::vector<std::vector<UePtrAndBufferReq>> sliceUes(m_numberSlices);
+        for (const auto& ue : GetUeVector(el))
+        {
+            for (uint32_t sliceIdx = 0; sliceIdx < m_numberSlices; ++sliceIdx)
+            {
+                const auto& rntis = m_sliceUeRnti[sliceIdx];
+                if (std::find(rntis.begin(), rntis.end(), GetUe(ue)->m_rnti) != rntis.end())
                 {
-                    if (ue.first->m_rnti == rnti)
-                    {
-                        ranSliceUeVector[sliceIdx].emplace_back(ue);
-                        uint8_t sst = NrMacSchedulerUeInfoRl::GetSstFromUe(ue.first);
-                        NS_LOG_INFO("[NrRLMacSchedulerOfdma] UE RNTI="
-                                    << ue.first->m_rnti << " mapped to slice " << sliceIdx
-                                    << " with SST=" << static_cast<uint32_t>(sst));
-                        BeforeDlSched(ue, FTResources(rbgAssignable, beamSym));
-                    }
+                    sliceUes[sliceIdx].emplace_back(ue);
+                    BeforeDlSched(sliceUes[sliceIdx].back(), FTResources(beamSym, beamSym));
+                    break;
                 }
             }
         }
 
-        // Debug: logar quais UEs ativos foram associados a cada slice neste beam
+        auto share = [totalRbgs](uint32_t perc) {
+            return static_cast<uint32_t>(std::floor(totalRbgs * perc / 100.0));
+        };
+
+        // Phase 1: dedicated RBGs, reserved per slice even when unused
+        for (uint32_t sliceIdx = 0; sliceIdx < m_numberSlices && !pool.empty(); ++sliceIdx)
+        {
+            std::set<uint32_t> reserved;
+            const uint32_t n = std::min<uint32_t>(share(m_dedicatedRbPercSlices[sliceIdx]),
+                                                  pool.size());
+            for (uint32_t k = 0; k < n; ++k)
+            {
+                reserved.insert(*pool.begin());
+                pool.erase(pool.begin());
+            }
+            AllocateSliceRbgs(sliceUes[sliceIdx], reserved, n, beamSym, assigned);
+        }
+        // As in the previous implementation, the dedicated share of the whole cell is
+        // ceil(total x sum(dedicated) / 100): RBGs left by the per-slice floor() stay idle,
+        // so 100% dedicated in total leaves nothing to the common pool.
+        const auto dedicatedSum =
+            std::accumulate(m_dedicatedRbPercSlices.begin(), m_dedicatedRbPercSlices.end(), 0U);
+        const auto dedicatedTotal =
+            static_cast<uint32_t>(std::ceil(totalRbgs * dedicatedSum / 100.0));
+        while (!pool.empty() && totalRbgs - pool.size() < dedicatedTotal)
+        {
+            pool.erase(pool.begin());
+        }
+
+        // Phase 2 (min - dedicated) and phase 3 (max - min), from the common pool
+        for (int phase = 0; phase < 2; ++phase)
+        {
+            for (uint32_t sliceIdx = 0; sliceIdx < m_numberSlices && !pool.empty(); ++sliceIdx)
+            {
+                const uint32_t perc =
+                    phase == 0 ? m_minRbPercSlices[sliceIdx] - m_dedicatedRbPercSlices[sliceIdx]
+                               : m_maxRbPercSlices[sliceIdx] - m_minRbPercSlices[sliceIdx];
+                AllocateSliceRbgs(sliceUes[sliceIdx], pool, share(perc), beamSym, assigned);
+            }
+        }
+
         for (uint32_t sliceIdx = 0; sliceIdx < m_numberSlices; ++sliceIdx)
         {
-            std::ostringstream oss;
-            oss << "Beam " << GetBeamId(el) << " slice " << sliceIdx << " active UEs:";
-            for (const auto& ue : ranSliceUeVector[sliceIdx])
+            for (const auto& ue : sliceUes[sliceIdx])
             {
-                GetFirst GetUe;
-                oss << " RNTI=" << GetUe(ue)->m_rnti << " buf=" << ue.second;
-            }
-            NS_LOG_INFO(oss.str());
-        }
-        std::vector<std::vector<uint32_t>> rbsPercSlices = {dedicatedRbPercSlices,
-                                                            minRbPerSlicesOnly,
-                                                            maxRbPerSlicesOnly};
-
-        NS_LOG_INFO("dedicatedRbPercSlices sum: " << std::accumulate(dedicatedRbPercSlices.begin(), dedicatedRbPercSlices.end(), 0) 
-                  << ", minRbPercSlices sum: " << std::accumulate(minRbPercSlices.begin(), minRbPercSlices.end(), 0)
-                  << ", maxRbPercSlices sum: " << std::accumulate(maxRbPercSlices.begin(), maxRbPercSlices.end(), 0));
-
-        NS_ASSERT(std::accumulate(dedicatedRbPercSlices.begin(), dedicatedRbPercSlices.end(), 0) <=
-                  100);
-        NS_ASSERT(std::accumulate(minRbPercSlices.begin(), minRbPercSlices.end(), 0) <= 100);
-
-        // RAN slicing allocation
-        for (int allocProcess = 0; allocProcess < 3; allocProcess++) // 0=dedicated, 1=min, 2=max
-        {
-            for (uint16_t sliceIdx = 0; sliceIdx < m_numberSlices; sliceIdx++)
-            {
-                uint32_t slicesResource =
-                    floor(total_resources * rbsPercSlices[allocProcess][sliceIdx] / 100.0);
-                NS_LOG_DEBUG("Alloc process: " << allocProcess << ", Slice " << sliceIdx << ": "
-                                               << slicesResource << " RBs");
-                while (slicesResource > 0 && resources > 0)
-                {
-                    // Round-robin for UEs in the slice
-                    GetFirst GetUe;
-                    std::stable_sort(ranSliceUeVector[sliceIdx].begin(),
-                                     ranSliceUeVector[sliceIdx].end(),
-                                     GetUeCompareDlFn());
-                    auto schedInfoIt = ranSliceUeVector[sliceIdx].begin();
-
-                    // Ensure fairness: pass over UEs which already has enough resources to transmit
-                    while (schedInfoIt != ranSliceUeVector[sliceIdx].end())
-                    {
-                        uint32_t bufQueueSize = schedInfoIt->second;
-                        if (GetUe(*schedInfoIt)->m_dlTbSize >= std::max(bufQueueSize, 10U))
-                        {
-                            schedInfoIt++;
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-
-                    // In the case that all the slice's UEs already have their requirements
-                    // fulfilled, then stop the slice processing and pass to the next
-                    if (schedInfoIt == ranSliceUeVector[sliceIdx].end())
-                    {
-                        break;
-                    }
-                    do
-                    {
-                        // Assign 1 RBG for each available symbols for the beam,
-                        // and then update the count of available resources
-                        GetUe(*schedInfoIt)->m_dlRBG += rbgAssignable;
-                        assigned.m_rbg += rbgAssignable;
-
-                        GetUe(*schedInfoIt)->m_dlSym = beamSym;
-                        assigned.m_sym = beamSym;
-
-                        slicesResource -=
-                            1; // Resources are RBG, so they do not consider the beamSym
-
-                        if (allocProcess !=
-                            0) // If dedicated(allocProcess=0), then do not update the resources yet
-                            resources -= 1;
-
-                        // Update metrics
-                        NS_LOG_DEBUG("Assigned " << rbgAssignable << " DL RBG, spanned over "
-                                                 << beamSym << " SYM, to UE "
-                                                 << GetUe(*schedInfoIt)->m_rnti);
-                        // Following call to AssignedDlResources would update the
-                        // TB size in the NrMacSchedulerUeInfo of this particular UE
-                        // according the Rank Indicator reported by it. Only one call
-                        // to this method is enough even if the UE reported rank indicator 2,
-                        // since the number of RBG assigned to both the streams are the same.
-                        AssignedDlResources(*schedInfoIt,
-                                            FTResources(rbgAssignable, beamSym),
-                                            assigned);
-                    } while (GetUe(*schedInfoIt)->m_dlTbSize < 10 && slicesResource > 0);
-
-                    // Update metrics for the unsuccessful UEs (who did not get any resource in this
-                    // iteration)
-                    for (auto& ue : ranSliceUeVector[sliceIdx])
-                    {
-                        if (GetUe(ue)->m_rnti != GetUe(*schedInfoIt)->m_rnti)
-                        {
-                            NotAssignedDlResources(ue,
-                                                   FTResources(rbgAssignable, beamSym),
-                                                   assigned);
-                        }
-                    }
-                }
-            }
-            if (allocProcess == 0)
-            { // Reduce all the dedicated resources from the total resources (even if the RBs were
-              // not used)
-                resources -= ceil(
-                    resources *
-                    std::accumulate(dedicatedRbPercSlices.begin(), dedicatedRbPercSlices.end(), 0) /
-                    100);
-            }
-        }
-
-        for (uint32_t sliceIdx = 0; sliceIdx < m_numberSlices; sliceIdx++)
-        {
-            for (auto& ue : ranSliceUeVector[sliceIdx])
-            {
-                GetFirst GetUe;
-                NS_LOG_INFO("UE " << GetUe(ue)->m_rnti << " DL RBG: " << GetUe(ue)->m_dlRBG
-                                  << " DL Sym: " << GetUe(ue)->m_dlSym);
+                NS_LOG_INFO("Beam " << GetBeamId(el) << " slice " << sliceIdx << " UE "
+                                    << GetUe(ue)->m_rnti << " buf=" << ue.second << " RBG="
+                                    << std::set<uint16_t>(GetUe(ue)->m_dlRBG.begin(),
+                                                          GetUe(ue)->m_dlRBG.end())
+                                           .size()
+                                    << " TB=" << GetUe(ue)->m_dlTbSize);
             }
         }
     }

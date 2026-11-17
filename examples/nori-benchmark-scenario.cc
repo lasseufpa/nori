@@ -1,5 +1,11 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 /*
+ * Copyright (c) 2026 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
+/*
  * NORI Benchmark Scenario for Performance & Execution Time Evaluation
  *
  * Designed to match the GUARA-ns / RAN Fusion evaluation methodology:
@@ -368,13 +374,13 @@ main(int argc, char* argv[])
         Ipv4Address ueAddr = ueIpIfaces.GetAddress(i);
 
         // Dedicated Bearer for UE traffic
-        NrEpsBearer bearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
-        Ptr<NrEpcTft> tft = Create<NrEpcTft>();
-        NrEpcTft::PacketFilter dlpf;
+        NrQosFlow bearer(NrQosFlow::NGBR_LOW_LAT_EMBB);
+        Ptr<NrQosRule> tft = Create<NrQosRule>();
+        NrQosRule::PacketFilter dlpf;
         dlpf.localPortStart = port;
         dlpf.localPortEnd = port;
         tft->Add(dlpf);
-        nrHelper->ActivateDedicatedEpsBearer(ueDevice, bearer, tft);
+        nrHelper->ActivateDedicatedQosFlow(ueDevice, bearer, tft);
 
         // Sink on UE
         PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));

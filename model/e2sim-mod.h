@@ -1,3 +1,25 @@
+/*
+ * Copyright 2020 AT&T Intellectual Property
+ * Copyright (c) 2020 Samsung Electronics Co., Ltd.
+ * Copyright (c) 2026 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. A copy is in
+ * LICENSES/Apache-2.0.txt and at http://www.apache.org/licenses/LICENSE-2.0.
+ * Distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND.
+ *
+ * Extends E2Sim from O-RAN SC sim/e2-interface (commit da6f82f).
+ * generate_e2apv1_subscription_response_success and
+ * generate_e2apv1_setup_request_parameterized are adapted from
+ * e2sim/src/encoding/encode_e2apv1.cpp.
+ *
+ * Modified by LASSE/UFPA (2026): subscribed RAN function ID in the subscription
+ * response, rejected-action list, configurable PLMN and gNB ID in the E2 Setup
+ * Request, SCTP run loop and per-instance callbacks.
+ */
+
 #ifndef E2SIM_MOD_H
 #define E2SIM_MOD_H
 

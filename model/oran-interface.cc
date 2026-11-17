@@ -175,7 +175,7 @@ E2Termination::DoStart()
 
     m_e2sim->run_loop(args.size(), args.data());
 
-    // Limpar memória alocada com strdup
+    // Free the memory allocated with strdup
     for (auto* arg : args)
     {
         free(arg);

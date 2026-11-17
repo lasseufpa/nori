@@ -385,15 +385,15 @@ main(int argc, char* argv[])
     dlClientLowLat.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaULL)));
 
     // The bearer that will carry low latency traffic
-    NrEpsBearer lowLatBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
+    NrQosFlow lowLatBearer(NrQosFlow::NGBR_LOW_LAT_EMBB);
 
     auto e2 = CreateObject<E2TermHelper>();
     e2->SetAttribute("E2TermIp", StringValue(ipE2TermRic));
     e2->InstallE2Term(gnbNetDev);
 
     // The filter for the low-latency traffic
-    Ptr<NrEpcTft> lowLatTft = Create<NrEpcTft>();
-    NrEpcTft::PacketFilter dlpfLowLat;
+    Ptr<NrQosRule> lowLatTft = Create<NrQosRule>();
+    NrQosRule::PacketFilter dlpfLowLat;
     dlpfLowLat.localPortStart = dlPortLowLat;
     dlpfLowLat.localPortEnd = dlPortLowLat;
     lowLatTft->Add(dlpfLowLat);
@@ -406,11 +406,11 @@ main(int argc, char* argv[])
     dlClientVoice.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaBe)));
 
     // The bearer that will carry voice traffic
-    NrEpsBearer voiceBearer(NrEpsBearer::GBR_CONV_VOICE);
+    NrQosFlow voiceBearer(NrQosFlow::GBR_CONV_VOICE);
 
     // The filter for the voice traffic
-    Ptr<NrEpcTft> voiceTft = Create<NrEpcTft>();
-    NrEpcTft::PacketFilter dlpfVoice;
+    Ptr<NrQosRule> voiceTft = Create<NrQosRule>();
+    NrQosRule::PacketFilter dlpfVoice;
     dlpfVoice.localPortStart = dlPortVoice;
     dlpfVoice.localPortEnd = dlPortVoice;
     voiceTft->Add(dlpfVoice);
@@ -429,7 +429,7 @@ main(int argc, char* argv[])
         clientApps.Add(dlClientLowLat.Install(remoteHost));
 
         // Activate a dedicated bearer for the traffic type
-        nrHelper->ActivateDedicatedEpsBearer(ueDevice, lowLatBearer, lowLatTft);
+        nrHelper->ActivateDedicatedQosFlow(ueDevice, lowLatBearer, lowLatTft);
     }
 
     for (uint32_t i = 0; i < ueVoiceContainer.GetN(); ++i)
@@ -443,7 +443,7 @@ main(int argc, char* argv[])
         clientApps.Add(dlClientVoice.Install(remoteHost));
 
         // Activate a dedicated bearer for the traffic type
-        nrHelper->ActivateDedicatedEpsBearer(ueDevice, voiceBearer, voiceTft);
+        nrHelper->ActivateDedicatedQosFlow(ueDevice, voiceBearer, voiceTft);
     }
 
     // start UDP server and client apps

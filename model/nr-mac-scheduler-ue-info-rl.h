@@ -20,6 +20,7 @@ namespace ns3
  * The retrieval is O(1) over a map<rnti,sst> and does not depend on any
  * internal per-slice UE list, avoiding ambiguity when answering the
  * question "which SST does this RNTI belong to?".
+ * @ingroup nori-slicing
  */
 class NrMacSchedulerUeInfoRl : public NrMacSchedulerUeInfo
 {

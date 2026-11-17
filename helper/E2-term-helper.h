@@ -20,6 +20,10 @@ namespace ns3
 {
 class NoriE2Report;
 
+/**
+ * @ingroup nori-e2
+ * @brief Installs E2Termination and E2Interface on gNBs and registers the RAN functions.
+ */
 class E2TermHelper : public Object
 {
   public:
@@ -52,7 +56,7 @@ class E2TermHelper : public Object
 
     /**
      * @brief Install E2 term on the
-     * @param NetDevice the net device of the node where the E2 term will be installed.
+     * @param NetDevices the net devices (gNBs) where the E2 terms will be installed.
      *
      */
     void InstallE2Term(NetDeviceContainer& NetDevices);
@@ -98,6 +102,7 @@ class E2TermHelper : public Object
     std::string m_e2ip;     // !< E2 termination IP
     uint16_t m_e2port;      // !< E2 termination port
     uint16_t m_e2localPort; // !< E2 termination local port
+    Time m_startStagger;    // !< delay between the E2 starts of consecutive cells
 
     // E2 messages attributes
     bool m_e2ForceLog;  // !< E2 force log

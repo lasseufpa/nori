@@ -33,6 +33,10 @@ extern "C"
 namespace ns3
 {
 
+/**
+ * @ingroup nori-kpm
+ * @brief E2SM-KPM RAN function definition (report styles 1 and 4).
+ */
 class KpmFunctionDescription : public FunctionDescription
 {
   public:

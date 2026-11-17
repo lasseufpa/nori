@@ -8,6 +8,8 @@ set(base_examples
     nori-testbed-scenario
     #oran-interface-example
     nori-mimo-demo
+    nori-handover-scenario
+    nori-print-attributes
     #nori-simple-rl-sched
     #nori-embb-urllc-scenario
 )

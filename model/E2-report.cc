@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2024 LASSE/UFPA
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #include "E2-report.h"
 
 #include "ns3/core-module.h"
@@ -123,6 +129,11 @@ NoriE2Report::UpdateTraces(/*Ptr<NoriE2Report> phyStats, */ std::string path,
 
     // UE specific number of symbols
     m_macNumberOfSymbols = IncreaseMapValue(m_macNumberOfSymbols, pair, (unsigned)params.m_numSym);
+
+    // UE specific PRB x symbols (RBs assigned to this TB in the symbols it spans)
+    m_macRbSymbols = IncreaseMapValue(m_macRbSymbols,
+                                      pair,
+                                      params.m_rbAssignedNum * (unsigned)params.m_numSym);
 }
 
 std::map<RntiCellIdPair_t, uint32_t>
@@ -231,6 +242,7 @@ NoriE2Report::ResetPhyTracesForRntiCellId(uint16_t rnti, uint16_t cellId)
     m_macSinrBin7UeSpecific = ResetMapValue(m_macSinrBin7UeSpecific, pair);
 
     m_macNumberOfSymbols = ResetMapValue(m_macNumberOfSymbols, pair);
+    m_macRbSymbols = ResetMapValue(m_macRbSymbols, pair);
 }
 
 Time
@@ -299,6 +311,13 @@ NoriE2Report::GetMacNumberOfSymbolsUeSpecific(uint16_t rnti, uint16_t cellId)
 {
     RntiCellIdPair_t pair{rnti, cellId};
     return GetMapValue(m_macNumberOfSymbols, pair);
+}
+
+uint32_t
+NoriE2Report::GetMacRbSymbolsUeSpecific(uint16_t rnti, uint16_t cellId)
+{
+    RntiCellIdPair_t pair{rnti, cellId};
+    return GetMapValue(m_macRbSymbols, pair);
 }
 
 uint32_t

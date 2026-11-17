@@ -31,6 +31,10 @@ extern "C"
 namespace ns3
 {
 
+/**
+ * @ingroup nori-rc
+ * @brief E2SM-RC RAN function definition (Control Style 2, Action 6).
+ */
 class RicControlFunctionDescription : public FunctionDescription
 {
   public:

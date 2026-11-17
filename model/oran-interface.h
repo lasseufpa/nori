@@ -29,6 +29,10 @@
 namespace ns3
 {
 
+/**
+ * @ingroup nori-e2
+ * @brief E2 agent of one gNB: SCTP association with the RIC (e2sim) and E2AP encoding.
+ */
 class E2Termination : public Object
 {
   public:
@@ -75,7 +79,7 @@ class E2Termination : public Object
      *
      * @param ranFunctionId ID used to identify the KPM RAN Function
      * @param ranFunctionDescription
-     * @param cb callback that will be triggered if the RIC subscribes to
+     * @param sbCb callback that will be triggered if the RIC subscribes to
      *        this function
      */
     void RegisterKpmCallbackToE2Sm(long ranFunctionId,
@@ -94,7 +98,7 @@ class E2Termination : public Object
      *
      * @param ranFunctionId ID used to identify the KPM RAN Function
      * @param ranFunctionDescription
-     * @param cb callback that will be triggered if the RIC subscribes to
+     * @param smCb callback that will be triggered if the RIC subscribes to
      *        this function
      */
     void RegisterSmCallbackToE2Sm(long ranFunctionId,
@@ -122,6 +126,11 @@ class E2Termination : public Object
         uint16_t instanceId;   //!< RIC Instance ID
         uint16_t ranFuncionId; //!< RAN Function ID
         uint8_t actionId;      //!< RIC Action ID
+        /// E2SM-KPM Event Trigger reportingPeriod in ms (0 if absent or not decoded).
+        /// Filled by the KPM subscription callback, not by ProcessRicSubscriptionRequest().
+        uint32_t reportingPeriodMs{0};
+        /// E2SM-KPM Action Definition granulPeriod in ms (0 if absent or not decoded).
+        uint32_t granularityPeriodMs{0};
     };
 
     /**

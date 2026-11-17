@@ -18,12 +18,24 @@
 
 #include <nlohmann/json.hpp>
 
+#include "ns3/event-id.h"
+#include "ns3/nstime.h"
+
+#include <deque>
+#include <functional>
+#include <mutex>
+
 namespace ns3
 {
 class NoriE2Report;
+class NrUeManager;
 
 typedef std::pair<uint64_t, uint16_t> ImsiCellIdPair_t;
 
+/**
+ * @ingroup nori-e2
+ * @brief E2 node logic of one gNB: KPM/CCC subscriptions, KPM indications, RC/CCC controls.
+ */
 class E2Interface : public Object
 {
   public:
@@ -57,7 +69,7 @@ class E2Interface : public Object
      * @brief Function Service Subscription Request callback.
      * This function is triggered whenever a RIC Subscription Request is received.
      *
-     * @param pdu request message
+     * @param sub_req_pdu request message
      */
     void FunctionServiceSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
     void CccSubscriptionCallback(E2AP_PDU_t* sub_req_pdu);
@@ -84,7 +96,6 @@ class E2Interface : public Object
     /**
      * @brief Build and send report message
      * @param params subscription request parameters
-     * @param nodeBNetdev the net device of the nodeB
      *
      */
     void BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rval_s params);
@@ -118,7 +129,7 @@ class E2Interface : public Object
      * @brief Apply slicing control directive to the MAC scheduler
      * @param quotas slice PRB quotas
      */
-    void ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
+    bool ApplySlicingControl(const std::vector<RicControlMessage::SlicePRBQuota>& quotas);
     void ApplyCccSlicingControl(const std::vector<SlicePRBQuota>& quotas);
 
     /**
@@ -127,11 +138,89 @@ class E2Interface : public Object
      */
     void ProcessControlMessage(E2AP_PDU_t* pdu);
 
+    /**
+     * @brief Send RIC Control Acknowledge (success) or RIC Control Failure for an E2SM-RC request
+     * @param ricRequestId RICrequestID of the original request
+     * @param ranFunctionId RANfunctionID of the original request
+     * @param success true for Acknowledge, false for Failure
+     * @param ricRequestCause CauseRICrequest value used in the Failure
+     */
+    void SendRcControlOutcome(const RICrequestID_t& ricRequestId,
+                              long ranFunctionId,
+                              bool success,
+                              long ricRequestCause);
+
+    /**
+     * @brief Start the periodic event that handles work queued by the SCTP thread
+     * (E2SM-KPM and E2SM-CCC subscriptions, E2SM-RC and E2SM-CCC controls).
+     *
+     * Must be scheduled from the simulation (main) thread, before or during Simulator::Run().
+     * Subscriptions and controls arrive on the SCTP thread. With RealtimeSimulatorImpl, an
+     * event scheduled from another thread gets a wall-clock timestamp; when the simulation
+     * runs slower than real time, the event lands in the simulated future and the first KPM
+     * report is sent late or the quota is applied late (or never, within the run). The SCTP
+     * thread therefore only enqueues, and this event acts at the current simulation time.
+     */
+    void StartSctpQueueDrain();
+
     Ptr<NoriE2Report> GetE2DuCalculator();
+
+    /**
+     * @brief Cumulative PDCP TX bytes of a UE, summed over all its data radio bearers
+     * @param ue UE manager in the gNB RRC
+     * @param downlink true for DL, false for UL
+     * @return cumulative bytes reported by the E2 PDCP statistics calculator
+     */
+    uint64_t GetUePdcpTxBytes(Ptr<NrUeManager> ue, bool downlink) const;
+
+    /**
+     * @brief Cumulative PDCP DL bytes received by a UE, summed over all its data radio bearers
+     * @param ue UE manager in the gNB RRC
+     * @return cumulative bytes reported by the E2 PDCP statistics calculator (DlRxPdu)
+     */
+    uint64_t GetUePdcpDlRxBytes(Ptr<NrUeManager> ue) const;
+
+    /**
+     * @brief Cumulative PDCP UL bytes received at the gNB from a UE, summed over all its data
+     * radio bearers
+     * @param ue UE manager in the gNB RRC
+     * @return cumulative bytes reported by the E2 PDCP statistics calculator (UlRxPdu)
+     */
+    uint64_t GetUePdcpUlRxBytes(Ptr<NrUeManager> ue) const;
     
     void MLSliceInterface(double macPrb, uint64_t imsi);
 
   private:
+    /// Geometry of the primary BWP used by the PRB metrics
+    struct PrbGeometry
+    {
+        uint32_t rbNum{0};               //!< PRBs in the primary BWP
+        uint32_t symbolsPerSlot{0};      //!< OFDM symbols per slot
+        Time slotPeriod;                 //!< slot duration
+        uint32_t subcarrierSpacingHz{0}; //!< subcarrier spacing
+    };
+
+    /// @brief Read the PRB geometry of the gNB primary BWP from its PHY
+    PrbGeometry GetPrimaryBwpPrbGeometry() const;
+
+    /**
+     * @brief Average number of DL PRBs used by a UE in the current reporting window
+     * @param rnti UE RNTI
+     * @param geometry primary BWP geometry
+     * @return average PRBs (PRB x symbols divided by the window symbols)
+     */
+    double GetUePrbUsedDl(uint16_t rnti, const PrbGeometry& geometry) const;
+
+    /**
+     * @brief Sum a per-(IMSI, LCID) PDCP counter over all data radio bearers of a UE
+     * @param ue UE manager in the gNB RRC
+     * @param counter returns the cumulative counter for one (IMSI, LCID)
+     * @return the sum over the UE data radio bearers
+     */
+    uint64_t SumUeDrbPdcpCounter(
+        Ptr<NrUeManager> ue,
+        const std::function<uint64_t(uint64_t imsi, uint8_t lcid)>& counter) const;
+
     /**
      * @brief Build RIC Indication Header
      * @return the RIC Indication Header
@@ -144,9 +233,13 @@ class E2Interface : public Object
      */
     std::string GetImsiString(uint64_t imsi);
 
-    Ptr<KpmIndicationMessage> BuildNodeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
+    Ptr<KpmIndicationMessage> BuildNodeLevelIndicationMessage(std::string plmId,
+                                                              uint16_t nrCellId,
+                                                              unsigned long granularityPeriodMs);
 
-    Ptr<KpmIndicationMessage> BuildUeLevelIndicationMessage(std::string plmId, uint16_t nrCellId);
+    Ptr<KpmIndicationMessage> BuildUeLevelIndicationMessage(std::string plmId,
+                                                            uint16_t nrCellId,
+                                                            unsigned long granularityPeriodMs);
 
     void BuildBwpReport(nlohmann::json& bwpList);
     void BuildCccCellDuIndication(nlohmann::json& payload);
@@ -161,6 +254,42 @@ class E2Interface : public Object
      * @return the flipped map
      */
     std::multimap<long double, uint16_t> FlipMap(const std::map<uint16_t, long double>& src);
+
+    /// E2SM-RC slicing control received on the SCTP thread, waiting to be applied
+    struct PendingRcControl
+    {
+        std::vector<RicControlMessage::SlicePRBQuota> quotas;
+        RICrequestID_t ricRequestId;
+        long ranFunctionId;
+    };
+
+    /// On the simulation thread: start the reports of the queued KPM subscriptions, apply
+    /// the queued E2SM-RC controls and answer the RIC
+    void DrainSctpQueues();
+
+    /// E2SM-CCC control received on the SCTP thread, waiting to be applied
+    struct PendingCccControl
+    {
+        std::vector<SlicePRBQuota> quotas;
+        long ricRequestorId;
+        long ricInstanceId;
+        long ranFunctionId;
+    };
+
+    /// Send the RICcontrolAcknowledge of an E2SM-CCC control
+    void SendCccControlAck(long ricRequestorId, long ricInstanceId, long ranFunctionId);
+
+    std::mutex m_rcControlMutex;                    //<! protects the queues below
+    std::deque<PendingRcControl> m_pendingRcControls; //<! controls queued by the SCTP thread
+    /// E2SM-CCC controls queued by the SCTP thread
+    std::deque<PendingCccControl> m_pendingCccControls;
+    /// E2SM-CCC subscriptions accepted on the SCTP thread, waiting for their first indication
+    std::deque<E2Termination::RicSubscriptionRequest_rval_s> m_pendingCccSubscriptions;
+    /// KPM subscriptions accepted on the SCTP thread, waiting for their first report
+    std::deque<E2Termination::RicSubscriptionRequest_rval_s> m_pendingKpmSubscriptions;
+    Time m_rcControlDrainPeriod;                    //<! period of the drain event
+    EventId m_rcControlDrainEvent;                  //<! drain event
+    bool m_rcControlDrainStarted{false};            //<! drain event already started
 
     double m_e2Periodicity;                                          //<! E2 periodicity
     Ptr<NrGnbRrc> m_rrc;                                             //<! RRC object
@@ -177,6 +306,8 @@ class E2Interface : public Object
     double m_cellTxDlPackets = 0;                         //<! Number of DL packets
     //double m_cellTxBytes = 0;                             //<! Number of DL bytes
     std::map <uint64_t, double> m_cellTxBytes;                             //<! Cumulative DL volume already reported at node level, per IMSI
+    std::map <uint64_t, Time> m_ueRxLastReportTime;                        //<! Time of the previous UE-level report, per IMSI
+    std::map <uint64_t, double> m_ueRxBytes;                               //<! Cumulative DL volume received by the UE already reported, per IMSI (kbit)
     std::map <uint64_t, double> m_ueTxBytes;                               //<! Cumulative DL volume already reported at UE level, per IMSI
     
     double m_cellRxBytes = 0;                             //<! Number of UL bytes
@@ -186,6 +317,8 @@ class E2Interface : public Object
     std::map<uint64_t, uint32_t> m_drbThrDlUeid; //<! DRB throughput DL in UE ID
     std::string m_duFileName;                    //<! DU file name
     double macPrb;
+    std::map<uint64_t, double> m_previousDlRxData; //<! MLSliceInterface: delivered DL bytes reference
+    std::map<uint64_t, double> m_previousUlRxData; //<! MLSliceInterface: delivered UL bytes reference
     std::map<uint64_t, double> m_previousDlTxData;
     std::map<uint64_t, double> m_previousUlTxData;
     std::map<uint64_t, double> m_previousTime;
