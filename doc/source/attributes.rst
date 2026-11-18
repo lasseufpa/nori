@@ -41,6 +41,14 @@ Parent: ``ns3::Object``
      - Delay between the start of the E2 terminations of consecutive cells: cell N starts its E2 Setup at (N - 1) x StartStagger. Zero starts all together
      - ``ns3::TimeValue``
      - ``+0ns``
+   * - ``ReconnectInterval``
+     - Wall-clock wait before a new E2 connection attempt when the SCTP connection or the E2 Setup fails or the association is lost. Keep it above 10 s with the O-RAN SC e2mgr: it rejects an E2 Setup that arrives less than 10 s after the last disconnection of the same node, and each rejection counts as a new disconnection. Zero makes a single attempt
+     - ``ns3::TimeValue``
+     - ``+1.5e+10ns``
+   * - ``SetupTimeout``
+     - Wall-clock wait for the E2 Setup answer before the attempt is abandoned. Zero waits forever
+     - ``ns3::TimeValue``
+     - ``+1e+10ns``
 
 ``ns3::E2Interface``
 --------------------

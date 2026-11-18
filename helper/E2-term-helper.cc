@@ -78,6 +78,23 @@ E2TermHelper::GetTypeId()
                                           "(N - 1) x StartStagger. Zero starts all together",
                                           TimeValue(Seconds(0)),
                                           MakeTimeAccessor(&E2TermHelper::m_startStagger),
+                                          MakeTimeChecker(Seconds(0)))
+                            .AddAttribute("ReconnectInterval",
+                                          "Wall-clock wait before a new E2 connection attempt "
+                                          "when the SCTP connection or the E2 Setup fails or the "
+                                          "association is lost. Keep it above 10 s with the O-RAN SC "
+                                          "e2mgr: it rejects an E2 Setup that arrives less than 10 s "
+                                          "after the last disconnection of the same node, and each "
+                                          "rejection counts as a new disconnection. Zero makes a "
+                                          "single attempt",
+                                          TimeValue(Seconds(15)),
+                                          MakeTimeAccessor(&E2TermHelper::m_reconnectInterval),
+                                          MakeTimeChecker(Seconds(0)))
+                            .AddAttribute("SetupTimeout",
+                                          "Wall-clock wait for the E2 Setup answer before the "
+                                          "attempt is abandoned. Zero waits forever",
+                                          TimeValue(Seconds(10)),
+                                          MakeTimeAccessor(&E2TermHelper::m_setupTimeout),
                                           MakeTimeChecker(Seconds(0)));
     return tid;
 }
@@ -195,6 +212,7 @@ E2TermHelper::InstallE2Term(Ptr<NetDevice> NetDevice)
                                               localPort,
                                               std::to_string(cellId),
                                               encodedPlmnId);
+    e2Term->SetReconnectPolicy(m_reconnectInterval, m_setupTimeout);
     NetDevice->AggregateObject(e2Term);
     e2Messages->SetAttribute("E2Term", PointerValue(e2Term));
 

@@ -33,6 +33,11 @@
 #include <functional>
 #include <algorithm>
 #include <cerrno>
+#include <atomic>
+#include <chrono>
+#include <mutex>
+#include <thread>
+#include <sys/time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/sctp.h>
@@ -60,8 +65,17 @@ public:
     std::string mod_gnb_id;
     std::string mod_plmn_id;
     uint16_t m_local_port{0};
-    int m_client_fd{-1};
-    bool m_running{true};
+    std::atomic<int> m_client_fd{-1};
+    std::atomic<bool> m_running{true};
+
+    // E2 association state (written by the E2 thread, read by the simulation thread)
+    std::atomic<bool> m_setupDone{false};         //!< E2 Setup Response received on this association
+    std::atomic<bool> m_setupFailed{false};       //!< E2 Setup Failure received on this association
+    std::atomic<uint32_t> m_associationEpoch{0};  //!< incremented at each successful E2 Setup
+    std::atomic<uint64_t> m_droppedMessages{0};   //!< outgoing messages dropped while disconnected
+    double m_reconnectIntervalS{15.0};            //!< wait before a new attempt; <= 0 disables it
+    double m_setupTimeoutS{10.0};                 //!< wait for the E2 Setup answer; <= 0 = forever
+    std::mutex m_sendMutex;                       //!< serializes send() and socket replacement
 
     std::unordered_map<long, OCTET_STRING_t*> m_ranFunctions;
     // Service model OID per RAN function ID (RANfunction-Item.ranFunctionOID)
@@ -74,11 +88,36 @@ public:
     ~E2SimMod()
     {
         m_running = false;
-        if (m_client_fd != -1)
+        std::lock_guard<std::mutex> lock(m_sendMutex);
+        int fd = m_client_fd.exchange(-1);
+        if (fd != -1)
         {
-            close(m_client_fd);
-            m_client_fd = -1;
+            shutdown(fd, SHUT_RDWR);
+            close(fd);
         }
+    }
+
+    /**
+     * Reconnection policy of the E2 agent.
+     * @param reconnectIntervalS wait between attempts after a failure (<= 0: single attempt)
+     * @param setupTimeoutS maximum wait for the E2 Setup answer (<= 0: wait forever)
+     */
+    void set_reconnect_policy(double reconnectIntervalS, double setupTimeoutS)
+    {
+        m_reconnectIntervalS = reconnectIntervalS;
+        m_setupTimeoutS = setupTimeoutS;
+    }
+
+    /// True while the current SCTP association has completed the E2 Setup
+    bool is_e2_setup_done() const
+    {
+        return m_setupDone.load();
+    }
+
+    /// Number of successful E2 Setups so far (identifies the current association)
+    uint32_t association_epoch() const
+    {
+        return m_associationEpoch.load();
     }
 
     void register_e2sm(long func_id, OCTET_STRING_t *ostr)
@@ -103,24 +142,56 @@ public:
 
     void encode_and_send_sctp_data(E2AP_PDU_t* pdu)
     {
-        if (m_client_fd == -1)
-        {
-            LOG_E("[E2SimMod-gNB%s] Cannot send E2 message: socket not connected", mod_gnb_id.c_str());
-            return;
-        }
         uint8_t *buf = nullptr;
         sctp_buffer_t data;
-
         data.len = e2ap_asn1c_encode_pdu(pdu, &buf);
         if (data.len > 0 && buf != nullptr)
         {
-            memcpy(data.buffer, buf, std::min(static_cast<size_t>(data.len), static_cast<size_t>(MAX_SCTP_BUFFER)));
-            sctp_send_data(m_client_fd, data);
+            data.len = std::min(static_cast<int>(data.len), static_cast<int>(MAX_SCTP_BUFFER));
+            memcpy(data.buffer, buf, data.len);
+            send_e2ap(data);
         }
         if (buf)
         {
             free(buf);
         }
+    }
+
+    /**
+     * Send an encoded E2AP message on the current association.
+     * Unlike e2sim's sctp_send_data(), a failure does not terminate the process: the
+     * message is dropped and the association is shut down, so the E2 thread reconnects.
+     */
+    bool send_e2ap(sctp_buffer_t& data)
+    {
+        std::lock_guard<std::mutex> lock(m_sendMutex);
+        int fd = m_client_fd.load();
+        if (fd == -1)
+        {
+            if (m_droppedMessages++ == 0)
+            {
+                LOG_I("[E2SimMod-gNB%s] E2 association down: outgoing E2 messages are dropped "
+                      "until it is re-established", mod_gnb_id.c_str());
+            }
+            return false;
+        }
+        ssize_t sent = send(fd, data.buffer, data.len, MSG_NOSIGNAL);
+        if (sent == -1)
+        {
+            LOG_E("[E2SimMod-gNB%s] send() on the E2 association failed: %s; closing it",
+                  mod_gnb_id.c_str(), strerror(errno));
+            shutdown(fd, SHUT_RDWR); // wakes up recv() in the E2 thread
+            return false;
+        }
+        return true;
+    }
+
+    static void set_recv_timeout(int fd, double seconds)
+    {
+        struct timeval tv;
+        tv.tv_sec = seconds > 0 ? static_cast<time_t>(seconds) : 0;
+        tv.tv_usec = seconds > 0 ? static_cast<suseconds_t>((seconds - tv.tv_sec) * 1e6) : 0;
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     }
 
     void handle_sctp_data(int& socket_fd, sctp_buffer_t& data, bool xmlenc)
@@ -159,10 +230,15 @@ public:
         case ProcedureCode_id_E2setup:
             if (pdu->present == E2AP_PDU_PR_successfulOutcome)
             {
-                LOG_I("[E2SimMod-gNB%s] Received SETUP-RESPONSE-SUCCESS from Near-RT RIC", mod_gnb_id.c_str());
+                set_recv_timeout(socket_fd, 0); // E2 Setup done: block on recv() again
+                m_setupDone = true;
+                uint32_t epoch = ++m_associationEpoch;
+                LOG_I("[E2SimMod-gNB%s] Received SETUP-RESPONSE-SUCCESS from Near-RT RIC "
+                      "(E2 association #%u)", mod_gnb_id.c_str(), epoch);
             }
             else if (pdu->present == E2AP_PDU_PR_unsuccessfulOutcome)
             {
+                m_setupFailed = true;
                 LOG_E("[E2SimMod-gNB%s] Received SETUP-RESPONSE-FAILURE from Near-RT RIC", mod_gnb_id.c_str());
             }
             break;
@@ -255,27 +331,94 @@ public:
     {
         LOG_I("[E2SimMod-gNB%s] Start E2 Agent (E2 Simulator)", mod_gnb_id.c_str());
 
-        bool xmlenc = false;
         options_t ops = read_input_options(argc, argv);
 
         LOG_I("[E2SimMod-gNB%s] After reading input options: RIC IP=%s, Port=%d, LocalPort=%u",
               mod_gnb_id.c_str(), ops.server_ip, ops.server_port, m_local_port);
 
-        m_client_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
-        if (m_client_fd == -1)
-        {
-            LOG_E("[E2SimMod-gNB%s] Error creating SCTP socket: %s", mod_gnb_id.c_str(), strerror(errno));
-            return -1;
-        }
-
-        int optval = 1;
-        setsockopt(m_client_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
-        setsockopt(m_client_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-
         std::string cleanIp = (ops.server_ip != nullptr) ? ops.server_ip : "";
         cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), '\"'), cleanIp.end());
         cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), '\''), cleanIp.end());
         cleanIp.erase(std::remove(cleanIp.begin(), cleanIp.end(), ' '), cleanIp.end());
+
+        struct in_addr ricAddr;
+        if (inet_pton(AF_INET, cleanIp.c_str(), &ricAddr) != 1)
+        {
+            LOG_E("[E2SimMod-gNB%s] Invalid RIC server IP address: '%s' (raw: '%s')",
+                  mod_gnb_id.c_str(), cleanIp.c_str(), ops.server_ip);
+            return -1;
+        }
+
+        // Keep (re)connecting until the agent is stopped: a gNB whose association
+        // fails (RIC down, E2 Setup Failure, association reset after a restart of the
+        // simulation) tries again every m_reconnectIntervalS seconds.
+        unsigned attempt = 1;
+        while (m_running)
+        {
+            const char* reason = connect_and_serve(cleanIp, ops.server_port);
+            if (!m_running)
+            {
+                break;
+            }
+            if (m_reconnectIntervalS <= 0)
+            {
+                LOG_I("[E2SimMod-gNB%s] %s; reconnection disabled", mod_gnb_id.c_str(), reason);
+                break;
+            }
+            ++attempt;
+            LOG_I("[E2SimMod-gNB%s] %s; next E2 connection attempt (#%u) in %.1f s",
+                  mod_gnb_id.c_str(), reason, attempt, m_reconnectIntervalS);
+            wait_while_running(m_reconnectIntervalS);
+        }
+
+        LOG_I("[E2SimMod-gNB%s] E2 agent stopped", mod_gnb_id.c_str());
+        return 0;
+    }
+
+  private:
+    /// Sleep in small steps so that the destructor can stop the agent.
+    void wait_while_running(double seconds)
+    {
+        auto end = std::chrono::steady_clock::now() +
+                   std::chrono::milliseconds(static_cast<long>(seconds * 1000));
+        while (m_running && std::chrono::steady_clock::now() < end)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+
+    /// Close the current association (if any) and reset the E2 Setup state.
+    void close_association()
+    {
+        std::lock_guard<std::mutex> lock(m_sendMutex);
+        int fd = m_client_fd.exchange(-1);
+        if (fd != -1)
+        {
+            close(fd);
+        }
+        m_setupDone = false;
+    }
+
+    /**
+     * One E2 connection attempt: SCTP connect, E2 Setup Request and reception loop.
+     * Returns when the association is gone, with the reason as text.
+     */
+    const char* connect_and_serve(const std::string& cleanIp, int serverPort)
+    {
+        m_setupDone = false;
+        m_setupFailed = false;
+        bool xmlenc = false;
+
+        int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
+        if (fd == -1)
+        {
+            LOG_E("[E2SimMod-gNB%s] Error creating SCTP socket: %s", mod_gnb_id.c_str(), strerror(errno));
+            return "SCTP socket could not be created";
+        }
+
+        int optval = 1;
+        setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
         struct sockaddr_in client_addr;
         memset(&client_addr, 0, sizeof(client_addr));
@@ -290,7 +433,7 @@ public:
             struct sockaddr_in probe_peer;
             memset(&probe_peer, 0, sizeof(probe_peer));
             probe_peer.sin_family = AF_INET;
-            probe_peer.sin_port = htons(ops.server_port ? ops.server_port : 32222);
+            probe_peer.sin_port = htons(serverPort ? serverPort : 32222);
             if (inet_pton(AF_INET, cleanIp.c_str(), &probe_peer.sin_addr) == 1)
             {
                 if (connect(probe_fd, (struct sockaddr*)&probe_peer, sizeof(probe_peer)) == 0)
@@ -311,7 +454,7 @@ public:
             close(probe_fd);
         }
 
-        if (bind(m_client_fd, (struct sockaddr*)&client_addr, sizeof(client_addr)) == -1)
+        if (bind(fd, (struct sockaddr*)&client_addr, sizeof(client_addr)) == -1)
         {
             LOG_E("[E2SimMod-gNB%s] bind() on local port %u returned: %s",
                   mod_gnb_id.c_str(), m_local_port, strerror(errno));
@@ -324,27 +467,29 @@ public:
         struct sockaddr_in peer_addr;
         memset(&peer_addr, 0, sizeof(peer_addr));
         peer_addr.sin_family = AF_INET;
-        peer_addr.sin_port = htons(ops.server_port);
-        if (inet_pton(AF_INET, cleanIp.c_str(), &peer_addr.sin_addr) != 1)
-        {
-            LOG_E("[E2SimMod-gNB%s] Invalid RIC server IP address: '%s' (raw: '%s')",
-                  mod_gnb_id.c_str(), cleanIp.c_str(), ops.server_ip);
-            close(m_client_fd);
-            m_client_fd = -1;
-            return -1;
-        }
+        peer_addr.sin_port = htons(serverPort);
+        inet_pton(AF_INET, cleanIp.c_str(), &peer_addr.sin_addr);
 
-        LOG_I("[E2SimMod-gNB%s] Connecting to RIC at %s:%d ...", mod_gnb_id.c_str(), cleanIp.c_str(), ops.server_port);
-        if (connect(m_client_fd, (struct sockaddr*)&peer_addr, sizeof(peer_addr)) == -1)
+        LOG_I("[E2SimMod-gNB%s] Connecting to RIC at %s:%d ...", mod_gnb_id.c_str(), cleanIp.c_str(), serverPort);
+        if (connect(fd, (struct sockaddr*)&peer_addr, sizeof(peer_addr)) == -1)
         {
             LOG_E("[E2SimMod-gNB%s] connect() failed to RIC at %s:%d: %s",
-                  mod_gnb_id.c_str(), cleanIp.c_str(), ops.server_port, strerror(errno));
-            close(m_client_fd);
-            m_client_fd = -1;
-            return -1;
+                  mod_gnb_id.c_str(), cleanIp.c_str(), serverPort, strerror(errno));
+            close(fd);
+            return "connect() to the Near-RT RIC failed";
         }
 
-        LOG_I("[E2SimMod-gNB%s] SCTP Connection established (fd=%d)", mod_gnb_id.c_str(), m_client_fd);
+        LOG_I("[E2SimMod-gNB%s] SCTP Connection established (fd=%d)", mod_gnb_id.c_str(), fd);
+        {
+            std::lock_guard<std::mutex> lock(m_sendMutex);
+            m_client_fd = fd;
+            uint64_t dropped = m_droppedMessages.exchange(0);
+            if (dropped > 0)
+            {
+                LOG_I("[E2SimMod-gNB%s] %lu outgoing E2 messages were dropped while disconnected",
+                      mod_gnb_id.c_str(), static_cast<unsigned long>(dropped));
+            }
+        }
 
         E2AP_PDU_t* pdu_setup = (E2AP_PDU_t*)calloc(1, sizeof(E2AP_PDU));
         std::vector<encoding::ran_func_info> all_funcs;
@@ -374,47 +519,76 @@ public:
         if (er.encoded > 0)
         {
             memcpy(data.buffer, buffer, er.encoded);
-            if (sctp_send_data(m_client_fd, data) > 0)
+            if (send_e2ap(data))
             {
                 LOG_I("[E2SimMod-gNB%s] Sent E2-SETUP-REQUEST as E2AP message", mod_gnb_id.c_str());
             }
             else
             {
                 LOG_E("[E2SimMod-gNB%s] Failed to send E2-SETUP-REQUEST", mod_gnb_id.c_str());
+                close_association();
+                return "E2 Setup Request could not be sent";
             }
         }
         else
         {
             LOG_E("[E2SimMod-gNB%s] Failed to encode E2-SETUP-REQUEST", mod_gnb_id.c_str());
+            close_association();
+            return "E2 Setup Request could not be encoded";
         }
 
         // ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu_setup);
 
+        // Without an E2 Setup answer within m_setupTimeoutS the attempt is abandoned.
+        set_recv_timeout(fd, m_setupTimeoutS);
+
         sctp_buffer_t recv_buf;
         LOG_I("[E2SimMod-gNB%s] Waiting for SCTP data from RIC", mod_gnb_id.c_str());
 
-        while (m_running && m_client_fd != -1)
+        // e2sim's sctp_receive_data() calls exit(1) on a socket error: recv() is used here.
+        const char* reason = "E2 agent stopped";
+        while (m_running)
         {
-            if (sctp_receive_data(m_client_fd, recv_buf) <= 0)
+            memset(recv_buf.buffer, 0, sizeof(recv_buf.buffer));
+            int len = recv(fd, recv_buf.buffer, sizeof(recv_buf.buffer), 0);
+            if (len > 0)
             {
-                LOG_I("[E2SimMod-gNB%s] SCTP connection closed by peer", mod_gnb_id.c_str());
+                recv_buf.len = len;
+                LOG_I("[E2SimMod-gNB%s] Received new data of size %d", mod_gnb_id.c_str(), recv_buf.len);
+                handle_sctp_data(fd, recv_buf, xmlenc);
+                if (xmlenc) xmlenc = false;
+                if (m_setupFailed)
+                {
+                    reason = "E2 Setup Failure received from the Near-RT RIC";
+                    break;
+                }
+                continue;
+            }
+            if (len == 0)
+            {
+                reason = "SCTP association closed by the Near-RT RIC";
                 break;
             }
-
-            LOG_I("[E2SimMod-gNB%s] Received new data of size %d", mod_gnb_id.c_str(), recv_buf.len);
-            handle_sctp_data(m_client_fd, recv_buf, xmlenc);
-            if (xmlenc) xmlenc = false;
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            if ((errno == EAGAIN || errno == EWOULDBLOCK) && !m_setupDone)
+            {
+                reason = "no E2 Setup answer from the Near-RT RIC within the setup timeout";
+                break;
+            }
+            LOG_E("[E2SimMod-gNB%s] recv() on the E2 association failed: %s",
+                  mod_gnb_id.c_str(), strerror(errno));
+            reason = "SCTP receive error on the E2 association";
+            break;
         }
 
-        if (m_client_fd != -1)
-        {
-            close(m_client_fd);
-            m_client_fd = -1;
-        }
-
-        return 0;
+        close_association();
+        return reason;
     }
 
+  public:
     void generate_e2apv1_subscription_response_success(E2AP_PDU *e2ap_pdu, long reqActionIdsAccepted[],
 						   long reqActionIdsRejected[], int accept_size, int reject_size,
 						   long reqRequestorId, long reqInstanceId, long ranFuncionId)

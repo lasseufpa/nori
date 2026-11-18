@@ -24,6 +24,10 @@ the nr (5G-LENA) `CHANGES.md`. User-visible features and fixed bugs are in
 - Example `nori-print-attributes`: prints the attribute tables of the manual.
 - `FunctionDescription::m_oid` and `E2SimMod::register_e2sm(id, definition, oid)`:
   service model OID of a RAN function, used in the E2 Setup Request.
+- `E2TermHelper` attributes `ReconnectInterval` (Time, default 15 s) and `SetupTimeout`
+  (Time, default 10 s); `E2Termination::SetReconnectPolicy()`, `IsE2SetupDone()` and
+  `GetAssociationEpoch()`; field `associationEpoch` of
+  `E2Termination::RicSubscriptionRequest_rval_s`.
 
 ### Changes to existing API
 
@@ -62,3 +66,9 @@ the nr (5G-LENA) `CHANGES.md`. User-visible features and fixed bugs are in
   function description (`FunctionDescription::m_oid`) instead of a table indexed by
   RAN function ID. E2SM-CCC (ID 4) is announced with `1.3.6.1.4.1.53148.1.6.2.4`; it
   was announced with the E2SM-KPM OID. KPM and RC OIDs are unchanged.
+- **E2 connection:** the gNB retries the SCTP connection and the E2 Setup every
+  `ReconnectInterval` after a failure, an E2 Setup Failure, an E2 Setup timeout or the
+  loss of the association (it made a single attempt before). Set `ReconnectInterval` to
+  zero for the previous behavior. KPM reports and CCC indications are skipped while the
+  association is down, and the periodic reports of a subscription stop when a new
+  association is set up.

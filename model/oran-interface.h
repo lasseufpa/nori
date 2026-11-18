@@ -24,6 +24,7 @@
 #include "ric-control-message.h"
 #include "ccc-function-description.h"
 
+#include "ns3/nstime.h"
 #include "ns3/object.h"
 
 namespace ns3
@@ -68,6 +69,20 @@ class E2Termination : public Object
      * execute the method DoStart.
      */
     void Start();
+
+    /**
+     * Reconnection policy of the E2 agent (call before Start()).
+     * @param reconnectInterval wait between connection attempts after a failure;
+     *        zero makes a single attempt
+     * @param setupTimeout maximum wait for the E2 Setup answer; zero waits forever
+     */
+    void SetReconnectPolicy(Time reconnectInterval, Time setupTimeout);
+
+    /// True while the current association has completed the E2 Setup
+    bool IsE2SetupDone() const;
+
+    /// Number of successful E2 Setups so far; identifies the current E2 association
+    uint32_t GetAssociationEpoch() const;
 
     /**
      * Register an E2 Service Model.
@@ -131,6 +146,9 @@ class E2Termination : public Object
         uint32_t reportingPeriodMs{0};
         /// E2SM-KPM Action Definition granulPeriod in ms (0 if absent or not decoded).
         uint32_t granularityPeriodMs{0};
+        /// E2 association on which the subscription was received (see GetAssociationEpoch()).
+        /// Periodic reports of a subscription stop when the association changes.
+        uint32_t associationEpoch{0};
     };
 
     /**

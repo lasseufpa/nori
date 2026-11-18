@@ -34,6 +34,9 @@ documentation.
   applied) when the simulation ran slower than real time.
 - Data race between the SCTP thread and the simulation in the CCC control path.
 - With 80% + 20% dedicated quotas, a slice with 0% received one RBG (rounding).
+- The ns-3 process exited (`exit(1)` in e2sim) or was killed by SIGPIPE when the RIC
+  reset or closed the E2 association, for example after the simulation was restarted.
+  The gNB now reconnects (`E2TermHelper::ReconnectInterval`).
 - The E2SM-CCC RAN function was announced in the E2 Setup with the E2SM-KPM OID
   (`1.3.6.1.4.1.53148.1.3.2.2`); it now uses `1.3.6.1.4.1.53148.1.6.2.4`.
 

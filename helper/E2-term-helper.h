@@ -103,6 +103,8 @@ class E2TermHelper : public Object
     uint16_t m_e2port;      // !< E2 termination port
     uint16_t m_e2localPort; // !< E2 termination local port
     Time m_startStagger;    // !< delay between the E2 starts of consecutive cells
+    Time m_reconnectInterval; // !< wait between E2 connection attempts after a failure
+    Time m_setupTimeout;      // !< maximum wait for the E2 Setup answer
 
     // E2 messages attributes
     bool m_e2ForceLog;  // !< E2 force log

@@ -50,6 +50,50 @@ The gNB opens its SCTP association from local port ``E2LocalPort + cellId``
 the RIC, so the SCTP INIT does not announce unreachable addresses (for example
 Docker or VPN interfaces).
 
+Reconnection
+^^^^^^^^^^^^
+
+Each gNB keeps trying to reach the RIC while the simulation runs. A new attempt
+(SCTP connect + E2 Setup Request) starts ``ReconnectInterval`` after any of these
+events:
+
+- ``connect()`` fails (RIC not reachable, port closed);
+- the RIC answers with E2 Setup Failure;
+- no E2 Setup answer arrives within ``SetupTimeout``;
+- the RIC closes or resets the association, or a send/receive on it fails.
+
+The typical case is a simulation stopped and started again: the RIC may still hold
+the old association and reject or reset the new one for a while; the gNB connects as
+soon as the RIC accepts it. Socket errors no longer terminate the ns-3 process (the
+e2sim ``sctp_receive_data()``/``sctp_send_data()`` functions call ``exit(1)``; NORI
+uses its own receive and send).
+
+The O-RAN SC ``e2mgr`` (checked in 6.0.4) rejects an E2 Setup Request that arrives
+less than 10 s after the last disconnection of the same node ("nodeB entity
+disconnection in progress"), and the rejection itself is recorded as a new
+disconnection. With a retry interval below 10 s the node is rejected forever; the
+default of 15 s connects on the second attempt after a restart.
+
+Both times are wall-clock times. While the association is down, KPM reports and CCC
+indications are skipped. Subscriptions belong to the association on which they were
+received: after a new E2 Setup the RIC subscribes again and the periodic reports of
+the old subscriptions stop (log ``Stopping KPM reports of requestorId ...``).
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 15 60
+
+   * - ``E2TermHelper`` attribute
+     - Default
+     - Meaning
+   * - ``ReconnectInterval``
+     - 15 s
+     - Wait before a new attempt. Zero makes a single attempt (previous behavior).
+       Keep it above 10 s with the O-RAN SC RIC (see above).
+   * - ``SetupTimeout``
+     - 10 s
+     - Maximum wait for the E2 Setup answer. Zero waits forever.
+
 Several gNBs in one scenario
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

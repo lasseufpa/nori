@@ -156,6 +156,24 @@ E2Termination::Start()
 }
 
 void
+E2Termination::SetReconnectPolicy(Time reconnectInterval, Time setupTimeout)
+{
+    m_e2sim->set_reconnect_policy(reconnectInterval.GetSeconds(), setupTimeout.GetSeconds());
+}
+
+bool
+E2Termination::IsE2SetupDone() const
+{
+    return m_e2sim->is_e2_setup_done();
+}
+
+uint32_t
+E2Termination::GetAssociationEpoch() const
+{
+    return m_e2sim->association_epoch();
+}
+
+void
 E2Termination::DoStart()
 {
     NS_LOG_FUNCTION(this);
@@ -331,6 +349,7 @@ E2Termination::ProcessRicSubscriptionRequest(E2AP_PDU_t* sub_req_pdu)
     reqParams.instanceId = reqInstanceId;
     reqParams.ranFuncionId = ranFuncionId;
     reqParams.actionId = reqActionId;
+    reqParams.associationEpoch = m_e2sim->association_epoch();
     return reqParams;
 }
 

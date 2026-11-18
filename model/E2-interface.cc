@@ -467,6 +467,17 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     auto e2Term = m_netDev->GetObject<E2Termination>();
     NS_ASSERT(e2Term != nullptr);
 
+    // The subscription belongs to the E2 association on which it was received. After a
+    // reconnection the RIC subscribes again, so the reports of the old one stop here.
+    if (params.associationEpoch != e2Term->GetAssociationEpoch())
+    {
+        NS_LOG_INFO("Stopping KPM reports of requestorId "
+                    << params.requestorId << ": subscribed on E2 association #"
+                    << params.associationEpoch << ", current association is #"
+                    << e2Term->GetAssociationEpoch());
+        return;
+    }
+
     // nodeB PLMN ID
     // std::string plmId = "111";
     const std::string& plmId = e2Term->GetPlmnId();
@@ -485,6 +496,17 @@ E2Interface::BuildAndSendReportMessage(E2Termination::RicSubscriptionRequest_rva
     // One record per indication: the measurements cover the whole reporting period
     const auto granularityPeriodMs =
         static_cast<unsigned long>(reportingPeriod.GetMilliSeconds());
+
+    // While the association is down nothing can be sent: keep the period, skip the report.
+    if (!e2Term->IsE2SetupDone())
+    {
+        Simulator::ScheduleWithContext(m_netDev->GetNode()->GetId(),
+                                       reportingPeriod,
+                                       &E2Interface::BuildAndSendReportMessage,
+                                       this,
+                                       params);
+        return;
+    }
 
     // ---- Node-Level Message (Report Style 1, Format 1) ----
     {
@@ -775,6 +797,21 @@ void E2Interface::BuildAndSendCccIndication(E2Termination::RicSubscriptionReques
 {
     auto e2Term = m_netDev->GetObject<E2Termination>();
     if (!e2Term) return;
+
+    if (params.associationEpoch != e2Term->GetAssociationEpoch())
+    {
+        NS_LOG_INFO("Stopping CCC indications of requestorId "
+                    << params.requestorId << ": subscribed on E2 association #"
+                    << params.associationEpoch << ", current association is #"
+                    << e2Term->GetAssociationEpoch());
+        return;
+    }
+    if (!e2Term->IsE2SetupDone())
+    {
+        Simulator::ScheduleWithContext(m_netDev->GetNode()->GetId(), Seconds(m_e2Periodicity),
+                                       &E2Interface::BuildAndSendCccIndication, this, params);
+        return;
+    }
 
     Ptr<NrRLMacSchedulerOfdma> rlScheduler;
     auto gnbNode = DynamicCast<NrGnbNetDevice>(m_netDev);
