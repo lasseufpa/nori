@@ -33,12 +33,16 @@ void
 CccFunctionDescription::BuildFunctionDescription()
 {
 
+    // E2SM-CCC service model OID (O-RAN.WG3.TS.E2SM-CCC), same value in the
+    // JSON definition and in the RANfunction-Item of the E2 Setup Request.
+    const std::string oid = "1.3.6.1.4.1.53148.1.6.2.4";
+    m_oid = oid;
+
     json functionDescription;
 
     functionDescription["ranFunctionName"] = {
         {"ranFunctionShortName", "ORAN-E2SM-CCC"},
-        // {"ranFunctionServiceModelOID", "1.3.6.1.4.1.53148.1.1.2.4"},
-        {"ranFunctionServiceModelOID", "1.3.6.1.4.1.53148.1.6.2.4"},
+        {"ranFunctionServiceModelOID", oid},
         {"ranFunctionDescription", "Cell Configuration and Control"}
     };
     functionDescription["supportedSlices"] = {

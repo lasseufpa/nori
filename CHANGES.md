@@ -22,6 +22,8 @@ the nr (5G-LENA) `CHANGES.md`. User-visible features and fixed bugs are in
 - Example `nori-handover-scenario` (3 gNBs, X2 handover) and option `--trafficScale` of
   `nori-testbed-scenario`.
 - Example `nori-print-attributes`: prints the attribute tables of the manual.
+- `FunctionDescription::m_oid` and `E2SimMod::register_e2sm(id, definition, oid)`:
+  service model OID of a RAN function, used in the E2 Setup Request.
 
 ### Changes to existing API
 
@@ -56,3 +58,7 @@ the nr (5G-LENA) `CHANGES.md`. User-visible features and fixed bugs are in
   Without slices it uses the round-robin allocation (previously it allocated nothing).
 - **Cell IDs:** with several gNBs the IDs are 1, 2, 3, ... (they were 1, 3, 5, ...),
   which changes the E2 node names.
+- **E2 Setup:** the `ranFunctionOID` of each RAN function item comes from its
+  function description (`FunctionDescription::m_oid`) instead of a table indexed by
+  RAN function ID. E2SM-CCC (ID 4) is announced with `1.3.6.1.4.1.53148.1.6.2.4`; it
+  was announced with the E2SM-KPM OID. KPM and RC OIDs are unchanged.

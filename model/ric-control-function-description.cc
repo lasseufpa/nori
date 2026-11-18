@@ -93,6 +93,7 @@ RicControlFunctionDescription::FillAndEncodeRCFunctionDescription(
     OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_ShortName, shortName.c_str());
     OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_Description, description.c_str());
     OCTET_STRING_fromString(&ranfunc_desc->ranFunction_Name.ranFunction_E2SM_OID, oid.c_str());
+    m_oid = oid;
 
     long* inst = (long*)calloc(1, sizeof(long));
     *inst = 0;

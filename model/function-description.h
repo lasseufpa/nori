@@ -17,6 +17,8 @@
 
 #include "ns3/object.h"
 
+#include <string>
+
 // extern "C" {
 //   #include "E2SM-KPM-RANfunction-Description.h"
 //   #include "E2SM-KPM-IndicationHeader.h"
@@ -39,6 +41,9 @@ class FunctionDescription : public SimpleRefCount<FunctionDescription>
 
     void* m_buffer;
     size_t m_size;
+    /// Service model OID sent in the RANfunction-Item of the E2 Setup Request
+    /// (e.g. "1.3.6.1.4.1.53148.1.3.2.2" for E2SM-KPM v3.00).
+    std::string m_oid;
 
     // TODO improve the abstraction
     //   private:

@@ -90,7 +90,7 @@ E2Termination::RegisterFunctionDescToE2Sm(long ranFunctionId,
     rfdBuf->size = ranFunctionDescription->m_size;
     memcpy(rfdBuf->buf, ranFunctionDescription->m_buffer, ranFunctionDescription->m_size);
 
-    m_e2sim->register_e2sm(ranFunctionId, rfdBuf);
+    m_e2sim->register_e2sm(ranFunctionId, rfdBuf, ranFunctionDescription->m_oid);
 }
 
 void

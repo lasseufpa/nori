@@ -64,6 +64,8 @@ public:
     bool m_running{true};
 
     std::unordered_map<long, OCTET_STRING_t*> m_ranFunctions;
+    // Service model OID per RAN function ID (RANfunction-Item.ranFunctionOID)
+    std::unordered_map<long, std::string> m_ranFunctionOids;
     std::unordered_map<long, std::function<void(E2AP_PDU_t*)>> m_subCallbacks;
 
     E2SimMod(std::string gnb, std::string plmn, uint16_t localPort = 0)
@@ -83,6 +85,15 @@ public:
     {
         E2Sim::register_e2sm(func_id, ostr);   
         m_ranFunctions[func_id] = ostr;        
+    }
+
+    void register_e2sm(long func_id, OCTET_STRING_t *ostr, const std::string& oid)
+    {
+        register_e2sm(func_id, ostr);
+        if (!oid.empty())
+        {
+            m_ranFunctionOids[func_id] = oid;
+        }
     }
 
     void register_subscription_callback_fn(long func_id, std::function<void(E2AP_PDU_t*)> cb)
@@ -585,19 +596,18 @@ private:
             // itemIes->value.choice.RANfunction_Item.ranFunctionOID.size = oid_len;
 
             
-            //the oid changes if ran function id is 200, 300 or 400, otherwise it is the default fallback oid
-            const char *oid_str = "1.3.6.1.4.1.53148.1.3.2.2"; // Fallback / KPM v3
-            if (nextRanFuncId == 200)
+            // OID registered with the RAN function description (KPM, RC, CCC),
+            // independent of the RAN function ID.
+            const char *oid_str = "1.3.6.1.4.1.53148.1.3.2.2"; // E2SM-KPM v3.00 (fallback)
+            auto oidIt = m_ranFunctionOids.find(nextRanFuncId);
+            if (oidIt != m_ranFunctionOids.end())
             {
-                oid_str = "1.3.6.1.4.1.53148.1.3.2.2"; // E2SM-KPM v3.00
+                oid_str = oidIt->second.c_str();
             }
-            else if (nextRanFuncId == 300)
+            else
             {
-                oid_str = "1.3.6.1.4.1.53148.1.3.2.3"; // E2SM-RC v3.01
-            }
-            else if (nextRanFuncId == 400)
-            {
-                oid_str = "1.3.6.1.4.1.53148.1.1.2.4"; // E2SM-CCC
+                LOG_I("[E2SimMod] RAN function %ld has no registered OID; using %s",
+                      nextRanFuncId, oid_str);
             }
 
             size_t oid_len = strlen(oid_str);
